@@ -1,0 +1,1007 @@
+##################################################
+## R scripts for NetworkAnalyst 
+## Various utility methods
+## Author: Jeff Xia, jeff.xia@mcgill.ca
+###################################################
+
+# fast readder for csv and txt
+.readDataTable <- function(fileName){
+  dat <- try(data.table::fread(fileName, header=TRUE, check.names=FALSE, blank.lines.skip=TRUE, data.table=FALSE));
+  if(class(dat) == "try-error" || any(dim(dat) == 0)){
+    print("Using slower file reader ...");
+    formatStr <- substr(fileName, nchar(fileName)-2, nchar(fileName))
+    if(formatStr == "txt"){
+      dat <- try(read.table(fileName, header=TRUE, comment.char = "", check.names=F, as.is=T));
+    }else{ # note, read.csv is more than read.table with sep=","
+      dat <- try(read.csv(fileName, header=TRUE, comment.char = "", check.names=F, as.is=T));
+    }  
+  }
+  # need to remove empty columns
+  dat <- dat[!sapply(dat, function(x) all(x == "" | is.na(x)))];
+  return(dat);
+}
+
+# new range [a, b]
+rescale2NewRange <- function(qvec, a, b){
+  qvec = replace(qvec, qvec == 0, 1)
+  q.min <- min(qvec);
+  q.max <- max(qvec);
+  if(length(qvec) < 50){
+    a <- a*2;
+  }
+  if(q.max == q.min){
+    new.vec <- rep(8, length(qvec));
+  }else{
+    coef.a <- (b-a)/(q.max-q.min);
+    const.b <- b - coef.a*q.max;
+    new.vec <- coef.a*qvec + const.b;
+  }
+  return(new.vec);
+}
+
+GetExtendRange<-function(vec, unit=10){
+  var.max <- max(vec);
+  var.min <- min(vec);
+  exts <- (var.max - var.min)/unit;
+  c(var.min-exts, var.max+exts);
+}
+
+# given a data with duplicates, dups is the one with duplicates
+RemoveDuplicates <- function(data, lvlOpt, quiet=T){
+  
+  all.nms <- rownames(data);
+  colnms <- colnames(data);
+  dup.inx <- duplicated(all.nms);
+  dim.orig  <- dim(data);
+  data <- apply(data, 2, as.numeric); # force to be all numeric
+  dim(data) <- dim.orig; # keep dimension (will lost when only one item) 
+  rownames(data) <- all.nms;
+  colnames(data) <- colnms;
+  if(sum(dup.inx) > 0){
+    uniq.nms <- all.nms[!dup.inx];
+    uniq.data <- data[!dup.inx,,drop=F];
+    
+    dup.nms <- all.nms[dup.inx];
+    uniq.dupnms <- unique(dup.nms);
+    uniq.duplen <- length(uniq.dupnms);
+    
+    for(i in 1:uniq.duplen){
+      nm <- uniq.dupnms[i];
+      hit.inx.all <- which(all.nms == nm);
+      hit.inx.uniq <- which(uniq.nms == nm);
+      
+      # average the whole sub matrix 
+      if(lvlOpt == "mean"){
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, mean, na.rm=T);
+      }else if(lvlOpt == "median"){
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, median, na.rm=T);
+      }else if(lvlOpt == "max"){
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, max, na.rm=T);
+      }else{ # sum
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, sum, na.rm=T);
+      }
+    }
+    if(!quiet){
+      if(numOfLists == 1){
+        current.msg <<- paste(current.msg, paste("A total of ", sum(dup.inx), " of duplicates were replaced by their ", lvlOpt, ".", sep=""), collapse="\n");
+      }else{
+        current.msg <<- paste(current.msg, paste0("<b>", listInxU, "</b> : ", length(data), " genes;"), collapse="\n");
+      }
+    }
+    return(uniq.data);
+  }else{
+    if(!quiet){
+      if(numOfLists == 1){
+        current.msg <<- paste(current.msg, "All IDs are unique.", collapse="\n");
+      }else{
+        current.msg <<- paste(current.msg, paste0("<b>", listInxU, "</b> : ", length(data), " genes;"), collapse="\n");
+      }
+    }
+    return(data);
+  }
+} 
+
+# utils to remove from
+# within, leading and trailing spaces
+# remove /
+ClearFactorStrings<-function(cls.nm, query){
+  # remove leading and trailing space
+  query<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", query, perl=TRUE);
+  
+  # kill multiple white space
+  query <- gsub(" +","_",query);
+  # remove non alphabets and non numbers 
+  query <- gsub("[^[:alnum:] ]", "_", query);
+  
+  # test all numbers (i.e. Time points)
+  chars <- substr(query, 0, 1);
+  num.inx<- chars >= '0' & chars <= '9';
+  if(all(num.inx)){
+    query <- as.numeric(query);
+    nquery <- paste(cls.nm, query, sep="_");
+    query <- factor(nquery, levels=paste(cls.nm, sort(unique(query)), sep="_"));
+  }else{
+    query[num.inx] <- paste(cls.nm, query[num.inx], sep="_");
+    query <- factor(query);
+  }
+  return (query);
+}
+
+# borrowed from Hmisc
+all.numeric <- function (x, what = c("test", "vector"), extras = c(".", "NA")){
+  what <- match.arg(what)
+  old <- options(warn = -1)
+  on.exit(options(old));
+  x <- sub("[[:space:]]+$", "", x);
+  x <- sub("^[[:space:]]+", "", x);
+  inx <- x %in% c("", extras);
+  xs <- x[!inx];
+  isnum <- !any(is.na(as.numeric(xs)))
+  if (what == "test") 
+    isnum
+  else if (isnum) 
+    as.numeric(x)
+  else x
+}
+
+# Adds an error message
+AddErrMsg <- function(msg){
+  msg.vec <<- c(msg.vec, msg);
+  print(msg);
+}
+
+UnzipUploadedFile<-function(zip_file){
+    dataName <- unzip(zip_file, list = TRUE)$Name;
+    if(length(dataName) > 1){
+      # test if "__MACOSX" or ".DS_Store"
+      osInx <- grep('MACOSX',dataName,perl=TRUE);
+      if(length(osInx) > 0){
+        dataName <- dataName[-osInx];
+      }
+      dsInx <- grep('DS_Store',dataName,perl=TRUE);
+      if(length(dsInx) > 0){
+        dataName <- dataName[-dsInx];
+      }
+      if(length(dataName) != 1){
+        current.msg <<- "More than one data files found in the zip file.";
+        print(dataName);
+        return("NA");
+      }
+    }
+    a <- try(unzip(zip_file));
+    if(class(a) == "try-error" | length(a)==0){
+      current.msg <<- "Failed to unzip the uploaded files!";
+      return ("NA");
+    }
+    return(dataName);
+}
+
+# note, this may leads to duplicate names, use make.unque as last step
+CleanNames <- function(query, type){
+
+  if(type=="sample_name"){
+    query <- gsub("[^[:alnum:]./_-]", "", query);
+  }else{
+    query <- gsub("[^[:alnum:][:space:],'./_-]", "", query)
+  }
+  return(make.unique(query));
+}
+
+gg_color_hue <- function(grp.num, type="green", filenm=NULL) {
+  grp.num <- as.numeric(grp.num)
+    if(type == "green"){
+    pal18 <- c("#e6194B", "#3cb44b", "#4363d8", "#ffff00", "#f032e6", "#ffe119", "#911eb4", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#000075");
+    }else{
+    pal18 <- c( "#4363d8","#e6194B" , "#3cb44b", "#f032e6", "#ffe119", "#e6194B", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#42d4f4","#000075", "#ff4500");
+    }
+if(grp.num <= 18){ # update color and respect default
+    colArr <- pal18[1:grp.num];
+  }else{
+    colArr <- colorRampPalette(pal18)(grp.num);
+  }
+  if(is.null(filenm)){
+    return(colArr);
+  }else{
+    library(RJSONIO)
+    sink(filenm);
+    cat(toJSON(colArr));
+    sink();
+    return(filenm);
+  }
+}
+
+
+LoadKEGGLib<-function(){
+  kegg.path = ""
+  if(isKo){
+    kegg.path <- paste(lib.path, "microbiome/koset.rds", sep="");
+    kegg.anot <- readRDS(kegg.path)
+    current.setlink <- " "
+    current.mset <- kegg.anot;
+    current.setlink <<- current.setlink;
+    current.setids <<- names(kegg.anot);
+    current.geneset <<- current.mset;
+    current.universe <<- unique(unlist(current.geneset));
+  }else{
+    kegg.path <- paste(lib.path, data.org, "/kegg1.rds", sep="");
+    kegg.anot <- readRDS(kegg.path)
+    current.setlink <- kegg.anot$link;
+    current.mset <- kegg.anot$sets;
+    set.ids<- names(current.mset); 
+    names(set.ids) <- names(current.mset) <- kegg.anot$term;
+    current.setlink <<- current.setlink;
+    current.setids <<- set.ids;
+    current.geneset <<- current.mset;
+    current.universe <<- unique(unlist(current.geneset));
+  }
+
+}
+
+LoadREACTOMELib<-function(){
+  reactome.path <- paste(lib.path, data.org, "/reactome.rds", sep="");
+  reactome.anot <- readRDS(reactome.path)
+  current.mset <- reactome.anot$sets;
+  set.ids<- names(current.mset); 
+  names(set.ids) <- names(current.mset) <- reactome.anot$term;
+  current.setlink <<- reactome.anot$link;
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+# loading mirfamily library accroding to the species. The names for set.ids are the same as set.ids.
+LoadmiRFamLib <- function(){
+  mirfamily.rda <- paste(lib.path, "mirfamily.rda", sep="");
+  load(mirfamily.rda);    
+  print(paste("adding library: ", mirfamily.rda));
+  current.mset <- mirfam[[dataSet$org]];
+  set.ids <- names(current.mset);
+  names(set.ids) <- names(current.mset);
+  current.setlink <<- "http://www.mirbase.org";
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+
+LoadKEGGLibOther<-function(type){
+  if(type == "integ"){
+    if(isKo){
+      kegg.path <- paste(lib.path, "integ.rds", sep="");
+    }else{
+      kegg.path <- paste(lib.path, data.org, "/integ.rds", sep="");
+    }
+  }else if(type == "ginteg"){
+    kegg.path <- paste(lib.path,"microbiome", "/integ.rds", sep="");
+  }else if(type == "gkeggm"){
+    kegg.path <- paste(lib.path,"microbiome",  "/keggm.rds", sep="");
+  }else{
+    if(isKo){
+      kegg.path <- paste(lib.path,"microbiome", "/keggm.rds", sep="");
+    }else{
+      kegg.path <- paste(lib.path, data.org,"/keggm.rds", sep="");
+    }
+  }
+  kegg.anot <- readRDS(kegg.path)
+  current.setlink <- " "
+  current.mset <- kegg.anot;
+  current.setlink <<- current.setlink;
+  current.setids <<- names(kegg.anot);
+  current.geneset <<- current.mset;
+  head(current.geneset);
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+LoadMotifLib<-function(){
+  
+  motif.path <- paste(lib.path, data.org, "/motif_set.rds", sep="");
+  motif_set<-readRDS(motif.path);
+  current.mset <- motif_set$set;
+  set.ids<- names(current.mset); 
+  names(set.ids) <- names(current.mset) <- motif_set$term;
+  current.setlink <<- motif_set$link;
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+LoadTissueLib<-function(){
+  motif.path <- paste(lib.path, data.org, "/tissue_set.rds", sep="");
+  motif_set<-readRDS(motif.path);
+  current.mset <- motif_set;
+  current.mset = lapply(current.mset, function(x){as.character(x)})
+  set.ids<- names(current.mset); 
+  names(set.ids) <- names(current.mset)
+  current.setlink <<- "";
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+doSymbol2EntrezMapping <- function(entrez.vec){
+    gene.map <-  queryGeneDB("entrez", data.org);
+    gene.map[] <- lapply(gene.map, as.character)
+
+    hit.inx <- match(entrez.vec, gene.map[, "symbol"]);
+    symbols <- gene.map[hit.inx, "gene_id"];
+
+    # if not gene symbol, use id by itself
+    na.inx <- is.na(symbols);
+    symbols[na.inx] <- entrez.vec[na.inx];
+    return(symbols);
+}
+
+LoadCellLib<-function(){
+  motif.path <- paste(lib.path, data.org, "/cell_set.rds", sep="");
+  motif_set<-readRDS(motif.path);
+  current.mset <- motif_set;
+  current.mset = lapply(current.mset, function(x){as.character(x)})
+  set.ids<- names(current.mset); 
+  names(set.ids) <- names(current.mset)
+  current.setlink <<- "";
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+LoadGOLib<-function(onto){
+  go.path <- paste(lib.path, data.org, "/go_", tolower(onto), ".rds", sep="");
+  if(tolower(onto) %in% c("panthbp","panthcc","panthmf","bp")){
+    go_bp <- readRDS(go.path);
+    
+    if(is.null(names(go_bp))){ # new go lib does not give names
+      names(go_bp) <- c("link", "term", "sets");
+    }
+    current.link <- go_bp$link;
+    current.mset <- go_bp$sets;
+    set.ids<- names(current.mset); 
+    names(set.ids) <- names(current.mset) <- go_bp$term;
+  }else if(tolower(onto) == "mf"){
+    go_mf <- readRDS(go.path);
+    if(is.null(names(go_mf))){
+      names(go_mf) <- c("link", "term", "sets");
+    }
+    current.link <- go_mf$link;
+    current.mset <- go_mf$sets;
+    set.ids<- names(current.mset); 
+    names(set.ids) <- names(current.mset) <- go_mf$term;
+  }else{
+    go_cc <- readRDS(go.path);
+    if(is.null(names(go_cc))){
+      names(go_cc) <- c("link", "term", "sets");
+    }
+    current.link <- go_cc$link;
+    current.mset <- go_cc$sets;
+    set.ids<- names(current.mset); 
+    names(set.ids) <- names(current.mset) <- go_cc$term;
+  }
+  current.setlink <<- current.link;
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+.query.sqlite <- function(db.con, statement, offline=TRUE){
+  rs <- dbSendQuery(db.con, statement);
+  res <- fetch(rs, n=-1); # get all records
+  dbClearResult(rs);
+  if(offline){
+    dbDisconnect(db.con);
+  }
+  cleanMem();
+  return(res);
+}
+
+checkEntrezMatches <- function(entrez.vec){
+  gene.map <-  queryGeneDB("entrez", data.org);
+  gene.map[] <- lapply(gene.map, as.character)
+  
+  hit.inx <- match(entrez.vec, gene.map[, "gene_id"]);
+  
+  return(length(hit.inx));
+}
+
+
+# loading mirfamily library accroding to the species. The names for set.ids are the same as set.ids.
+LoadmiRFamLib <- function(){
+  mirfamily.rda <- paste(lib.path, "mirfamily.rda", sep="");
+
+  load(mirfamily.rda);    
+  print(paste("adding library: ", mirfamily.rda));
+  current.mset <- mirfam[[data.org]];
+  set.ids <- names(current.mset);
+  names(set.ids) <- names(current.mset);
+  current.setlink <<- "http://www.mirbase.org";
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+
+# loading miRNA functional annotation library Tam 2.0 (human only)
+LoadFuncLib <- function(){
+  func.rda <- paste(lib.path, data.org, "/tam_func.rda", sep="");
+  load(func.rda);
+  print(paste("adding library: ", func.rda));
+  current.mset <- tam_func$sets;
+  set.ids <- names(current.mset);
+  names(set.ids) <- names(current.mset) <- tam_func$term;
+  current.setlink <<- "http://www.lirmed.com/tam2/";
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+
+# loading miRNA hmdd disease annotation library Tam 2.0 (human only)
+LoadHMDDLib <- function(){
+  hmdd.rda <- paste(lib.path, data.org, "/tam_hmdd.rda", sep="");
+  load(hmdd.rda);
+  print(paste("adding library: ", hmdd.rda));
+  current.mset <- tam_hmdd$sets;
+  set.ids <- names(current.mset);
+  names(set.ids) <- names(current.mset) <- tam_hmdd$term;
+  current.setlink <<- "http://www.lirmed.com/tam2/";
+  current.setids <<- set.ids;
+  current.geneset <<- current.mset;
+  current.universe <<- unique(unlist(current.geneset));
+}
+
+cleanMem <- function(n=8) { for (i in 1:n) gc() }
+
+###########
+# improved list of objects
+.ls.objects <- function (pos = 1, pattern, order.by,
+                         decreasing=FALSE, head=FALSE, n=5) {
+  napply <- function(names, fn) sapply(names, function(x)
+    fn(get(x, pos = pos)))
+  names <- ls(pos = pos, pattern = pattern)
+  obj.class <- napply(names, function(x) as.character(class(x))[1])
+  obj.mode <- napply(names, mode)
+  obj.type <- ifelse(is.na(obj.class), obj.mode, obj.class)
+  obj.prettysize <- napply(names, function(x) {
+    capture.output(format(utils::object.size(x), units = "auto")) })
+  obj.size <- napply(names, object.size)
+  obj.dim <- t(napply(names, function(x)
+    as.numeric(dim(x))[1:2]))
+  vec <- is.na(obj.dim)[, 1] & (obj.type != "function")
+  obj.dim[vec, 1] <- napply(names, length)[vec]
+  out <- data.frame(obj.type, obj.size, obj.prettysize, obj.dim)
+  print(lapply(dataSet, object.size));
+  names(out) <- c("Type", "Size", "PrettySize", "Rows", "Columns")
+  if (!missing(order.by))
+    out <- out[order(out[[order.by]], decreasing=decreasing), ]
+  if (head)
+    out <- head(out, n)
+  out
+}
+
+# shorthand
+ShowMemoryUse <- function(..., n=40) {
+  library(pryr);
+  sink(); # make sure print to screen
+  print(mem_used());
+  print(sessionInfo());
+  print(.ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n));
+  print(warnings());
+}
+
+PerformHeatmapEnrichment <- function(file.nm, fun.type, IDs){
+  if(IDs=="NA"){
+
+  }else{
+    gene.vec <- unlist(strsplit(IDs, "; "));
+  }
+  sym.vec <- doEntrez2SymbolMapping(gene.vec);
+  names(gene.vec) <- sym.vec;
+  res <- PerformEnrichAnalysis(file.nm, fun.type, gene.vec);
+  return(res);
+}
+
+color_scale <- function(c1="grey", c2="red") {
+  pal <- colorRampPalette(c(c1, c2))
+  colors <- pal(100)
+  return(colors)
+}
+
+
+# in public web, this is done by microservice
+.perform.computing <- function(){
+  dat.in <- qs::qread("dat.in.qs"); 
+  dat.in$my.res <- dat.in$my.fun();
+  qs::qsave(dat.in, file="dat.in.qs");    
+}
+
+fast.write <- function(dat, file, row.names=TRUE){
+    tryCatch(
+        {
+           if(is.data.frame(dat)){
+                # there is a rare bug in data.table (R 3.6) which kill the R process in some cases 
+                data.table::fwrite(dat, file, row.names=row.names);
+           }else{
+                write.csv(dat, file, row.names=row.names);  
+           }
+        }, error=function(e){
+            print(e);
+            fast.write.csv(dat, file, row.names=row.names);   
+        }, warning=function(w){
+            print(w);
+            fast.write.csv(dat, file, row.names=row.names); 
+        });
+}
+
+rowcolFt =  function(x, fac, var.equal, which = 1L) {
+  
+  if(!(which %in% c(1L, 2L)))
+    stop(sQuote("which"), " must be 1L or 2L.")
+  
+  if(which==2L)
+    x = t(x)
+
+  if (typeof(x) == "integer")
+      x[] <- as.numeric(x)
+
+  sqr = function(x) x*x
+  
+  stopifnot(length(fac)==ncol(x), is.factor(fac), is.matrix(x))
+  x   <- x[,!is.na(fac), drop=FALSE]
+  fac <- fac[!is.na(fac)]
+
+  ## Number of levels (groups)
+  k <- nlevels(fac)
+
+  ## xm: a nrow(x) x nlevels(fac) matrix with the means of each factor
+  ## level
+  xm <- matrix(
+     sapply(levels(fac), function(fl) rowMeans(x[,which(fac==fl), drop=FALSE])),
+     nrow = nrow(x),
+     ncol = nlevels(fac))
+
+  ## x1: a matrix of group means, with as many rows as x, columns correspond to groups 
+  x1 <- xm[,fac, drop=FALSE]
+
+  ## degree of freedom 1
+  dff    <- k - 1
+
+  if(var.equal){
+    ## x0: a matrix of same size as x with overall means
+    x0 <- matrix(rowMeans(x), ncol=ncol(x), nrow=nrow(x))
+  
+    ## degree of freedom 2
+    dfr    <- ncol(x) - dff - 1
+
+    ## mean sum of squares
+    mssf   <- rowSums(sqr(x1 - x0)) / dff
+    mssr   <- rowSums(sqr( x - x1)) / dfr
+
+    ## F statistic
+    fstat  <- mssf/mssr
+
+  } else{
+
+    ## a nrow(x) x nlevels(fac) matrix with the group size  of each factor
+    ## level
+    ni <- t(matrix(tapply(fac,fac,length),ncol=nrow(x),nrow=k))
+
+    ## wi: a nrow(x) x nlevels(fac) matrix with the variance * group size of each factor
+    ## level
+    sss <- sqr(x-x1)
+    x5 <- matrix(
+       sapply(levels(fac), function(fl) rowSums(sss[,which(fac==fl), drop=FALSE])),
+       nrow = nrow(sss),
+       ncol = nlevels(fac))          
+    wi <- ni*(ni-1) /x5
+
+    ## u : Sum of wi
+    u  <- rowSums(wi)
+
+    ## F statistic
+    MR <- rowSums(sqr((1 - wi/u)) * 1/(ni-1))*1/(sqr(k)-1)
+    fsno <- 1/dff * rowSums(sqr(xm - rowSums(wi*xm)/u) * wi)
+    fsdeno <- 1+ 2* (k-2)*MR
+    fstat <- fsno/fsdeno
+
+    ## degree of freedom 2: Vector with length nrow(x)
+    dfr <- 1/(3 * MR)
+  
+  }
+  
+  res = data.frame(statistic = fstat,
+                   p.value   = pf(fstat, dff, dfr, lower.tail=FALSE),
+                   row.names = rownames(x))
+
+  attr(res, "df") = c(dff=dff, dfr=dfr)
+  return(res)
+}
+
+rowcoltt =  function(x, fac, tstatOnly, which, na.rm) {
+    
+  dyn.load(.getDynLoadPath());
+  
+  if (!missing(tstatOnly) && (!is.logical(tstatOnly) || is.na(tstatOnly)))
+      stop(sQuote("tstatOnly"), " must be TRUE or FALSE.")
+  
+  f = checkfac(fac)
+  if ((f$nrgrp > 2) || (f$nrgrp <= 0))
+    stop("Number of groups is ", f$nrgrp, ", but must be >0 and <=2 for 'rowttests'.")
+
+  if (typeof(x) == "integer")
+      x[] <- as.numeric(x)
+
+  cc = .Call("rowcolttests", x, f$fac, f$nrgrp, which-1L, na.rm)
+    
+  res = data.frame(statistic = cc$statistic,
+                   dm        = cc$dm,
+                   row.names = dimnames(x)[[which]])
+
+  if (!tstatOnly)
+    res = cbind(res, p.value = 2*pt(abs(res$statistic), cc$df, lower.tail=FALSE))
+
+  attr(res, "df") = cc$df    
+  return(res)
+}
+
+checkfac = function(fac) {
+
+  if(is.numeric(fac)) {
+    nrgrp = as.integer(max(fac, na.rm=TRUE)+1)
+    fac   = as.integer(fac)
+  }
+  ## this must precede the factor test
+  if(is.character(fac))
+    fac = factor(fac)
+
+  if (is.factor(fac)) {
+    nrgrp = nlevels(fac)
+    fac   = as.integer(as.integer(fac)-1)
+  } 
+  if(!is.integer(fac))
+    stop("'fac' must be factor, character, numeric, or integer.")
+  
+  if(any(fac<0, na.rm=TRUE))
+    stop("'fac' must not be negative.")
+    
+  return(list(fac=fac, nrgrp=nrgrp))
+}
+
+.getDynLoadPath <- function() {
+
+    path = "../../rscripts/omicsanalystr/src/OmicsAnalyst.so";
+    path=normalizePath(path)
+    
+    return(path)
+}
+
+
+## fast T-tests/F-tests using genefilter
+PerformFastUnivTests <- function(data, cls, var.equal=TRUE, nonpar=F){
+    print("Performing fast univariate tests ....2");
+
+    # note, feature in rows for gene expression
+    data <- as.matrix(data);
+    if(length(levels(cls)) > 2){
+        res <- try(rowcolFt(data, cls, var.equal = var.equal));
+    }else{
+        res <- try(rowcoltt(data, cls, FALSE, 1L, FALSE));
+    }  
+
+    if(class(res) == "try-error") {
+        res <- cbind(NA, NA);
+    }else{
+        # res <- cbind(res$statistic, res$p.value);
+        # make sure row names are kept
+        res <- as.matrix(res[, c("statistic", "p.value")]);
+    }
+
+    return(res);
+}
+
+#'Record R Commands
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param cmd Commands 
+#'@export
+RecordRCommand <- function(cmd){
+  rcmd.vecu <- c(rcmd.vecu, cmd);
+  rcmd.vecu <<- rcmd.vecu
+
+  return(1);
+}
+
+SaveRCommands <- function(){
+
+  rcmd.vecu <- paste(rcmd.vecu, collapse="\n");
+  rcmd.vecu <<- rcmd.vecu
+  write(rcmd.vecu, file = "Rhistory.R", append = FALSE);
+}
+
+#'Export R Command History
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@export
+GetRCommandHistory <- function(mSetObj=NA){
+  return(rcmd.vecu);
+}
+
+fviz_silhouette <- function (sil.obj, titlenm="Silhouette plot",ord=1, label = FALSE, print.summary = FALSE, ...) 
+{
+    if (inherits(sil.obj, c("eclust", "hcut", "pam", "clara", 
+        "fanny"))) {
+        df <- as.data.frame(sil.obj$silinfo$widths, stringsAsFactors = TRUE)
+    }
+    else if (inherits(sil.obj, "silhouette")) 
+        df <- as.data.frame(sil.obj[, 1:3], stringsAsFactors = TRUE)
+    else stop("Don't support an oject of class ", class(sil.obj))
+    df <- df[order(df$cluster, -df$sil_width), ]
+    if (!is.null(rownames(df))) 
+        df$name <- factor(rownames(df), levels = rownames(df))
+    else df$name <- as.factor(1:nrow(df))
+    df$cluster <- as.factor(df$cluster)
+    mapping <- aes_string(x = "name", y = "sil_width", color = "cluster", 
+        fill = "cluster")
+    p <- ggplot(df, mapping) + geom_bar(stat = "identity") + 
+        labs(y = "Silhouette width Si", x = "", title = paste0(titlenm, 
+            "\n Average silhouette width: ", round(mean(df$sil_width), 
+                2))) + ggplot2::ylim(c(NA, 1)) + geom_hline(yintercept = mean(df$sil_width), 
+        linetype = "dashed", color = "red") + theme_bw()
+    p <- ggpubr::ggpar(p, ...)
+    if (!label) 
+        p <- p + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    else if (label) 
+        p <- p + theme(axis.text.x = element_text(angle = 45))
+    ave <- tapply(df$sil_width, df$cluster, mean)
+    n <- tapply(df$cluster, df$cluster, length)
+    sil.sum <- data.frame(cluster = names(ave), size = n, ave.sil.width = round(ave, 
+        2), stringsAsFactors = TRUE)
+    if (print.summary) 
+        print(sil.sum)
+    p
+}
+
+SumNorm<-function(x){
+  1000*x/sum(x, na.rm=T);
+}
+
+# normalize by median
+MedianNorm<-function(x){
+  x/median(x, na.rm=T);
+}
+
+
+# normalize to zero mean and unit variance
+AutoNorm<-function(x){
+  (x - mean(x))/sd(x, na.rm=T);
+}
+
+# normalize to zero mean but variance/SE
+ParetoNorm<-function(x){
+  (x - mean(x))/sqrt(sd(x, na.rm=T));
+}
+
+# normalize to zero mean but variance/SE
+MeanCenter<-function(x){
+  x - mean(x);
+}
+
+# normalize to zero mean but variance/SE
+RangeNorm<-function(x){
+  if(max(x) == min(x)){
+    x;
+  }else{
+    (x - mean(x))/(max(x)-min(x));
+  }
+}
+
+
+.discretisation <- function(eigenVectors) {
+  
+  normalize <- function(x) x / sqrt(sum(x^2))
+  eigenVectors = t(apply(eigenVectors,1,normalize))
+  
+  n = nrow(eigenVectors)
+  k = ncol(eigenVectors)
+  
+  R = matrix(0,k,k)
+  R[,1] = t(eigenVectors[round(n/2),])
+  
+  mini <- function(x) {
+    i = which(x == min(x))
+    return(i[1])
+  }
+  
+  c = matrix(0,n,1)
+  for (j in 2:k) {
+    c = c + abs(eigenVectors %*% matrix(R[,j-1],k,1))
+    i = mini(c)
+    R[,j] = t(eigenVectors[i,])
+  }
+  
+  lastObjectiveValue = 0
+  for (i in 1:20) {
+    eigenDiscrete = .discretisationEigenVectorData(eigenVectors %*% R)
+    
+    svde = svd(t(eigenDiscrete) %*% eigenVectors)
+    U = svde[['u']]
+    V = svde[['v']]
+    S = svde[['d']]
+    
+    NcutValue = 2 * (n-sum(S))
+    if(abs(NcutValue - lastObjectiveValue) < .Machine$double.eps) 
+      break
+    
+    lastObjectiveValue = NcutValue
+    R = V %*% t(U)
+    
+  }
+  
+  return(list(discrete=eigenDiscrete,continuous =eigenVectors))
+}
+
+.discretisationEigenVectorData <- function(eigenVector) {
+  
+  Y = matrix(0,nrow(eigenVector),ncol(eigenVector))
+  maxi <- function(x) {
+    i = which(x == max(x))
+    return(i[1])
+  }
+  j = apply(eigenVector,1,maxi)
+  Y[cbind(1:nrow(eigenVector),j)] = 1
+  
+  return(Y)
+  
+}
+
+
+# Calculate the mutual information between vectors x and y.
+.mutualInformation <- function(x, y) {
+  classx <- unique(x)
+  classy <- unique(y)
+  nx <- length(x)
+  ncx <- length(classx)
+  ncy <- length(classy)
+  
+  probxy <- matrix(NA, ncx, ncy)
+  for (i in 1:ncx) {
+    for (j in 1:ncy) {
+      probxy[i, j] <- sum((x == classx[i]) & (y == classy[j])) / nx
+    }
+  }
+  
+  probx <- matrix(rowSums(probxy), ncx, ncy)
+  proby <- matrix(colSums(probxy), ncx, ncy, byrow=TRUE)
+  result <- sum(probxy * log(probxy / (probx * proby), 2), na.rm=TRUE)
+  return(result)
+}
+
+# Calculate the entropy of vector x.
+.entropy <- function(x) {
+  class <- unique(x)
+  nx <- length(x)
+  nc <- length(class)
+  
+  prob <- rep.int(NA, nc)
+  for (i in 1:nc) {
+    prob[i] <- sum(x == class[i])/nx
+  }
+  
+  result <- -sum(prob * log(prob, 2))
+  return(result)
+}
+
+.repmat = function(X,m,n){
+  ##R equivalent of repmat (matlab)
+  if (is.null(dim(X))) {
+    mx = length(X)
+    nx = 1
+  } else {
+    mx = dim(X)[1]
+    nx = dim(X)[2]
+  }
+  matrix(t(matrix(X,mx,nx*n)),mx*m,nx*n,byrow=T)
+}
+
+
+# given a data with duplicates, dups is the one with duplicates
+RemoveDuplicates <- function(data, lvlOpt, quiet=T){
+  
+  all.nms <- rownames(data);
+  colnms <- colnames(data);
+  dup.inx <- duplicated(all.nms);
+  dim.orig  <- dim(data);
+  data <- apply(data, 2, as.numeric); # force to be all numeric
+  dim(data) <- dim.orig; # keep dimension (will lost when only one item) 
+  rownames(data) <- all.nms;
+  colnames(data) <- colnms;
+  if(sum(dup.inx) > 0){
+    uniq.nms <- all.nms[!dup.inx];
+    uniq.data <- data[!dup.inx,,drop=F];
+    
+    dup.nms <- all.nms[dup.inx];
+    uniq.dupnms <- unique(dup.nms);
+    uniq.duplen <- length(uniq.dupnms);
+    
+    for(i in 1:uniq.duplen){
+      nm <- uniq.dupnms[i];
+      hit.inx.all <- which(all.nms == nm);
+      hit.inx.uniq <- which(uniq.nms == nm);
+      
+      # average the whole sub matrix 
+      if(lvlOpt == "mean"){
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, mean, na.rm=T);
+      }else if(lvlOpt == "median"){
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, median, na.rm=T);
+      }else if(lvlOpt == "max"){
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, max, na.rm=T);
+      }else{ # sum
+        uniq.data[hit.inx.uniq, ]<- apply(data[hit.inx.all,,drop=F], 2, sum, na.rm=T);
+      }
+    }
+    if(!quiet){
+      if(numOfLists == 1){
+        current.msg <<- paste(current.msg, paste("A total of ", sum(dup.inx), " of duplicates were replaced by their ", lvlOpt, ".", sep=""), collapse="\n");
+      }else{
+        current.msg <<- paste(current.msg, paste0("<b>", listInxU, "</b> : ", length(data), " genes;"), collapse="\n");
+      }
+    }
+    return(uniq.data);
+  }else{
+    if(!quiet){
+      if(numOfLists == 1){
+        current.msg <<- paste(current.msg, "All IDs are unique.", collapse="\n");
+      }else{
+        current.msg <<- paste(current.msg, paste0("<b>", listInxU, "</b> : ", length(data), " genes;"), collapse="\n");
+      }
+    }
+    return(data);
+  }
+} 
+
+# based on phyloseq post: https://github.com/joey711/shiny-phyloseq/blob/master/panels/paneldoc/Transform.md
+clr_transform <- function(x, base=2){
+  x <- log((x / gm_mean(x)), base)
+  x[!is.finite(x) | is.na(x)] <- 0.0
+  return(x)
+}
+
+
+edgeRnorm = function(x,method){
+  # Enforce orientation.
+  # See if adding a single observation, 1,
+  # everywhere (so not zeros) prevents errors
+  # without needing to borrow and modify
+  # calcNormFactors (and its dependent functions)
+  # It did. This fixed all problems.
+  # Can the 1 be reduced to something smaller and still work?
+  x = x + 1;
+  # Now turn into a DGEList
+  y = DGEList(counts=x, remove.zeros=TRUE);
+  # Perform edgeR-encoded normalization, using the specified method (...)
+  z = edgeR::calcNormFactors(y, method=method);
+  # A check that we didn't divide by zero inside `calcNormFactors`
+  if( !all(is.finite(z$samples$norm.factors)) ){
+    AddErrMsg(paste("Something wrong with edgeR::calcNormFactors on this data, non-finite $norm.factors."));
+    return(0);
+  }
+  return(z)
+}
+
+# generalize log, tolerant to 0 and negative values
+LogNorm<-function(x, min.val){
+  log10((x + sqrt(x^2 + min.val^2))/2)
+}
+
+fast.write.csv <- function(dat, file, row.names=TRUE){
+    tryCatch(
+        {
+           if(is.data.frame(dat)){
+                # there is a rare bug in data.table (R 3.6) which kill the R process in some cases 
+                data.table::fwrite(dat, file, row.names=row.names);
+           }else{
+                write.csv(dat, file, row.names=row.names);  
+           }
+        }, error=function(e){
+            print(e);
+            write.csv(dat, file, row.names=row.names);   
+        }, warning=function(w){
+            print(w);
+            write.csv(dat, file, row.names=row.names); 
+        });
+}
