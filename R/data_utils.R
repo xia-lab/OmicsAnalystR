@@ -65,6 +65,10 @@ Init.Data <- function(){
   }else {
     sqlite.path <<- "/Users/jessicaewald/sqlite/"; #jess local
   }
+
+  cmdSet <- list(annotated=FALSE);
+  saveSet(cmdSet, "cmdSet");
+
   .set.rdt.set(reductionSet);
 }
 
@@ -250,7 +254,7 @@ PlotSelectedGene<-function(filenm, gene.id, meta, selected_meta){
   selected_meta = selected_meta[[1]]  
   require(lattice);
   if(selected_meta == "null"){
-    metadf = dataSet$meta[,meta]
+    metadf =dataSet$meta[,meta]
     trimmed.data.proc = dataSet$data.proc
   }else{
     metadf = dataSet$meta[,meta][dataSet$meta[,meta] %in% selected_meta]
@@ -270,7 +274,7 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
     for(i in 1:length(sel.nms)){
       dat = readRDS(sel.nms[i])
       if(dat$type == omicstype){
-        dataSet = dat;
+        dataSet <- dat;
       }
     }
   }else{
@@ -289,16 +293,14 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
 
 DoDimensionReductionIntegrative <- function(omicsType, reductionOpt, method="globalscore", dimn){
     if(!exists("my.reduce.dimension")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/omicsanalystr/_util_dimreduction.Rc");    
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
     }
     return(my.reduce.dimension(omicsType, reductionOpt, method, dimn));
 }
 
 
 PerformClustering <- function(init, nclust, type){
-  #if(reductionOptGlobal %in% integOpts){
   dataSet <- .get.rdt.set();
-  #}
   if(nrow(dataSet$pos.xyz)<21){
     return(1);
   }
@@ -343,7 +345,7 @@ PerformClustering <- function(init, nclust, type){
 
 doScatterJson <- function(filenm){
     if(!exists("my.json.scatter")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/omicsanalystr/_util_scatter_json.Rc");    
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_scatter_json.Rc");    
     }
     return(my.json.scatter(filenm));
 }
@@ -630,18 +632,6 @@ GetCurrentDatasets <-function(type){
   return(sel.nms);
 }
 
-unitAutoScale <- function(df){
-    df <- as.data.frame(df)
-    row.nms <- rownames(df);
-    col.nms <- colnames(df);
-    df<-apply(df, 2, AutoNorm);
-    rownames(df) <- row.nms;
-    colnames(df) <- col.nms;
-    maxVal <- max(abs(df))
-    df<- df/maxVal
-    return(df)
-}
-
 SetGroupContrast <- function(dataName, grps, meta="NA"){
   #if(dataSet$name != dataName){
     dataSet <- readRDS(dataName);
@@ -680,14 +670,6 @@ GetGroupNames <- function(dataName, meta="NA"){
         return(levels(factor(dataSet$meta[,meta])));
     }
 
-}
-
-# compute the distance to the centroid of the given data
-# note each col is a x,y,z
-# since this is centered, the centroid is origin
-GetDist3D <-function(mat, target=c(0,0,0)){
-    dist.vec <- apply(mat, 2, function(x) dist(rbind(x, target)));
-    return(dist.vec);
 }
 
 ReadMetaData <- function(metafilename){
@@ -945,7 +927,7 @@ FilteringDataOmics <- function(dataSet, countOpt="pct",count="2", var="15"){
   
   if((sum(!remain) + rmSum)/nrow(data) > 0.8){
     msg <- paste("Over 80% of features are removed. Please readjust filtering thresholds." );
-    msg.vec <<- msg
+    msg.vec <<- msg;
     return(0);
   }
 }
@@ -956,16 +938,16 @@ if(exists("m2m",dataSet)){
   dataSet$data.filt.taxa <- list()
   mic.vec <- dataSet$taxa_table
   for(i in 1:length(colnames(mic.vec))){
-    dataSet$data.filt.taxa[[i]]<- as.matrix(dataSet$data.filtered)
-    rownames(dataSet$data.filt.taxa[[i]]) <- mic.vec[match(rownames(dataSet$data.filtered),rownames(mic.vec)),i]
+    dataSet$data.filt.taxa[[i]]<- as.matrix(dataSet$data.filtered);
+    rownames(dataSet$data.filt.taxa[[i]]) <- mic.vec[match(rownames(dataSet$data.filtered),rownames(mic.vec)),i];
     dataSet$data.filt.taxa[[i]] <- RemoveDuplicates(dataSet$data.filt.taxa[[i]], "sum", quiet=T); # remove duplicates
-    dataSet$data.filt.taxa[[i]] <- as.data.frame(dataSet$data.filt.taxa[[i]])
+    dataSet$data.filt.taxa[[i]] <- as.data.frame(dataSet$data.filt.taxa[[i]]);
   }
-names( dataSet$data.filt.taxa)<-colnames(dataSet$taxa_table)
+names(dataSet$data.filt.taxa) <- colnames(dataSet$taxa_table);
   
 }
 
-dataSet$data.proc.taxa =dataSet$data.filt.taxa
+dataSet$data.proc.taxa <- dataSet$data.filt.taxa;
 
 
   RegisterData(dataSet);
@@ -1021,5 +1003,36 @@ SetCustomSig <- function(dataName, ids){
     matched.vec  <- dataSet$rawToEntrez[unname(dataSet$rawToEntrez) %in% matched.vec]
     matched.vec <- names(matched.vec)
     return(matched.vec);
+}
+
+
+#'Record R Commands
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param cmd Commands 
+#'@export
+RecordRCommand <- function(cmd){
+  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  cmdSet$cmdVec <- c(cmdSet$cmdVec, cmd);
+  saveSet(cmdSet, "cmdSet");
+  return(1);
+}
+
+SaveRCommands <- function(){
+  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  cmds <- paste(cmdSet$cmdVec, collapse="\n");
+  pid.info <- paste0("# PID of current job: ", Sys.getpid());
+  cmds <- c(pid.info, cmds);
+  write(cmds, file = "Rhistory.R", append = FALSE);
+}
+
+#'Export R Command History
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@export
+GetRCommandHistory <- function(){
+  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  if(length(cmdSet$cmdVec) == 0){
+    return("No commands found");
+  }
+  return(cmdSet$cmdVec);
 }
 

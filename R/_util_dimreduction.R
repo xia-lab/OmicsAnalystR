@@ -1,3 +1,10 @@
+##################################################
+## R script for OmicsAnalyst
+## Description: Compute dimension reduction
+## Authors: 
+## G. Zhou (guangyan.zhou@mail.mcgill.ca) 
+## J. Xia, jeff.xia@mcgill.ca
+###################################################
 
 my.reduce.dimension <- function(omicsType, reductionOpt, method="globalscore", dimn){
   if(method == ""){
@@ -54,6 +61,7 @@ my.reduce.dimension <- function(omicsType, reductionOpt, method="globalscore", d
     dataSet$enrich_ids = enrich.nms1
     dataSet$comp.res.inx = comp.res.inx1
   }
+
   if(reductionOpt == "mbpca"){
     library(mogsa)
     moa <- mbpca(data.list, ncomp = dimn, k = "all", method = "blockScore", option = "inertia", 

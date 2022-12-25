@@ -4,6 +4,14 @@
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
+# compute the distance to the centroid of the given data
+# note each col is a x,y,z
+# since this is centered, the centroid is origin
+GetDist3D <-function(mat, target=c(0,0,0)){
+    dist.vec <- apply(mat, 2, function(x) dist(rbind(x, target)));
+    return(dist.vec);
+}
+
 # fast readder for csv and txt
 .readDataTable <- function(fileName){
   dat <- try(data.table::fread(fileName, header=TRUE, check.names=FALSE, blank.lines.skip=TRUE, data.table=FALSE));
@@ -210,44 +218,18 @@ if(grp.num <= 18){ # update color and respect default
   }
 }
 
-
-LoadKEGGLib<-function(){
-  kegg.path = ""
-  if(isKo){
-    kegg.path <- paste(lib.path, "microbiome/koset.rds", sep="");
-    kegg.anot <- readRDS(kegg.path)
-    current.setlink <- " "
-    current.mset <- kegg.anot;
-    current.setlink <<- current.setlink;
-    current.setids <<- names(kegg.anot);
-    current.geneset <<- current.mset;
-    current.universe <<- unique(unlist(current.geneset));
-  }else{
-    kegg.path <- paste(lib.path, data.org, "/kegg1.rds", sep="");
-    kegg.anot <- readRDS(kegg.path)
-    current.setlink <- kegg.anot$link;
-    current.mset <- kegg.anot$sets;
-    set.ids<- names(current.mset); 
-    names(set.ids) <- names(current.mset) <- kegg.anot$term;
-    current.setlink <<- current.setlink;
-    current.setids <<- set.ids;
-    current.geneset <<- current.mset;
-    current.universe <<- unique(unlist(current.geneset));
-  }
-
+unitAutoScale <- function(df){
+    df <- as.data.frame(df)
+    row.nms <- rownames(df);
+    col.nms <- colnames(df);
+    df<-apply(df, 2, AutoNorm);
+    rownames(df) <- row.nms;
+    colnames(df) <- col.nms;
+    maxVal <- max(abs(df))
+    df<- df/maxVal
+    return(df)
 }
 
-LoadREACTOMELib<-function(){
-  reactome.path <- paste(lib.path, data.org, "/reactome.rds", sep="");
-  reactome.anot <- readRDS(reactome.path)
-  current.mset <- reactome.anot$sets;
-  set.ids<- names(current.mset); 
-  names(set.ids) <- names(current.mset) <- reactome.anot$term;
-  current.setlink <<- reactome.anot$link;
-  current.setids <<- set.ids;
-  current.geneset <<- current.mset;
-  current.universe <<- unique(unlist(current.geneset));
-}
 
 # loading mirfamily library accroding to the species. The names for set.ids are the same as set.ids.
 LoadmiRFamLib <- function(){
@@ -258,61 +240,6 @@ LoadmiRFamLib <- function(){
   set.ids <- names(current.mset);
   names(set.ids) <- names(current.mset);
   current.setlink <<- "http://www.mirbase.org";
-  current.setids <<- set.ids;
-  current.geneset <<- current.mset;
-  current.universe <<- unique(unlist(current.geneset));
-}
-
-
-LoadKEGGLibOther<-function(type){
-  if(type == "integ"){
-    if(isKo){
-      kegg.path <- paste(lib.path, "integ.rds", sep="");
-    }else{
-      kegg.path <- paste(lib.path, data.org, "/integ.rds", sep="");
-    }
-  }else if(type == "ginteg"){
-    kegg.path <- paste(lib.path,"microbiome", "/integ.rds", sep="");
-  }else if(type == "gkeggm"){
-    kegg.path <- paste(lib.path,"microbiome",  "/keggm.rds", sep="");
-  }else{
-    if(isKo){
-      kegg.path <- paste(lib.path,"microbiome", "/keggm.rds", sep="");
-    }else{
-      kegg.path <- paste(lib.path, data.org,"/keggm.rds", sep="");
-    }
-  }
-  kegg.anot <- readRDS(kegg.path)
-  current.setlink <- " "
-  current.mset <- kegg.anot;
-  current.setlink <<- current.setlink;
-  current.setids <<- names(kegg.anot);
-  current.geneset <<- current.mset;
-  head(current.geneset);
-  current.universe <<- unique(unlist(current.geneset));
-}
-
-LoadMotifLib<-function(){
-  
-  motif.path <- paste(lib.path, data.org, "/motif_set.rds", sep="");
-  motif_set<-readRDS(motif.path);
-  current.mset <- motif_set$set;
-  set.ids<- names(current.mset); 
-  names(set.ids) <- names(current.mset) <- motif_set$term;
-  current.setlink <<- motif_set$link;
-  current.setids <<- set.ids;
-  current.geneset <<- current.mset;
-  current.universe <<- unique(unlist(current.geneset));
-}
-
-LoadTissueLib<-function(){
-  motif.path <- paste(lib.path, data.org, "/tissue_set.rds", sep="");
-  motif_set<-readRDS(motif.path);
-  current.mset <- motif_set;
-  current.mset = lapply(current.mset, function(x){as.character(x)})
-  set.ids<- names(current.mset); 
-  names(set.ids) <- names(current.mset)
-  current.setlink <<- "";
   current.setids <<- set.ids;
   current.geneset <<- current.mset;
   current.universe <<- unique(unlist(current.geneset));
@@ -346,7 +273,7 @@ LoadCellLib<-function(){
 
 LoadGOLib<-function(onto){
   go.path <- paste(lib.path, data.org, "/go_", tolower(onto), ".rds", sep="");
-  if(tolower(onto) %in% c("panthbp","panthcc","panthmf","bp")){
+  if(tolower(onto) %in% c("panthbp","panthcc","panthmf","go_bp")){
     go_bp <- readRDS(go.path);
     
     if(is.null(names(go_bp))){ # new go lib does not give names
@@ -379,17 +306,6 @@ LoadGOLib<-function(onto){
   current.setids <<- set.ids;
   current.geneset <<- current.mset;
   current.universe <<- unique(unlist(current.geneset));
-}
-
-.query.sqlite <- function(db.con, statement, offline=TRUE){
-  rs <- dbSendQuery(db.con, statement);
-  res <- fetch(rs, n=-1); # get all records
-  dbClearResult(rs);
-  if(offline){
-    dbDisconnect(db.con);
-  }
-  cleanMem();
-  return(res);
 }
 
 checkEntrezMatches <- function(entrez.vec){
@@ -484,18 +400,6 @@ ShowMemoryUse <- function(..., n=40) {
   print(sessionInfo());
   print(.ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n));
   print(warnings());
-}
-
-PerformHeatmapEnrichment <- function(file.nm, fun.type, IDs){
-  if(IDs=="NA"){
-
-  }else{
-    gene.vec <- unlist(strsplit(IDs, "; "));
-  }
-  sym.vec <- doEntrez2SymbolMapping(gene.vec);
-  names(gene.vec) <- sym.vec;
-  res <- PerformEnrichAnalysis(file.nm, fun.type, gene.vec);
-  return(res);
 }
 
 color_scale <- function(c1="grey", c2="red") {
@@ -666,7 +570,7 @@ checkfac = function(fac) {
 
 .getDynLoadPath <- function() {
 
-    path = "../../rscripts/omicsanalystr/src/OmicsAnalyst.so";
+    path = "../../rscripts/OmicsAnalystR/src/OmicsAnalyst.so";
     path=normalizePath(path)
     
     return(path)
@@ -696,30 +600,6 @@ PerformFastUnivTests <- function(data, cls, var.equal=TRUE, nonpar=F){
     return(res);
 }
 
-#'Record R Commands
-#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
-#'@param cmd Commands 
-#'@export
-RecordRCommand <- function(cmd){
-  rcmd.vecu <- c(rcmd.vecu, cmd);
-  rcmd.vecu <<- rcmd.vecu
-
-  return(1);
-}
-
-SaveRCommands <- function(){
-
-  rcmd.vecu <- paste(rcmd.vecu, collapse="\n");
-  rcmd.vecu <<- rcmd.vecu
-  write(rcmd.vecu, file = "Rhistory.R", append = FALSE);
-}
-
-#'Export R Command History
-#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
-#'@export
-GetRCommandHistory <- function(mSetObj=NA){
-  return(rcmd.vecu);
-}
 
 fviz_silhouette <- function (sil.obj, titlenm="Silhouette plot",ord=1, label = FALSE, print.summary = FALSE, ...) 
 {
@@ -1004,4 +884,40 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
             print(w);
             write.csv(dat, file, row.names=row.names); 
         });
+}
+
+
+saveSet <- function(obj=NA, set=""){
+
+    #if(exists("paramSet")){ #check if global object exists
+    #  if(set == "dataSet"){
+    #    dataSet <<- obj;
+    #  }else if(set == "analSet"){
+    #    analSet <<- obj;
+    #  }else if(set == "imgSet"){
+    #    imgSet <<- obj;
+    #  }else if(set == "paramSet"){
+    #    paramSet <<- obj;
+    #  }else if(set == "msgSet"){
+    #    msgSet <<- obj;
+    #  }
+    #}else{
+      qs:::qsave(obj, paste0(set, ".qs"));
+    #}
+}
+
+readSet <- function(obj=NA, set=""){
+    #if(!exists("paramSet")){
+      path <- "";
+      if(exists('user.path')){
+        path <- user.path;
+      }
+
+      if(path != ""){
+      obj <- load_qs(paste0(path, set, ".qs"));
+      }else{
+      obj <- qs:::qread(paste0(set, ".qs"));
+      }
+    #}
+    return(obj);
 }

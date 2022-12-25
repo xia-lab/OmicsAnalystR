@@ -1,3 +1,10 @@
+##################################################
+## R script for OmicsAnalyst
+## Description: Compute 3D scatter plot from dimension reduction results
+## Authors: 
+## G. Zhou (guangyan.zhou@mail.mcgill.ca) 
+## J. Xia, jeff.xia@mcgill.ca
+###################################################
 
 my.json.scatter <- function(filenm){
   omicstype.vec <- list();
@@ -175,7 +182,7 @@ my.json.scatter <- function(filenm){
     pv[pv == 0] = minval/2
     pvals <<- -log10(pv);
     type.vec <- pvals;
-    if(reductionSet$comp.res.inx != "NA"){
+    if(reductionSet$comp.res.inx[1] != "NA"){
       for(i in 1:length(unique(reductionSet$comp.res.inx))){
         inx = reductionSet$comp.res.inx == i
         type.vec[inx] <- omicstype.vec[[i]]
