@@ -5,7 +5,7 @@
 #'@param q.type Input the query-type.
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 doGeneIDMapping <- function(q.vec, org, type){
   org <- data.org
   library(RSQLite)  
@@ -67,7 +67,7 @@ doEntrez2SymbolMapping <- function(entrez.vec){
 #'for PubChem CIDs, "chebi" for ChEBI IDs, "metlin" for METLIN IDs, and "hmdb_kegg" for a both KEGG and HMDB IDs.
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 MetaboliteMappingExact <- function(dataSet, qvec, q.type){
   # variables to record results
   hit.inx <- vector(mode='numeric', length=length(qvec)); # record hit index, initial 0
