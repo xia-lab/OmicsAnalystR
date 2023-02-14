@@ -246,6 +246,7 @@ if(exists("m2m",dataSet)){
 }
 
 DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype, nonpar=FALSE){
+
   if(meta == "null"){
     meta = 1;
   }
@@ -326,8 +327,11 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
   sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 35));
   res = cbind(res, colorb);
   res = cbind(res, sizes);
-  print(head(dataSet$enrich_ids));
-  ids <- names(dataSet$enrich_ids[order(match(dataSet$enrich_ids,rownames(res)))])
+
+  #ids <- names(dataSet$enrich_ids[order(match(dataSet$enrich_ids,rownames(res)))])
+  enrich_ids <- dataSet$enrich_ids[dataSet$enrich_ids %in% rownames(res)]
+  ids <- names(enrich_ids[order(match(enrich_ids,rownames(res)))])
+  
   res = cbind(res, ids);
   colnames(res) = c("stat", "p_value", "p_adj", "ids", "color", "size", "name");
   res= as.matrix(res)
@@ -342,7 +346,7 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
     dataSet$sel.meta = meta
     RegisterData(dataSet);
   }
-
+  
   return(filenm)
 }
 

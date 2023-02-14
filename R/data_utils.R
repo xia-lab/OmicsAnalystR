@@ -580,7 +580,7 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
   }else{
     library(ks);
     res=kde(coords);
-    r = plot(res, cont=level*100);
+    r = plot(res, cont=level*100, display="rgl");
     sc = scene3d();
     mesh = sc$objects;
   }
