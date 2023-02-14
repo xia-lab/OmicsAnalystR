@@ -17,7 +17,7 @@
 #'@param onWeb whether the script is running in local or on web
 #'@author Guangyan Zhou \email{guangyan.zhou@mail.mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 Init.Data <- function(){ 
@@ -81,7 +81,7 @@ SetOrganism <- function(org){
 #'@param fileName The filename of dataset in qs format
 #'@author Guangyan Zhou \email{guangyan.zhou@mail.mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 SanityCheckData <- function(fileName){

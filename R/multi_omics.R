@@ -1227,7 +1227,7 @@ SetOmicsType <- function(fileName, omics.type=NA) {
 #'@param imgNm name of the image to output
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 
@@ -2466,7 +2466,7 @@ SkippingAnnotation <- function(dataName, idtype){
 #'@param imgNm name of the image to output
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 

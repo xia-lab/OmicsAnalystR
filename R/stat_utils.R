@@ -444,7 +444,7 @@ GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=
 #'@param cls Input class labels
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 aof <- function(x, cls) {
   aov(x ~ cls);
 }

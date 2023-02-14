@@ -13,7 +13,7 @@
 #'@param idtype ID type
 #'@author Guangyan Zhou \email{guangyan.zhou@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 AnnotateMicrobiomeData <- function(dataName,org){
@@ -86,7 +86,7 @@ AnnotateMicrobiomeData <- function(dataName,org){
 #'@param idtype ID type
 #'@author Guangyan Zhou \email{guangyan.zhou@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 AnnotateGeneData <- function(dataName, org, idtype){
@@ -208,7 +208,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
 #'@param idtype ID type
 #'@author Guangyan Zhou \email{guangyan.zhou@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 AnnotateMetaboliteData <- function(dataName, idtype){
@@ -263,7 +263,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
 #'@param idtype ID type (not used);
 #'@author Guangyan Zhou \email{guangyan.zhou@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 SkippingAnnotation <- function(dataName, idtype=""){
