@@ -19,10 +19,6 @@
 AnnotateMicrobiomeData <- function(dataName,org){
   library("tidyverse")
   dataSet <- readRDS(dataName);
-  if(org == "NA"){
-    msg.vec <<- "Invalid organism!"
-    return(1)
-  }
   
   data <- dataSet$data.raw;
   #  mic.vec <- rownames(data);
@@ -75,7 +71,6 @@ AnnotateMicrobiomeData <- function(dataName,org){
   names(dataSet$enrich_ids) = rownames(data);
   dataSet$m2m <- 1
   RegisterData(dataSet);
-  
   return(1)
 }
 

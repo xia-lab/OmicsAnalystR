@@ -85,7 +85,6 @@ SetOrganism <- function(org){
 #'@export
 #'
 SanityCheckData <- function(fileName){
-  
   dataSet <- readRDS(fileName);
   
   # general sanity check then omics specific
@@ -890,14 +889,11 @@ ImputeMissingVar <- function(dataName="", method="min"){
 
 
 FilteringData <- function(nm, countOpt="pct",count, var){
-  #if(dataSet$name != nm){
-    dataSet <- readRDS(nm);
-  #}
+  dataSet <- readRDS(nm);
   return(FilteringDataOmics(dataSet,countOpt, count,  var))
 }
 
 FilteringDataOmics <- function(dataSet, countOpt="pct",count="2", var="15"){
-
   data = dataSet$data.missed
   msg <- ""
   

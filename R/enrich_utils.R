@@ -372,3 +372,153 @@ PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
   
   return(all.res.mat);
 }
+
+
+PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
+  toremove <- c("Metabolic pathways",
+                "Biosynthesis of secondary metabolites",
+                "Microbial metabolism in diverse environments",
+                "Biosynthesis of antibiotics",
+                "Carbon metabolism",
+                "2-Oxocarboxylic acid metabolism",
+                "Fatty acid metabolism",
+                "Biosynthesis of amino acids",
+                "Degradation of aromatic compounds");
+  # prepare lib
+  setres <- .loadEnrichLib(fun.type, data.org)
+  current.geneset <- setres$current.geneset;
+  current.setids <- setres$current.setids;
+  current.setlink <- setres$current.setlink;
+  current.universe <- unique(unlist(current.geneset));
+  
+  # prepare query
+  ora.nms <- names(ora.vec);
+  lens <- lapply(current.geneset, 
+                 function(x) {
+                   length(unique(x))
+                 }
+  );
+  inx = lens > 2
+  
+  current.geneset = current.geneset[inx]
+  current.geneset = current.geneset[which(!names(current.geneset) %in% toremove)]
+  
+  # prepare for the result table
+  set.size<-length(current.geneset);
+  res.mat<-matrix(0, nrow=set.size, ncol=5);
+  rownames(res.mat)<-names(current.geneset);
+  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
+  
+  # need to cut to the universe covered by the pathways, not all genes 
+  
+  hits.inx <- ora.vec %in% current.universe;
+  
+  #calculate weight for stouffer
+  if(fun.type == "kegg"){
+    stouffer_gene_percent <<- length(hits.inx)/length(current.universe)
+  }else if(fun.type == "keggm"){
+    stouffer_compound_percent <<- length(hits.inx)/length(current.universe)
+  }
+  
+  ora.vec <- ora.vec[hits.inx];
+  ora.nms <- ora.nms[hits.inx];
+  
+  q.size<-length(ora.vec);
+  
+  # get the matched query for each pathway
+  hits.query <- lapply(current.geneset, 
+                       function(x) {
+                         ora.nms[ora.vec%in%unlist(x)];
+                       }
+  );
+  hits.query <- lapply(hits.query, function(x){unique(x)})
+  
+  names(hits.query) <- names(current.geneset);
+  hit.num<-unlist(lapply(hits.query, function(x){length(x)}), use.names=FALSE);
+  
+  # total unique gene number
+  uniq.count <- length(current.universe);
+  
+  # unique gene count in each pathway
+  set.size <- unlist(lapply(current.geneset, length));
+  
+  res.mat[,1]<-set.size;
+  res.mat[,2]<-q.size*(set.size/uniq.count);
+  res.mat[,3]<-hit.num;
+  
+  # use lower.tail = F for P(X>x)
+  raw.pvals <- phyper(hit.num-1, set.size, uniq.count-set.size, q.size, lower.tail=F);
+  res.mat[,4]<- raw.pvals;
+  res.mat[,5] <- p.adjust(raw.pvals, "fdr");
+  all.res.mat <<- res.mat
+  hits.query <<- hits.query
+  if(fun.type == "integ"){
+    integ.query<- list()
+    integ.query<- hits.query
+  }
+  # now, clean up result, synchronize with hit.query
+  
+  return(all.res.mat);
+}
+
+
+SaveSingleOmicsEnr <- function(file.nm,res.mat){
+  inx = res.mat[,3]>0
+  res.mat <- res.mat[inx,];
+  hits.query <- hits.query[inx];
+  if(nrow(res.mat)> 1){
+    # order by p value
+    ord.inx<-order(res.mat[,4]);
+    res.mat <- signif(res.mat[ord.inx,],3);
+    hits.query <- hits.query[ord.inx];
+    
+    imp.inx <- res.mat[,4] < 0.05
+    if(sum(imp.inx) < 10){ # too little left, give the top ones
+      topn <- ifelse(nrow(res.mat) > 10, 10, nrow(res.mat));
+      res.mat <- res.mat[1:topn,];
+      hits.query <- hits.query[1:topn];
+    }else{
+      res.mat <- res.mat[imp.inx,];
+      hits.query <- hits.query[imp.inx];
+      if(sum(imp.inx) > 120){
+        # now, clean up result, synchronize with hit.query
+        res.mat <- res.mat[1:120,];
+        hits.query <- hits.query[1:120];
+      }
+    }
+  }
+  
+  #get gene symbols
+  resTable <- data.frame(Pathway=rownames(res.mat), res.mat);
+  current.msg <<- "Functional enrichment analysis was completed";
+  
+  # write json
+  require(RJSONIO);
+  hi= hits.query
+  fun.anot = hi; 
+  fun.padj = resTable[,6]; if(length(fun.padj) ==1) { fun.pval <- matrix(fun.padj)};
+  fun.pval = resTable[,5]; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval)};
+  hit.num = resTable[,4]; if(length(hit.num) ==1) { hit.num <- matrix(hit.num)};
+  fun.ids <- as.vector(current.setids[names(fun.anot)]);
+  if(length(fun.ids) ==1) {fun.ids <- matrix(fun.ids)};
+  
+  json.res <- list(
+    fun.link = current.setlink[1],
+    fun.anot = fun.anot,
+    fun.ids = fun.ids,
+    fun.pval = fun.pval,
+    fun.padj = fun.padj,
+    hit.num = hit.num
+  );
+  json.mat <- toJSON(json.res, .na='null');
+  json.nm <- paste(file.nm, ".json", sep="");
+  
+  sink(json.nm)
+  cat(json.mat);
+  sink();
+  hitss = lapply(hits.query, function(x){paste(x, collapse=" ")})
+  hitss = unlist(hitss)
+  resTable$Features = hitss
+  csv.nm <- paste(file.nm, ".csv", sep="");
+  fast.write.csv(resTable, file=csv.nm, row.names=F);
+}

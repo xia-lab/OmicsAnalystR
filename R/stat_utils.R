@@ -1,6 +1,6 @@
 ##################################################
 ## R scripts for OmicsAnalyst
-## Statistical comparison for features in selected clusters
+## Statistical comparison
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
@@ -11,21 +11,17 @@ DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, norm
   }
   
   dataSet <- readRDS(filenm);
-   
+  
   if(normOpt != "none"){
     dataSet$data.comparison <- NormalizingDataOmics(dataSet$data.filtered, normOpt, "NA", "NA");
-
   }else{
     dataSet$data.comparison <- dataSet$data.filtered;
   }
   colnames(dataSet$data.comparison) <- rownames(dataSet$meta)
-
-
-if(exists("m2m",dataSet)){
-  dataSet$data.comparison.taxa <- dataSet$data.filt.taxa
-}
-
-
+ 
+  if(exists("m2m",dataSet)){
+    dataSet$data.comparison.taxa <- dataSet$data.filt.taxa
+  }
   
   if(alg == "deseq2" || alg == "edger"){
     if(dataSet$isValueNormalized == "false"){
@@ -71,17 +67,27 @@ if(exists("m2m",dataSet)){
     }else{
       res <- GetTtestRes(dataSet, nms1,nms2,"newcolumn", F, TRUE, T);
     }
-  }else if(alg =="limma"){
-    res <- performLimma(dataSet, nms, "newcolumn")
-  }else if(alg=="edger"){
-    res <- performEdgeR(dataSet, nms, "newcolumn")
-  }else if(alg =="deseq2"){
-    performDeseq2(dataSet, nms, "newcolumn")
-    .perform.computing();
-    res <- .save.deseq.res(dataSet)
-  }
+  }else{ 
+    trimmed.data <- as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
+    trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
+    trimmed.meta <- dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
+    trimmed.meta <- make.names(trimmed.meta);
+    if(min(trimmed.data) < 0){
+      trimmed.data = trimmed.data + abs(min(trimmed.data))
+    }
 
-res <- res[,c(1,2)]
+    if(alg =="limma"){
+      res <- performLimma(trimmed.data, trimmed.meta);
+    }else if(alg=="edger"){
+      res <- performEdgeR(trimmed.data, trimmed.meta);
+    }else if(alg =="deseq2"){
+        performDeseq2(trimmed.data, trimmed.meta.df);
+        .perform.computing();
+        res <- .save.deseq.res(dataSet);
+    }
+}
+  
+  res <- res[,c(1,2)]
   rownames(res) <- rownames(dataSet$data.comparison)
   colnames(res) <- c("stat", "p_value")
   
@@ -106,61 +112,54 @@ res <- res[,c(1,2)]
   colnames(res) = c("stat", "p_value", "p_adj", "ids", "color", "size", "name");
   res <- as.matrix(res)
   de <- res
-
   
-  
-if(exists("m2m",dataSet)){
-
-  res2 <- GetTaxaCompRes(dataSet,nms1,nms2, nms, sel,"newcolumn", paired=FALSE,
-                         equal.var=TRUE, nonpar=F,alg)
-  res2 <- lapply(res2, function(x) x[,c(1,2)])
-  for(i in 1:length(res2)){
-    rownames(res2[[i]]) <- rownames(dataSet$data.comparison.taxa[[i]])
+  if(exists("m2m",dataSet)){
     
-    colnames(res2[[i]]) <- c("stat", "p_value")
-    res2[[i]] <- na.omit(res2[[i]])
-    res2[[i]] <- res2[[i]][order(res2[[i]][,2], decreasing=FALSE),]
-    pvals <- p.adjust(res2[[i]][,"p_value"],method="BH");
-    res2[[i]] <- cbind(res2[[i]], pvals)
-    res2[[i]] <- cbind(res2[[i]], rownames(res2[[i]]))
-    
-    
-    res2[[i]][res2[[i]] == "NaN"] = 1
- 
-    pv <- as.numeric(res2[[i]][,"p_value"])
-    pv_no_zero <- pv[pv != 0]
-    minval <- min(pv_no_zero)
-    pv[pv == 0] = minval/2
-    pvals <- -log10(pv);
-    colorb<- ComputeColorGradient(pvals, "black", F, F);
-    sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 35));
-    res2[[i]] <- cbind(  res2[[i]], colorb);
-    res2[[i]] <- cbind(  res2[[i]], sizes);
-    ids <- rownames(res2[[i]])
-    res2[[i]] <- cbind(  res2[[i]], ids);
-    colnames(  res2[[i]]) = c("stat", "p_value", "p_adj", "ids", "color", "size", "name");
-    res2[[i]] <- as.matrix(res2[[i]])
+    res2 <- GetTaxaCompRes(dataSet,nms1,nms2, nms, sel,"newcolumn", paired=FALSE,
+                           equal.var=TRUE, nonpar=F,alg)
+    res2 <- lapply(res2, function(x) x[,c(1,2)])
+    for(i in 1:length(res2)){
+      rownames(res2[[i]]) <- rownames(dataSet$data.comparison.taxa[[i]])
+      
+      colnames(res2[[i]]) <- c("stat", "p_value")
+      res2[[i]] <- na.omit(res2[[i]])
+      res2[[i]] <- res2[[i]][order(res2[[i]][,2], decreasing=FALSE),]
+      pvals <- p.adjust(res2[[i]][,"p_value"],method="BH");
+      res2[[i]] <- cbind(res2[[i]], pvals)
+      res2[[i]] <- cbind(res2[[i]], rownames(res2[[i]]))
+      
+      
+      res2[[i]][res2[[i]] == "NaN"] = 1
+      
+      pv <- as.numeric(res2[[i]][,"p_value"])
+      pv_no_zero <- pv[pv != 0]
+      minval <- min(pv_no_zero)
+      pv[pv == 0] = minval/2
+      pvals <- -log10(pv);
+      colorb<- ComputeColorGradient(pvals, "black", F, F);
+      sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 35));
+      res2[[i]] <- cbind(  res2[[i]], colorb);
+      res2[[i]] <- cbind(  res2[[i]], sizes);
+      ids <- rownames(res2[[i]])
+      res2[[i]] <- cbind(  res2[[i]], ids);
+      colnames(  res2[[i]]) = c("stat", "p_value", "p_adj", "ids", "color", "size", "name");
+      res2[[i]] <- as.matrix(res2[[i]])
+    }
+    dataSet$comp.res.taxa = res2;
   }
- dataSet$comp.res.taxa = res2;
+
+  dataSet$de.norm = normOpt;
+  dataSet$de.method = alg;
+  dataSet$comp.res = de;
   
-}
-
-
-dataSet$de.norm = normOpt;
-dataSet$de.method = alg;
-dataSet$comp.res = de;
-
+  RegisterData(dataSet);
   
-RegisterData(dataSet);
-
-return(UpdateDE(filenm, p.lvl, fc.lvl))
+  return(UpdateDE(filenm, p.lvl, fc.lvl))
 }
 
 UpdateDE<-function(dataName, p.lvl = 0.05, fc.lvl = 1){
-  #if(dataSet$name != dataName){
   dataSet <- readRDS(dataName);
-  #}
- 
+
   res <- dataSet$comp.res
   
   hit.inx <- as.numeric(res[, "p_value"]) <= p.lvl #pval
@@ -235,9 +234,6 @@ if(exists("m2m",dataSet)){
   
   names(res.sig2)<- colnames(dataSet$taxa_table)
   dataSet$sig.mat.tax = res.sig2;
-  
-  
-  
 }
 
   RegisterData(dataSet);
@@ -288,6 +284,8 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
   nms2 <- rownames(sel_meta2)
   sel_meta_more_than_2 = metadf[which(metadf[,"newcolumn"] %in% sel),]
   nms <- rownames(sel_meta_more_than_2)
+
+
   if(alg=="ttest"){
     if(length(unique(sel))>2){
       res <- GetFtestRes(dataSet, nms,"newcolumn", F, TRUE, F);
@@ -300,13 +298,26 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
     }else{
       res <- GetTtestRes(dataSet, nms1,nms2,"newcolumn", F, TRUE, T);
     }
-  }else if(alg =="limma"){
-    res <- performLimma(dataSet, nms, "newcolumn")
+  }else{ 
+
+    trimmed.data = as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
+    trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
+    trimmed.meta = dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
+    trimmed.meta <- make.names(trimmed.meta);
+    if(min(trimmed.data) < 0){
+      trimmed.data = trimmed.data + abs(min(trimmed.data))
+    }
+
+if(alg =="limma"){
+    res <- performLimma(trimmed.data, trimmed.meta);
   }else if(alg=="edger"){
-    res <- performEdgeR(dataSet, nms, "newcolumn")
+    res <- performEdgeR(trimmed.data, trimmed.meta);
   }else if(alg =="deseq2"){
-    res <- performDeseq2(dataSet, nms, "newcolumn")
-  }
+        performDeseq2(trimmed.data, trimmed.meta.df);
+        .perform.computing();
+        dataSet <- .save.deseq.res(dataSet);
+        res <- dataSet$comp.res;  }
+}
   res = res[,c(1,2)]
   rownames(res) = rownames(dataSet$data.comparison)
   colnames(res) = c("stat", "p_value")
@@ -399,14 +410,17 @@ GetFtestRes <- function(dat,nms, meta,paired=FALSE, equal.var=TRUE, nonpar=F){
 GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=FALSE,
                            equal.var=TRUE, nonpar=F,alg){
   
-  if(alg=="ttest" & length(sel)==2){
+  if(length(sel)==2){
 
     res <- lapply(dataSet$data.comparison.taxa, function(x){
       trimmed.data = as.matrix(x[,which(colnames(x) %in% c(nms1,nms2))])
       x = as.matrix(x)
       inx1 = which(colnames(x) %in% nms1)
       inx2 = which(colnames(x) %in% nms2)
-      if(nonpar){
+      trimmed.meta.df = dataSet$meta;
+      trimmed.meta.df =trimmed.meta.df[which(rownames(trimmed.meta.df) %in% c(nms1,nms2)),];
+      trimmed.meta <- factor(trimmed.meta.df[,"newcolumn"]);
+      if(alg == "ttest"){
         return( t(apply(trimmed.data, 1, function(y) {
           tmp <- try(wilcox.test(y[inx1], y[inx2], paired = F));
           if(class(tmp) == "try-error") {
@@ -416,12 +430,20 @@ GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=
           }
         })))
         
-      }else{#repalce with PerformFastUniv
-        metad = dataSet$meta
-   
-        metad =metad[which(rownames(metad) %in% c(nms1,nms2)),]
-        PerformFastUnivTests(trimmed.data, factor(metad[,"newcolumn"]),T, F)
-      }
+      }else if(alg == "kruskal"){
+       
+        PerformFastUnivTests(trimmed.data, trimmed.meta,T, F)
+      
+    }else if(alg == "limma"){
+      res <- performLimma(trimmed.data, trimmed.meta);
+    }else if(alg == "edger"){
+      res <- performEdgeR(trimmed.data, trimmed.meta);
+    }else if(alg == "deseq2"){
+        performDeseq2(trimmed.data, trimmed.meta.df);
+        .perform.computing();
+        dataSet <- .save.deseq.res(dataSet);
+        res <- dataSet$comp.res;
+    }
       
     } )
 
@@ -429,14 +451,6 @@ GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=
 }
 
 }
-
-
-
-
-
-
-
-
 
 #'ANOVA
 #'@description Perform anova and only return p values and MSres (for Fisher's LSD)
@@ -449,15 +463,9 @@ aof <- function(x, cls) {
   aov(x ~ cls);
 }
 
-performEdgeR <-function(data, nms, sel.meta="newcolumn"){
+performEdgeR <-function(trimmed.data, trimmed.meta){
   library(edgeR)
-  trimmed.data = as.matrix(data$data.comparison[,which(colnames(data$data.comparison) %in% nms)])
-  trimmed.meta = data$meta[,sel.meta][which(rownames(data$meta) %in% nms)]
-  trimmed.meta <- make.names(trimmed.meta);
-  trimmed.meta <
-    if(min(trimmed.data) < 0){
-      trimmed.data = trimmed.data + abs(min(trimmed.data))
-    }
+
   y <- DGEList(counts = trimmed.data, group = trimmed.meta)
   y <- calcNormFactors(y)
   y <- estimateCommonDisp(y, verbose = FALSE)
@@ -469,15 +477,11 @@ performEdgeR <-function(data, nms, sel.meta="newcolumn"){
   return(res)
 }
 
-performDeseq2 <-function(data, nms,sel.meta="newcolumn"){
-  print("Peforming DESeq2 using RSclient ....");
-  trimmed.data = as.matrix(data$data.comparison[,which(colnames(data$data.comparison) %in% nms)])
-  met = data$meta[which(rownames(data$meta) %in% nms),]
-  rownames(met) = c()
+performDeseq2 <-function(trimmed.data, trimmed.meta.df){
   
   my.fun <- function(){
     suppressMessages(library(DESeq2));
-    dds <- DESeqDataSetFromMatrix(countData=round(trimmed.data), colData = met, design = ~newcolumn)
+    dds <- DESeqDataSetFromMatrix(countData=round(trimmed.data), colData = trimmed.meta.df, design = ~newcolumn)
     geoMeans = apply(counts(dds), 1, gm_mean);
     dds = DESeq2::estimateSizeFactors(dds, geoMeans = geoMeans);
     dds = DESeq2::DESeq(dds, test="Wald", fitType="parametric");
@@ -488,7 +492,7 @@ performDeseq2 <-function(data, nms,sel.meta="newcolumn"){
     return(res);
   }
   
-  dat.in <- list(data=trimmed.data, meta=met, my.fun=my.fun);
+  dat.in <- list(data=trimmed.data, meta=trimmed.meta.df, my.fun=my.fun);
   qs::qsave(dat.in, file="dat.in.qs");
   return(1);
 }
@@ -506,14 +510,8 @@ gm_mean <- function(x, na.rm=TRUE){
   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
 }
 
-performLimma <-function(data, nms, sel.meta="newcolumn"){
+performLimma <-function(trimmed.data, trimmed.meta){
   library(edgeR);
-  trimmed.data = as.matrix(data$data.comparison[,which(colnames(data$data.comparison) %in% nms)])
-  trimmed.meta = data$meta[,sel.meta][which(rownames(data$meta) %in% nms)]
-  trimmed.meta <- make.names(trimmed.meta);
-  if(min(trimmed.data) < 0){
-    trimmed.data = trimmed.data + abs(min(trimmed.data))
-  }
   cls <- as.factor(trimmed.meta); 
   inx = 0;
   myargs <- list();
@@ -547,157 +545,6 @@ performLimma <-function(data, nms, sel.meta="newcolumn"){
   }
   return(res)
 }
-
-
-PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
-  toremove <- c("Metabolic pathways",
-                "Biosynthesis of secondary metabolites",
-                "Microbial metabolism in diverse environments",
-                "Biosynthesis of antibiotics",
-                "Carbon metabolism",
-                "2-Oxocarboxylic acid metabolism",
-                "Fatty acid metabolism",
-                "Biosynthesis of amino acids",
-                "Degradation of aromatic compounds");
-  # prepare lib
-  setres <- .loadEnrichLib(fun.type, data.org)
-  current.geneset <- setres$current.geneset;
-  current.setids <- setres$current.setids;
-  current.setlink <- setres$current.setlink;
-  current.universe <- unique(unlist(current.geneset));
-  
-  # prepare query
-  ora.nms <- names(ora.vec);
-  lens <- lapply(current.geneset, 
-                 function(x) {
-                   length(unique(x))
-                 }
-  );
-  inx = lens > 2
-  
-  current.geneset = current.geneset[inx]
-  current.geneset = current.geneset[which(!names(current.geneset) %in% toremove)]
-  
-  # prepare for the result table
-  set.size<-length(current.geneset);
-  res.mat<-matrix(0, nrow=set.size, ncol=5);
-  rownames(res.mat)<-names(current.geneset);
-  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
-  
-  # need to cut to the universe covered by the pathways, not all genes 
-  
-  hits.inx <- ora.vec %in% current.universe;
-  
-  #calculate weight for stouffer
-  if(fun.type == "kegg"){
-    stouffer_gene_percent <<- length(hits.inx)/length(current.universe)
-  }else if(fun.type == "keggm"){
-    stouffer_compound_percent <<- length(hits.inx)/length(current.universe)
-  }
-  
-  ora.vec <- ora.vec[hits.inx];
-  ora.nms <- ora.nms[hits.inx];
-  
-  q.size<-length(ora.vec);
-  
-  # get the matched query for each pathway
-  hits.query <- lapply(current.geneset, 
-                       function(x) {
-                         ora.nms[ora.vec%in%unlist(x)];
-                       }
-  );
-  hits.query <- lapply(hits.query, function(x){unique(x)})
-  
-  names(hits.query) <- names(current.geneset);
-  hit.num<-unlist(lapply(hits.query, function(x){length(x)}), use.names=FALSE);
-  
-  # total unique gene number
-  uniq.count <- length(current.universe);
-  
-  # unique gene count in each pathway
-  set.size <- unlist(lapply(current.geneset, length));
-  
-  res.mat[,1]<-set.size;
-  res.mat[,2]<-q.size*(set.size/uniq.count);
-  res.mat[,3]<-hit.num;
-  
-  # use lower.tail = F for P(X>x)
-  raw.pvals <- phyper(hit.num-1, set.size, uniq.count-set.size, q.size, lower.tail=F);
-  res.mat[,4]<- raw.pvals;
-  res.mat[,5] <- p.adjust(raw.pvals, "fdr");
-  all.res.mat <<- res.mat
-  hits.query <<- hits.query
-  if(fun.type == "integ"){
-    integ.query<- list()
-    integ.query<- hits.query
-  }
-  # now, clean up result, synchronize with hit.query
-  
-  return(all.res.mat);
-}
-
-
-SaveSingleOmicsEnr <- function(file.nm,res.mat){
-  inx = res.mat[,3]>0
-  res.mat <- res.mat[inx,];
-  hits.query <- hits.query[inx];
-  if(nrow(res.mat)> 1){
-    # order by p value
-    ord.inx<-order(res.mat[,4]);
-    res.mat <- signif(res.mat[ord.inx,],3);
-    hits.query <- hits.query[ord.inx];
-    
-    imp.inx <- res.mat[,4] < 0.05
-    if(sum(imp.inx) < 10){ # too little left, give the top ones
-      topn <- ifelse(nrow(res.mat) > 10, 10, nrow(res.mat));
-      res.mat <- res.mat[1:topn,];
-      hits.query <- hits.query[1:topn];
-    }else{
-      res.mat <- res.mat[imp.inx,];
-      hits.query <- hits.query[imp.inx];
-      if(sum(imp.inx) > 120){
-        # now, clean up result, synchronize with hit.query
-        res.mat <- res.mat[1:120,];
-        hits.query <- hits.query[1:120];
-      }
-    }
-  }
-  
-  #get gene symbols
-  resTable <- data.frame(Pathway=rownames(res.mat), res.mat);
-  current.msg <<- "Functional enrichment analysis was completed";
-  
-  # write json
-  require(RJSONIO);
-  hi= hits.query
-  fun.anot = hi; 
-  fun.padj = resTable[,6]; if(length(fun.padj) ==1) { fun.pval <- matrix(fun.padj)};
-  fun.pval = resTable[,5]; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval)};
-  hit.num = resTable[,4]; if(length(hit.num) ==1) { hit.num <- matrix(hit.num)};
-  fun.ids <- as.vector(current.setids[names(fun.anot)]);
-  if(length(fun.ids) ==1) {fun.ids <- matrix(fun.ids)};
-  
-  json.res <- list(
-    fun.link = current.setlink[1],
-    fun.anot = fun.anot,
-    fun.ids = fun.ids,
-    fun.pval = fun.pval,
-    fun.padj = fun.padj,
-    hit.num = hit.num
-  );
-  json.mat <- toJSON(json.res, .na='null');
-  json.nm <- paste(file.nm, ".json", sep="");
-  
-  sink(json.nm)
-  cat(json.mat);
-  sink();
-  hitss = lapply(hits.query, function(x){paste(x, collapse=" ")})
-  hitss = unlist(hitss)
-  resTable$Features = hitss
-  csv.nm <- paste(file.nm, ".csv", sep="");
-  fast.write.csv(resTable, file=csv.nm, row.names=F);
-}
-
 
 PerformClusteringScatter <- function(filenm, type, nclust){
   nclust = as.numeric(nclust)
