@@ -63,7 +63,7 @@ Init.Data <- function(){
   } else if(file.exists("/Users/lzy/sqlite")){
     sqlite.path <<- "/Users/lzy/sqlite/";  #ly local
   }else {
-    sqlite.path <<- "/Users/jessicaewald/sqlite/"; #jess local
+    sqlite.path <<- "/Users/jessicaewald/sqlite/sqlite/"; #jess local
   }
 
   cmdSet <- list(annotated=FALSE);
@@ -744,9 +744,7 @@ for(i in 1:length(sel.nms)){
 }
 
 CheckDataType <- function(dataName, type){
-  #if(dataSet$name != dataName){
-    dataSet <- readRDS(dataName);
-  #}
+  dataSet <- readRDS(dataName);
   isOk <- T;
   data <- dataSet$data.raw
   containsNeg <- "TRUE" %in% names(table(data < 0)) 
@@ -759,21 +757,22 @@ CheckDataType <- function(dataName, type){
     negativeBool <- T
   }
   
-  tbl <- table(sum(data < 50))
+  # check percentage of values < 30 to guess if log transformed
+  tbl <- table(data < 30)
   if("TRUE" %in% names(tbl)){
     num2 <- tbl[["TRUE"]]
-    total <- dim(data)[1]* dim(data)[2]
+    total <- dim(data)[1]*dim(data)[2]
     pct <- num2/total
-    if(pct > 0.8){
+    if(pct > 0.85){
       logBool <- T  
     }
   }else{
     logBool <- F  
   }
   
-  decimalTbl <- table(sum(data %% 1 != 0))
-  if("TRUE" %in% names(decimalTbl)){
-    countBool <- T;
+  # check if any decimal values
+  if(any(data %% 1 != 0)){
+    countBool <- F;
   }
   
   
