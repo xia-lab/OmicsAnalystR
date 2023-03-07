@@ -811,9 +811,14 @@ RemoveMissingPercent <- function(dataName="", percent=0.5){
 
     dataSet$data.annotated <- as.data.frame(int.mat[good.inx1, , drop=FALSE]);
     dataSet$data.annotated <- as.data.frame(int.mat[good.inx2, , drop=FALSE]);
-  if(sum(!good.inx1)>0 || sum(!good.inx2)>0){
-  msg.vec <<- paste(sum(!good.inx1) + sum(!good.inx2)>0, " variables were removed for containing missing values over threshold", round(100*percent, 2), "percent.");
-  }
+    
+    good.inx1 <- good.inx1[!is.na(good.inx1)]
+    good.inx2 <- good.inx2[!is.na(good.inx2)]
+
+    if(sum(!good.inx1)>0 || sum(!good.inx2)>0){
+        msg.vec <<- paste(sum(!good.inx1) + sum(!good.inx2)>0, " variables were removed for containing missing values over threshold", round(100*percent, 2), "percent.");
+    }
+
   RegisterData(dataSet);
   return(1);
 }
