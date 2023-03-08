@@ -751,7 +751,7 @@ CheckDataType <- function(dataName, type){
   msg.vec <- ""
   negativeBool <- F
   logBool <- F
-  countBool <- F
+  countBool <- T
   if(containsNeg){
     data <- data + abs(min(data))
     negativeBool <- T
