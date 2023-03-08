@@ -800,96 +800,97 @@ CheckDataType <- function(dataName, type){
 }
 
 RemoveMissingPercent <- function(dataName="", percent=0.5){
-    #if(dataSet$name != dataName){
-        dataSet <- readRDS(dataName);
-    #}
 
-    int.mat <- dataSet$data.annotated;
-    good.inx1 <- apply(is.na(int.mat), 1, sum)/ncol(int.mat)<percent;
-    good.inx2 <- apply(R.utils:::isZero(int.mat), 1, sum)/ncol(int.mat)<percent;
-
-    dataSet$data.annotated <- as.data.frame(int.mat[good.inx1, , drop=FALSE]);
-    dataSet$data.annotated <- as.data.frame(int.mat[good.inx2, , drop=FALSE]);
-    
-    good.inx1 <- good.inx1[!is.na(good.inx1)]
-    good.inx2 <- good.inx2[!is.na(good.inx2)]
-
-    if(sum(!good.inx1)>0 || sum(!good.inx2)>0){
-        msg.vec <<- paste(sum(!good.inx1) + sum(!good.inx2)>0, " variables were removed for containing missing values over threshold", round(100*percent, 2), "percent.");
-    }
-
+  dataSet <- readRDS(dataName);
+  
+  int.mat <- dataSet$data.annotated;
+  good.inx1 <- apply(is.na(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% NA for each feature
+  good.inx2 <- apply(R.utils:::isZero(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% 0 for each feature
+  
+  dataSet$data.annotated <- as.data.frame(int.mat[good.inx1, , drop=FALSE]);
+  dataSet$data.annotated <- as.data.frame(int.mat[good.inx2, , drop=FALSE]);
+  
+  good.inx1 <- good.inx1[!is.na(good.inx1)]
+  good.inx2 <- good.inx2[!is.na(good.inx2)]
+  
+  if(sum(!good.inx1) > 0 || sum(!good.inx2) > 0){
+    msg.vec <<- paste(sum(!good.inx1) + sum(!good.inx2), " variables were removed for containing missing values over threshold", round(100*percent, 2), "percent.");
+  }
+  
   RegisterData(dataSet);
   return(1);
 }
 
 ImputeMissingVar <- function(dataName="", method="min"){
-  #if(dataSet$name != dataName){
+
+  # get parameters
   dataSet <- readRDS(dataName);
-  #}
-  
   int.mat <- dataSet$data.annotated;
   new.mat <- NULL;
-  
-  #int.mat <- int.mat[-which(rowSums(int.mat[sapply(int.mat, is.numeric)]) == 0),]
-  
   msg.vec <- "";
-  if(method=="exclude"){
-    good.inx<-apply(is.na(int.mat), 1, sum)==0
-    new.mat<-int.mat[,good.inx, drop=FALSE];
-    msg.vec <<- c(msg.vec ,"Variables with missing values were excluded.");
-    
-  }else if(method=="min"){
-    new.mat<- ReplaceMissingByLoD(int.mat);
-    msg.vec <<- c(msg.vec, "Missing variables were replaced by LoDs (1/5 of the min positive value for each variable)");
-  }else if(method=="colmin"){
-    new.mat<-apply(int.mat, 1, function(x){
-      if(sum(is.na(x))>0){
-        x[is.na(x)]<-min(x,na.rm=T)/2;
-      }
-      x;
-    });
-    msg.vec <<- c(msg.vec,"Missing variables were replaced by 1/2 of min values for each feature column.");
-  }else if (method=="mean"){
-    new.mat<-apply(int.mat, 1, function(x){
-      if(sum(is.na(x))>0){
-        x[is.na(x)]<-mean(x,na.rm=T);
-      }
-      x;
-    });
-    msg.vec <<- c(msg.vec,"Missing variables were replaced with the mean value for each feature column.");
-  }else if (method == "median"){
-    new.mat<-apply(int.mat, 1, function(x){
-      if(sum(is.na(x))>0){
-        x[is.na(x)]<-median(x,na.rm=T);
-      }
-      x;
-    });
-    msg.vec <<- c(msg.vec,"Missing variables were replaced with the median for each feature column.");
-  }else{
-    if(method == "knn_var"){
-      new.mat<-t(impute::impute.knn(int.mat)$data);
-    }else if(method == "knn_smp"){
-      new.mat<-impute::impute.knn(data.matrix(t(int.mat)))$data;
+  
+  if(sum(is.na(int.mat)) == 0){ # check if any missing values
+    new.mat <- int.mat;
+    msg.vec <<- msg.vec;
+  } else {
+    if(method=="exclude"){
+      good.inx<-apply(is.na(int.mat), 1, sum)==0
+      new.mat<-int.mat[,good.inx, drop=FALSE];
+      msg.vec <<- c(msg.vec ,"Variables with missing values were excluded.");
+      
+    }else if(method=="min"){
+      new.mat<- ReplaceMissingByLoD(int.mat);
+      msg.vec <<- c(msg.vec, "Missing variables were replaced by LoDs (1/5 of the min positive value for each variable)");
+    }else if(method=="colmin"){
+      new.mat<-apply(int.mat, 1, function(x){
+        if(sum(is.na(x))>0){
+          x[is.na(x)]<-min(x,na.rm=T)/2;
+        }
+        x;
+      });
+      msg.vec <<- c(msg.vec,"Missing variables were replaced by 1/2 of min values for each feature column.");
+    }else if (method=="mean"){
+      new.mat<-apply(int.mat, 1, function(x){
+        if(sum(is.na(x))>0){
+          x[is.na(x)]<-mean(x,na.rm=T);
+        }
+        x;
+      });
+      msg.vec <<- c(msg.vec,"Missing variables were replaced with the mean value for each feature column.");
+    }else if (method == "median"){
+      new.mat<-apply(int.mat, 1, function(x){
+        if(sum(is.na(x))>0){
+          x[is.na(x)]<-median(x,na.rm=T);
+        }
+        x;
+      });
+      msg.vec <<- c(msg.vec,"Missing variables were replaced with the median for each feature column.");
     }else{
-      if(method == "bpca"){
-        new.mat<-pcaMethods::pca(int.mat, nPcs =5, method="bpca", center=T)@completeObs;
-      }else if(method == "ppca"){
-        new.mat<-pcaMethods::pca(int.mat, nPcs =5, method="ppca", center=T)@completeObs;
-      }else if(method == "svdImpute"){
-        new.mat<-pcaMethods::pca(int.mat, nPcs =5, method="svdImpute", center=T)@completeObs;
+      if(method == "knn_var"){
+        new.mat<-t(impute::impute.knn(int.mat)$data);
+      }else if(method == "knn_smp"){
+        new.mat<-impute::impute.knn(data.matrix(t(int.mat)))$data;
+      }else{
+        if(method == "bpca"){
+          new.mat<-pcaMethods::pca(int.mat, nPcs =5, method="bpca", center=T)@completeObs;
+        }else if(method == "ppca"){
+          new.mat<-pcaMethods::pca(int.mat, nPcs =5, method="ppca", center=T)@completeObs;
+        }else if(method == "svdImpute"){
+          new.mat<-pcaMethods::pca(int.mat, nPcs =5, method="svdImpute", center=T)@completeObs;
+        }
       }
+      msg.vec <<- c(msg.vec, paste("Missing variables were imputated using", toupper(method)));
     }
-    msg.vec <<- c(msg.vec, paste("Missing variables were imputated using", toupper(method)));
   }
   
   if(!is.null(new.mat)){
-  dataSet$data.missed <- as.data.frame(new.mat);
+    dataSet$data.missed <- as.data.frame(new.mat);
   }
+  
   print("Impute Missing")
   RegisterData(dataSet);
   return(1)
 }
-
 
 
 FilteringData <- function(nm, countOpt="pct",count, var){
