@@ -5,7 +5,7 @@
 ###################################################
 
 
-DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, normOpt, p.lvl=0.05, fc.lvl=0.05, nonpar=FALSE){
+DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, normOpt, p.lvl=0.05, fc.lvl=1.0, nonpar=FALSE){
   if(meta == "null"){
     meta = 1;
   }
@@ -23,6 +23,7 @@ DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, norm
     dataSet$data.comparison.taxa <- dataSet$data.filt.taxa
   }
   
+  # NOTE JE: also need to know if counts/intensities. Intensities will give incorrect results.
   if(alg == "deseq2" || alg == "edger"){
     if(dataSet$isValueNormalized == "false"){
       dataSet$data.comparison <- round(dataSet$data.comparison)
@@ -55,6 +56,8 @@ DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, norm
   sel_meta_more_than_2 = metadf[which(metadf[,"newcolumn"] %in% sel),]
   nms <- rownames(sel_meta_more_than_2)
   
+  # NOTE JE: rethink when these options are exposed: showing correctly for example data (ie. certain methods for counts vs. metabolomics)
+  # but not for new, protocol data
   if(alg=="ttest"){
     if(length(unique(sel))>2){
       res <- GetFtestRes(dataSet, nms,"newcolumn", F, TRUE, F);
@@ -87,6 +90,7 @@ DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, norm
     }
 }
   
+  # NOTE JE: we need FC values here
   res <- res[,c(1,2)]
   rownames(res) <- rownames(dataSet$data.comparison)
   colnames(res) <- c("stat", "p_value")
@@ -157,6 +161,7 @@ DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, norm
   return(UpdateDE(filenm, p.lvl, fc.lvl))
 }
 
+# NOTE JE: unclear if FC values exist, since we didn't select them in initial DEA function
 UpdateDE<-function(dataName, p.lvl = 0.05, fc.lvl = 1){
   dataSet <- readRDS(dataName);
 
