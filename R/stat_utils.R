@@ -6,6 +6,17 @@
 
 
 DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, normOpt, p.lvl=0.05, fc.lvl=0, nonpar=FALSE){
+filenm <<- filenm;
+#alg <<- alg;
+#meta <<- meta;
+#selected <<- selected;
+#meta.vec <<- meta.vec;
+#normOpt <<- normOpt;
+#p.lvl <<- p.lvl;
+#fc.lvl <<- fc.lvl;
+#nonpar <<- nonpar;
+#save.image(file="test.RData");
+
   if(meta == "null"){
     meta = 1;
   }
@@ -47,9 +58,6 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
   nms2 <- rownames(sel_meta2)
   sel_meta_more_than_2 = metadf[which(metadf[,"newcolumn"] %in% sel),]
   nms <- rownames(sel_meta_more_than_2)
-  
-  # NOTE JE: rethink when these options are exposed: showing correctly for example data (ie. certain methods for counts vs. metabolomics)
-  # but not for new, protocol data
 
   trimmed.data <- as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
   trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]

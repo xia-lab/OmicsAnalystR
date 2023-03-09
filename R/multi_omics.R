@@ -664,17 +664,17 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   ProcessGraphFile(new_g, labels, type.list);
 }
 
-NormalizingData <-function (nm, opt, colNorm, scaleNorm){
+NormalizeDataWrapper <-function (nm, opt, colNorm){
   
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
     for(i in 1:length(sel.nms)){
       dataSet = readRDS(sel.nms[i])
-      data <- NormalizingDataOmics(dataSet$data.filtered,opt, colNorm, scaleNorm)
+      data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
       dataSet$data.proc <- data;
       if(exists("m2m",dataSet)){
         data.norm.taxa <- lapply(dataSet$dataSet$data.filt.taxa, function(x) {
-          NormalizingDataOmics(x,opt, colNorm, scaleNorm)
+          NormalizingDataOmics(x, opt, colNorm, "NA")
         }
         )
         dataSet$data.proc.taxa <- data.norm.taxa
@@ -686,12 +686,50 @@ NormalizingData <-function (nm, opt, colNorm, scaleNorm){
     
     dataSet <- readRDS(nm);
     
-    data <- NormalizingDataOmics(dataSet$data.filtered,opt, colNorm, scaleNorm)
+    data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
+    dataSet$data.proc <- data;
+    if(exists("m2m", dataSet)){
+      
+      data.norm.taxa <- lapply(dataSet$data.filt.taxa, function(x) {
+        NormalizingDataOmics(x, opt, colNorm, "NA")
+      }
+      )
+      
+      dataSet$data.proc.taxa <- data.norm.taxa
+    }
+    RegisterData(dataSet)
+    return(1)
+  }
+}
+
+ScaleDataWrapper <-function (nm, scaleNorm){
+  
+  if(nm == "NA"){
+    sel.nms <- names(mdata.all)
+    for(i in 1:length(sel.nms)){
+      dataSet = readRDS(sel.nms[i])
+      data <- NormalizingDataOmics(dataSet$data.filtered, "NA", "NA", scaleNorm)
+      dataSet$data.proc <- data;
+      if(exists("m2m",dataSet)){
+        data.norm.taxa <- lapply(dataSet$dataSet$data.filt.taxa, function(x) {
+          NormalizingDataOmics(x, "NA", "NA", scaleNorm)
+        }
+        )
+        dataSet$data.proc.taxa <- data.norm.taxa
+      }
+      RegisterData(dataSet)
+    }
+    return(1)
+  }else{
+    
+    dataSet <- readRDS(nm);
+    
+    data <- NormalizingDataOmics(dataSet$data.filtered, "NA", "NA", scaleNorm)
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
       
       data.norm.taxa <- lapply(dataSet$data.filt.taxa, function(x) {
-        NormalizingDataOmics(x,opt, colNorm, scaleNorm)
+        NormalizingDataOmics(x, "NA", "NA", scaleNorm)
       }
       )
       
@@ -710,6 +748,7 @@ NormalizingDataOmics <-function (data, norm.opt, colNorm="NA", scaleNorm="NA"){
   msg <- ""
   rnms <- rownames(data)
   cnms <- colnames(data)
+
   # column(sample)-wise normalization
   if(colNorm=="SumNorm"){
     data<-t(apply(data, 2, SumNorm));
@@ -726,12 +765,6 @@ NormalizingDataOmics <-function (data, norm.opt, colNorm="NA", scaleNorm="NA"){
     min.val <- min(data[data>0], na.rm=T)/10;
     numberOfNeg = sum(data<=0, na.rm = TRUE) + 1; 
     totalNumber = length(data)
-    #if((numberOfNeg/totalNumber)>0.2){
-    #  msg <- paste(msg, "Can't perform log2 normalization, over 20% of data are negative. Try a different method or maybe the data already normalized?", collapse=" ");
-    #  print(msg);
-    #  norm.msg <<- current.msg <<- msg;
-    #  return(0);
-    #}
     data[data<=0] <- min.val;
     data <- log2(data);
     msg <- paste(msg, "Log2 transformation.", collapse=" ");
@@ -811,7 +844,6 @@ NormalizingDataOmics <-function (data, norm.opt, colNorm="NA", scaleNorm="NA"){
   }else{
     scalenm<-"N/A";
   }
-  #print(summary(data))
   if(scaleNorm %in% c('MeanCenter', 'AutoNorm', 'ParetoNorm', 'RangeNorm')){
     data <- t(data)
   }

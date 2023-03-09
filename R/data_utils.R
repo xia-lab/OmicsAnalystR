@@ -481,52 +481,6 @@ ReadDataForMetaInfo<-function(dataName){
   return(colnames(dataSet$meta));
 }
 
-PerformComparison <- function(dataName, meta, method){
-  if(meta == ""){
-    meta <- 1;
-  }
-
-  #if(dataSet$name != dataName){
-    dataSet <- readRDS(dataName);
-  #}
-  if(method == "kruskal"){
-    aov.nm <- "Kruskal Wallis Test";
-    anova.res <- apply(as.matrix(dataSet$data.proc), 1, kwtest, cls=dataSet$meta[,meta]);
-    
-    #extract all p values
-    res <- unlist(lapply(anova.res, function(x) {c(x$statistic, x$p.value)}));
-    res <- data.frame(matrix(res, nrow=length(anova.res), byrow=T), stringsAsFactors=FALSE);
-
-    fstat <- res[,1];
-    p.value <- res[,2];
-
-  }else{
-    aov.nm <- "One-way ANOVA";
-    aov.res <- apply(as.matrix(dataSet$data.proc), 1, aof, cls=dataSet$meta[,meta]);
-    anova.res <- lapply(aov.res, anova);
-    
-    #extract all p values
-    res <- unlist(lapply(anova.res, function(x) { c(x["F value"][1,], x["Pr(>F)"][1,])}));
-    res <- matrix(res, nrow=length(aov.res), byrow=T)
-    
-    fstat <- res[,1];
-    p.value <- res[,2];
-    names(fstat) <- names(p.value) <- rownames(dataSet$data.proc);
-  }
-  rownames(res) = rownames(dataSet$data.proc)
-  colnames(res) = c("t_stat", "p_value")
-  pvals <- p.adjust(res[,"p_value"],method="BH");
-  
-  res = na.omit(res)
-  res = cbind(res, pvals)
-  res = res[order(res[,3], decreasing=FALSE),]
-  res = cbind(res, rownames(res))
-  dataSet$comp.res = res;
-  dataSet$sel.meta = meta
-  RegisterData(dataSet);
-  return(1);
-}
-
 GetFeatureNum <-function(dataName){
   #if(dataSet$name != dataName){
     dataSet <- readRDS(dataName);
