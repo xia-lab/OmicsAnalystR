@@ -69,7 +69,7 @@ RemoveMissingPercent("preg_prot.csv", 0.5)
 ImputeMissingVar("preg_prot.csv", "min")
 FilteringData("preg_prot.csv","pct","2", "15");
 NormalizingData("preg_prot.csv", "log", "NA", "AutoNorm");
-DoStatComparison("preg_prot.csv", "ttest", "CLASS","NA","NA","none", 0.005, 1.0);
+DoStatComparison("preg_prot.csv", "ttest", "CLASS","NA","NA","none", 0.005);
 
 SanityCheckData("preg_met.csv");
 CheckDataType("preg_met.csv", "true");

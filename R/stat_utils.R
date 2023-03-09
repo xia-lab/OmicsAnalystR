@@ -5,7 +5,7 @@
 ###################################################
 
 
-DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, normOpt, p.lvl=0.05, fc.lvl=0, nonpar=FALSE){
+DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, normOpt, p.lvl=0.05, nonpar=FALSE){
   
   if(meta == "null"){
     meta = 1;
@@ -25,7 +25,7 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
   }  
   
   if(dataSet$de.method == alg && dataSet$de.norm == normOpt){
-    return(UpdateDE(filenm, p.lvl, fc.lvl));
+    return(UpdateDE(filenm, p.lvl));
   }
   
   if(selected == "NA"){ # process page
@@ -123,37 +123,26 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
   
   RegisterData(dataSet);
   
-  return(UpdateDE(filenm, p.lvl, fc.lvl))
+  return(UpdateDE(filenm, p.lvl))
 }
 
 
-UpdateDE<-function(dataName, p.lvl = 0.05, fc.lvl = 1){
+UpdateDE<-function(dataName, p.lvl = 0.05){
   dataSet <- readRDS(dataName);
 
   res <- dataSet$comp.res
   
-  hit.inx <- as.numeric(res[, "p_value"]) <= p.lvl #pval
+  hit.inx <- as.numeric(res[, "p_adj"]) <= p.lvl #pval
   
   if(sum(hit.inx) == 0){
     return (c(1, 0, nrow(res)));
   }
+
   # note, hit.inx can contain NA, not T/F
   hit.inx <- which(hit.inx);
-  
   res.sig<-res[hit.inx, , drop=F];
-  
-  hit.inx <- abs(as.numeric(res.sig[, "stat"])) > fc.lvl #foldchange
-  
-  if(sum(hit.inx) == 0){
-    return (c(1, 0, nrow(res)));
-  }
-  # note, hit.inx can contain NA, not T/F
-  hit.inx <- which(hit.inx);
-  
-  res.sig<-res.sig[hit.inx, , drop=F];
-  
+
   sig.count <- nrow(res.sig);
-  de.genes <- rownames(res.sig);
   non.sig.count <- nrow(res)-sig.count;
   
   dataSet$sig.mat = res.sig;
@@ -163,7 +152,7 @@ if(exists("m2m",dataSet)){
  
   res2 <- dataSet$comp.res.taxa
   
-  hit.inx <- lapply(res2,function(x) as.numeric(x[, "p_value"]) <= p.lvl) #pval
+  hit.inx <- lapply(res2,function(x) as.numeric(x[, "p_adj"]) <= p.lvl) #pval
  
   # note, hit.inx can contain NA, not T/F
   hit.inx <- lapply(hit.inx, function(x) which(x) );
@@ -177,25 +166,9 @@ if(exists("m2m",dataSet)){
       res.sig2[[i]] <- res2[[i]][hit.inx[[i]], , drop=F]
     }
 
-  }
-  
-  
-  hit.inx <- lapply(res.sig2,function(x) abs(as.numeric(x[, "stat"])) > fc.lvl) #foldchange
-  hit.inx <- lapply(hit.inx, function(x) which(x) );
-  for(i in 1:length(res.sig2)){
-    if(length(hit.inx[i])==0){
-      res.sig2[[i]] <- c(1, 0, nrow(res2[i]))
-      
-    }else{
-      
-      res.sig2[[i]] <- res.sig2[[i]][hit.inx[[i]], , drop=F]
-    }
-    
-  }
-  
+  }  
   
   dataSet$sig.count.tax <- lapply(res.sig2, function(x)nrow(x) );
- # dataSet$de.genes <- lapply(res.sig2, function(x) rownames(x) );
   non.sig.count2 <- list()
   for(i in 1:length(res2)){
     non.sig.count2[[i]] <- nrow(res2[[i]])-dataSet$sig.count.tax[[i]]; 
