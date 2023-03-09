@@ -255,40 +255,18 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
   sel_meta_more_than_2 = metadf[which(metadf[,"newcolumn"] %in% sel),]
   nms <- rownames(sel_meta_more_than_2)
 
+  trimmed.data = as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
+  trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
+  trimmed.meta = dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
+  trimmed.meta <- make.names(trimmed.meta);
+  if(min(trimmed.data) < 0){
+    trimmed.data = trimmed.data + abs(min(trimmed.data))
+  }
 
-  if(alg=="ttest"){
-    if(length(unique(sel))>2){
-      res <- GetFtestRes(dataSet, nms,"newcolumn", F, TRUE, F);
-    }else{
-      res <- GetTtestRes(dataSet, nms1,nms2,"newcolumn", F, TRUE, F);
-    }
-  }else if(alg =="kruskal"){
-    if(length(unique(sel))>2){
-      res <- GetFtestRes(dataSet, nms,"newcolumn", F, TRUE, T);
-    }else{
-      res <- GetTtestRes(dataSet, nms1,nms2,"newcolumn", F, TRUE, T);
-    }
-  }else{ 
+  res <- performLimma(trimmed.data, trimmed.meta);
 
-    trimmed.data = as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
-    trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
-    trimmed.meta = dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
-    trimmed.meta <- make.names(trimmed.meta);
-    if(min(trimmed.data) < 0){
-      trimmed.data = trimmed.data + abs(min(trimmed.data))
-    }
-
-    res <- performLimma(trimmed.data, trimmed.meta);
-
-}
-  res = res[,c(1,2)]
-  rownames(res) = rownames(dataSet$data.comparison)
-  colnames(res) = c("stat", "p_value")
-  
-  res = na.omit(res)
-  res = res[order(res[,2], decreasing=FALSE),]
-  pvals <- p.adjust(res[,"p_value"],method="BH");
-  res = cbind(res, pvals)
+  res = res[,c(1:3)]
+  colnames(res) <- c("stat", "p_value", "p_adj")
   res = cbind(res, rownames(res))
   de = res
   de[de == "NaN"] = 1
@@ -302,11 +280,10 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
   res = cbind(res, colorb);
   res = cbind(res, sizes);
 
-  #ids <- names(dataSet$enrich_ids[order(match(dataSet$enrich_ids,rownames(res)))])
   enrich_ids <- dataSet$enrich_ids[dataSet$enrich_ids %in% rownames(res)]
-  ids <- names(enrich_ids[order(match(enrich_ids,rownames(res)))])
+  names <- names(enrich_ids[order(match(enrich_ids,rownames(res)))])
   
-  res = cbind(res, ids);
+  res = cbind(res, names);
   colnames(res) = c("stat", "p_value", "p_adj", "ids", "color", "size", "name");
   res= as.matrix(res)
   library(RJSONIO)
