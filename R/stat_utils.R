@@ -6,17 +6,7 @@
 
 
 DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, normOpt, p.lvl=0.05, fc.lvl=0, nonpar=FALSE){
-filenm <<- filenm;
-#alg <<- alg;
-#meta <<- meta;
-#selected <<- selected;
-#meta.vec <<- meta.vec;
-#normOpt <<- normOpt;
-#p.lvl <<- p.lvl;
-#fc.lvl <<- fc.lvl;
-#nonpar <<- nonpar;
-#save.image(file="test.RData");
-
+  
   if(meta == "null"){
     meta = 1;
   }
@@ -29,7 +19,7 @@ filenm <<- filenm;
     dataSet$data.comparison <- dataSet$data.filtered;
   }
   colnames(dataSet$data.comparison) <- rownames(dataSet$meta)
- 
+  
   if(exists("m2m",dataSet)){
     dataSet$data.comparison.taxa <- dataSet$data.filt.taxa
   }  
@@ -58,7 +48,7 @@ filenm <<- filenm;
   nms2 <- rownames(sel_meta2)
   sel_meta_more_than_2 = metadf[which(metadf[,"newcolumn"] %in% sel),]
   nms <- rownames(sel_meta_more_than_2)
-
+  
   trimmed.data <- as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
   trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
   trimmed.meta <- dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
@@ -66,21 +56,13 @@ filenm <<- filenm;
   if(min(trimmed.data) < 0){
     trimmed.data = trimmed.data + abs(min(trimmed.data))
   }
-
+  
+  # perform DEA
   res <- performLimma(trimmed.data, trimmed.meta);
+  colnames(res) <- c("stat", "p_value", "p_adj")
   
-  # NOTE JE: we need FC values here
-  res <- res[,c(1,2)]
-  rownames(res) <- rownames(dataSet$data.comparison)
-  colnames(res) <- c("stat", "p_value")
-  
-  res <- na.omit(res)
-  res <- res[order(res[,2], decreasing=FALSE),]
-  pvals <- p.adjust(res[,"p_value"],method="BH");
-  res <- cbind(res, pvals)
+  # get information for visualizations
   res <- cbind(res, rownames(res))
-  
-  res[res == "NaN"] = 1
   pv <- as.numeric(res[,"p_value"])
   pv_no_zero <- pv[pv != 0]
   minval <- min(pv_no_zero)
@@ -90,8 +72,12 @@ filenm <<- filenm;
   sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 35));
   res <- cbind(res, colorb);
   res <- cbind(res, sizes);
-  ids <- names(dataSet$enrich_ids[rownames(res)])
+  id.df <- data.frame(id = names(dataSet$enrich_ids))
+  rownames(id.df) <- dataSet$enrich_ids
+  ids <- id.df[rownames(res), "id"]
   res <- cbind(res, ids);
+  
+  # format results
   colnames(res) = c("stat", "p_value", "p_adj", "ids", "color", "size", "name");
   res <- as.matrix(res)
   de <- res
@@ -130,7 +116,7 @@ filenm <<- filenm;
     }
     dataSet$comp.res.taxa = res2;
   }
-
+  
   dataSet$de.norm = normOpt;
   dataSet$de.method = alg;
   dataSet$comp.res = de;
@@ -140,7 +126,7 @@ filenm <<- filenm;
   return(UpdateDE(filenm, p.lvl, fc.lvl))
 }
 
-# NOTE JE: unclear if FC values exist, since we didn't select them in initial DEA function
+
 UpdateDE<-function(dataName, p.lvl = 0.05, fc.lvl = 1){
   dataSet <- readRDS(dataName);
 
@@ -418,8 +404,11 @@ gm_mean <- function(x, na.rm=TRUE){
   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
 }
 
-performLimma <-function(trimmed.data, trimmed.meta){
-  library(edgeR);
+performLimma <- function(trimmed.data, trimmed.meta){
+  
+  library(limma);
+  
+  # process class labels
   cls <- as.factor(trimmed.meta); 
   inx = 0;
   myargs <- list();
@@ -432,25 +421,28 @@ performLimma <-function(trimmed.data, trimmed.meta){
     }
   }
   
+  # create design matrix
   design <- model.matrix(~ 0 + cls) # no intercept
   colnames(design) <- levels(cls);
   myargs[["levels"]] <- design
   contrast.matrix <- do.call(makeContrasts, myargs)
   dataSet$design <- design;
-  y=DGEList(counts = trimmed.data, group = cls)
-  y <- calcNormFactors(y)
-  y <- estimateCommonDisp(y, verbose = FALSE)
-  y <- estimateTagwiseDisp(y)
-  v <- voom(y, design, plot = F)
-  vfit <- lmFit(v, design)
-  vfit <- contrasts.fit(vfit, contrasts=contrast.matrix)
-  efit <- eBayes(vfit)
-  topFeatures <- topTable(efit, number = Inf, adjust.method = "fdr");
+  
+  # perform differential analysis
+  fit <- lmFit(trimmed.data, design)
+  fit2 <- contrasts.fit(fit, contrast.matrix)
+  fit2 <- eBayes(fit2)
+  topFeatures <- topTable(fit2, number = Inf, adjust.method = "fdr");
+  
+  # process results
   if(length(unique(cls)) == 2){
     res = data.frame(stat=topFeatures[,"t"], P.Value=topFeatures[,"P.Value"], adj.P.Value=topFeatures[,"adj.P.Val"])
   }else{
     res = data.frame(stat=topFeatures[,"F"], P.Value=topFeatures[,"P.Value"], adj.P.Value=topFeatures[,"adj.P.Val"])
   }
+  
+  rownames(res) <- rownames(topFeatures)
+  
   return(res)
 }
 
