@@ -671,32 +671,6 @@ for(i in 1:length(sel.nms)){
   return(1);
 }
 
-.builtin_normalization <- function(dataSet, opt){
-
-    data <- dataSet$data.filtered
-    num1 <- sum(data < 0)
-    msg.vec <- ""
-    if(num1 > 1){
-    data <- data + abs(min(data))
-    msg.vec <- "Data has been shifted to remove negative values; "
-    }
-
-    num2 <- sum(data < 50)
-    total <- dim(data)[1]* dim(data)[2]
-    pct <- num2/total
-
-    if(pct < 0.8){
-        min.val <- min(data[data>0], na.rm=T)/10;
-        data[data<=0] <- min.val;
-        data <- log2(data);    
-        msg.vec <- paste(msg.vec, "Data has been log2 normalized;")
-    }
-    dataSet$data.comparison <- data;
-    msg.vec <<- msg.vec;
-    RegisterData(dataSet)
-    return(dataSet)
-}
-
 CheckDataType <- function(dataName, type){
   dataSet <- readRDS(dataName);
   isOk <- T;

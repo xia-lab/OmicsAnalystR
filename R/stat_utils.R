@@ -6,25 +6,15 @@
 
 
 DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, normOpt, p.lvl=0.05, nonpar=FALSE){
-  
+
   if(meta == "null"){
     meta = 1;
   }
   
   dataSet <- readRDS(filenm);
   
-  if(normOpt != "none"){
-    dataSet$data.comparison <- NormalizingDataOmics(dataSet$data.filtered, normOpt, "NA", "NA");
-  }else{
-    dataSet$data.comparison <- dataSet$data.filtered;
-  }
-  colnames(dataSet$data.comparison) <- rownames(dataSet$meta)
-  
-  if(exists("m2m",dataSet)){
-    dataSet$data.comparison.taxa <- dataSet$data.filt.taxa
-  }  
-  
-  if(dataSet$de.method == alg && dataSet$de.norm == normOpt){
+  # check if just p.val update or whole method update
+  if(dataSet$de.method == alg){
     return(UpdateDE(filenm, p.lvl));
   }
   
@@ -49,7 +39,7 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
   sel_meta_more_than_2 = metadf[which(metadf[,"newcolumn"] %in% sel),]
   nms <- rownames(sel_meta_more_than_2)
   
-  trimmed.data <- as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
+  trimmed.data <- as.matrix(dataSet$data.proc[,which(colnames(dataSet$data.proc) %in% nms)])
   trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
   trimmed.meta <- dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
   trimmed.meta <- make.names(trimmed.meta);
@@ -88,7 +78,7 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
                            equal.var=TRUE, nonpar=F,alg)
     res2 <- lapply(res2, function(x) x[,c(1,2)])
     for(i in 1:length(res2)){
-      rownames(res2[[i]]) <- rownames(dataSet$data.comparison.taxa[[i]])
+      rownames(res2[[i]]) <- rownames(dataSet$data.proc.taxa[[i]])
       
       colnames(res2[[i]]) <- c("stat", "p_value")
       res2[[i]] <- na.omit(res2[[i]])
@@ -117,7 +107,6 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
     dataSet$comp.res.taxa = res2;
   }
   
-  dataSet$de.norm = normOpt;
   dataSet$de.method = alg;
   dataSet$comp.res = de;
   
@@ -228,7 +217,7 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
   sel_meta_more_than_2 = metadf[which(metadf[,"newcolumn"] %in% sel),]
   nms <- rownames(sel_meta_more_than_2)
 
-  trimmed.data = as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
+  trimmed.data = as.matrix(dataSet$data.proc[,which(colnames(dataSet$data.proc) %in% nms)])
   trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
   trimmed.meta = dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
   trimmed.meta <- make.names(trimmed.meta);
@@ -274,50 +263,6 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
   return(filenm)
 }
 
-GetTtestRes <- function(dataSet, nms1,nms2, meta, paired=FALSE, equal.var=TRUE, nonpar=F){
-  trimmed.data = as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% c(nms1,nms2))])
-  dataSet$data.comparison = as.matrix(dataSet$data.comparison)
-  inx1 = which(colnames(dataSet$data.comparison) %in% nms1)
-  inx2 = which(colnames(dataSet$data.comparison) %in% nms2)
-  if(nonpar){
-    res <- apply(trimmed.data, 1, function(x) {
-      tmp <- try(wilcox.test(x[inx1], x[inx2], paired = F));
-      if(class(tmp) == "try-error") {
-        return(c(NA, NA));
-      }else{
-        return(c(tmp$statistic, tmp$p.value));
-      }
-    })
-    res = t(res)
-  }else{#repalce with PerformFastUniv
-    metad = dataSet$meta
-    metad =metad[which(rownames(metad) %in% c(nms1,nms2)),]
-    res <- PerformFastUnivTests(trimmed.data, factor(metad[,"newcolumn"]),T, F)
-
-  }
-
-  return(res);
-}
-
-
-GetFtestRes <- function(dat,nms, meta,paired=FALSE, equal.var=TRUE, nonpar=F){
-  trimmed.data = as.matrix(dat$data.comparison[,which(colnames(dat$data.comparison) %in% nms)])
-  dat$data.comparison = as.matrix(dat$data.comparison)
-  metad = dat$meta
-  
-  metad =metad[which(rownames(metad) %in% nms),]
-  if(nonpar){
-    kwtest <- function(x, cls) {kruskal.test(x ~ cls);}
-    aov.res <- apply(trimmed.data, 1, kwtest, cls=factor(metad[,"newcolumn"]));
-    #extract all p values
-    res <- unlist(lapply(aov.res, function(x) {c(x$statistic, x$p.value)}));
-    res <- data.frame(matrix(res, nrow=length(aov.res), byrow=T), stringsAsFactors=FALSE);
-  }else{
-    res <- PerformFastUnivTests(trimmed.data, factor(metad[,"newcolumn"]),TRUE, F);
-  }
-  return(res);
-}
-
 #####to get result for each taxonomy level
 
 GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=FALSE,
@@ -325,7 +270,7 @@ GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=
   
   if(length(sel)==2){
 
-    res <- lapply(dataSet$data.comparison.taxa, function(x){
+    res <- lapply(dataSet$data.proc.taxa, function(x){
       trimmed.data = as.matrix(x[,which(colnames(x) %in% c(nms1,nms2))])
       x = as.matrix(x)
       inx1 = which(colnames(x) %in% nms1)
