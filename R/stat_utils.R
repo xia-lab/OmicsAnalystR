@@ -5,7 +5,7 @@
 ###################################################
 
 
-DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, normOpt, p.lvl=0.05, fc.lvl=1.0, nonpar=FALSE){
+DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, normOpt, p.lvl=0.05, fc.lvl=0, nonpar=FALSE){
   if(meta == "null"){
     meta = 1;
   }
@@ -21,15 +21,7 @@ DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, norm
  
   if(exists("m2m",dataSet)){
     dataSet$data.comparison.taxa <- dataSet$data.filt.taxa
-  }
-  
-  # NOTE JE: also need to know if counts/intensities. Intensities will give incorrect results.
-  if(alg == "deseq2" || alg == "edger"){
-    if(dataSet$isValueNormalized == "false"){
-      dataSet$data.comparison <- round(dataSet$data.comparison)
-    }
-  }
-  
+  }  
   
   if(dataSet$de.method == alg && dataSet$de.norm == normOpt){
     return(UpdateDE(filenm, p.lvl, fc.lvl));
@@ -58,37 +50,16 @@ DoStatComparison <- function(filenm, alg="ttest", meta, selected, meta.vec, norm
   
   # NOTE JE: rethink when these options are exposed: showing correctly for example data (ie. certain methods for counts vs. metabolomics)
   # but not for new, protocol data
-  if(alg=="ttest"){
-    if(length(unique(sel))>2){
-      res <- GetFtestRes(dataSet, nms,"newcolumn", F, TRUE, F);
-    }else{
-      res <- GetTtestRes(dataSet, nms1,nms2,"newcolumn", F, TRUE, F);
-    }
-  }else if(alg =="kruskal"){
-    if(length(unique(sel))>2){
-      res <- GetFtestRes(dataSet, nms,"newcolumn", F, TRUE, T);
-    }else{
-      res <- GetTtestRes(dataSet, nms1,nms2,"newcolumn", F, TRUE, T);
-    }
-  }else{ 
-    trimmed.data <- as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
-    trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
-    trimmed.meta <- dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
-    trimmed.meta <- make.names(trimmed.meta);
-    if(min(trimmed.data) < 0){
-      trimmed.data = trimmed.data + abs(min(trimmed.data))
-    }
 
-    if(alg =="limma"){
-      res <- performLimma(trimmed.data, trimmed.meta);
-    }else if(alg=="edger"){
-      res <- performEdgeR(trimmed.data, trimmed.meta);
-    }else if(alg =="deseq2"){
-        performDeseq2(trimmed.data, trimmed.meta.df);
-        .perform.computing();
-        res <- .save.deseq.res(dataSet);
-    }
-}
+  trimmed.data <- as.matrix(dataSet$data.comparison[,which(colnames(dataSet$data.comparison) %in% nms)])
+  trimmed.meta.df <- dataSet$meta[which(rownames(dataSet$meta) %in% nms), ]
+  trimmed.meta <- dataSet$meta[,"newcolumn"][which(rownames(dataSet$meta) %in% nms)]
+  trimmed.meta <- make.names(trimmed.meta);
+  if(min(trimmed.data) < 0){
+    trimmed.data = trimmed.data + abs(min(trimmed.data))
+  }
+
+  res <- performLimma(trimmed.data, trimmed.meta);
   
   # NOTE JE: we need FC values here
   res <- res[,c(1,2)]
@@ -313,15 +284,8 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
       trimmed.data = trimmed.data + abs(min(trimmed.data))
     }
 
-if(alg =="limma"){
     res <- performLimma(trimmed.data, trimmed.meta);
-  }else if(alg=="edger"){
-    res <- performEdgeR(trimmed.data, trimmed.meta);
-  }else if(alg =="deseq2"){
-        performDeseq2(trimmed.data, trimmed.meta.df);
-        .perform.computing();
-        dataSet <- .save.deseq.res(dataSet);
-        res <- dataSet$comp.res;  }
+
 }
   res = res[,c(1,2)]
   rownames(res) = rownames(dataSet$data.comparison)
@@ -425,36 +389,10 @@ GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=
       trimmed.meta.df = dataSet$meta;
       trimmed.meta.df =trimmed.meta.df[which(rownames(trimmed.meta.df) %in% c(nms1,nms2)),];
       trimmed.meta <- factor(trimmed.meta.df[,"newcolumn"]);
-      if(alg == "ttest"){
-        return( t(apply(trimmed.data, 1, function(y) {
-          tmp <- try(wilcox.test(y[inx1], y[inx2], paired = F));
-          if(class(tmp) == "try-error") {
-            return(c(NA, NA));
-          }else{
-            return(c(tmp$statistic, tmp$p.value));
-          }
-        })))
-        
-      }else if(alg == "kruskal"){
-       
-        PerformFastUnivTests(trimmed.data, trimmed.meta,T, F)
-      
-    }else if(alg == "limma"){
       res <- performLimma(trimmed.data, trimmed.meta);
-    }else if(alg == "edger"){
-      res <- performEdgeR(trimmed.data, trimmed.meta);
-    }else if(alg == "deseq2"){
-        performDeseq2(trimmed.data, trimmed.meta.df);
-        .perform.computing();
-        dataSet <- .save.deseq.res(dataSet);
-        res <- dataSet$comp.res;
-    }
-      
-    } )
-
-  return(res)
-}
-
+    });
+    return(res)
+  }
 }
 
 #'ANOVA
@@ -466,49 +404,6 @@ GetTaxaCompRes <- function(dataSet,nms1,nms2, nms,sel, meta="newcolumn", paired=
 #'License: MIT
 aof <- function(x, cls) {
   aov(x ~ cls);
-}
-
-performEdgeR <-function(trimmed.data, trimmed.meta){
-  library(edgeR)
-
-  y <- DGEList(counts = trimmed.data, group = trimmed.meta)
-  y <- calcNormFactors(y)
-  y <- estimateCommonDisp(y, verbose = FALSE)
-  y <- estimateTagwiseDisp(y)
-  et = edgeR::exactTest(y);
-  tt = edgeR::topTags(et, n=nrow(y$table), adjust.method="BH", sort.by="PValue");
-  res = tt@.Data[[1]];
-  res = res[,c(1,3,2,4)]
-  return(res)
-}
-
-performDeseq2 <-function(trimmed.data, trimmed.meta.df){
-  
-  my.fun <- function(){
-    suppressMessages(library(DESeq2));
-    dds <- DESeqDataSetFromMatrix(countData=round(trimmed.data), colData = trimmed.meta.df, design = ~newcolumn)
-    geoMeans = apply(counts(dds), 1, gm_mean);
-    dds = DESeq2::estimateSizeFactors(dds, geoMeans = geoMeans);
-    dds = DESeq2::DESeq(dds, test="Wald", fitType="parametric");
-    res = DESeq2::results(dds, independentFiltering = FALSE, cooksCutoff =  Inf);
-    res = as.matrix(res);
-    res = res[,c(2,5,1,3,4,6)]
-    
-    return(res);
-  }
-  
-  dat.in <- list(data=trimmed.data, meta=trimmed.meta.df, my.fun=my.fun);
-  qs::qsave(dat.in, file="dat.in.qs");
-  return(1);
-}
-
-
-.save.deseq.res <- function(dataSet){
-  dat.in <- qs::qread("dat.in.qs"); 
-  my.res <- dat.in$my.res;
-  dataSet$resTable <- my.res;
-  RegisterData(dataSet);
-  return(my.res)
 }
 
 gm_mean <- function(x, na.rm=TRUE){

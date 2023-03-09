@@ -310,7 +310,7 @@ M2Mscore <- function(qvec,mvec,taxlvl="Genus",dataGem="agora"){
   
 }
 
-PerformDEAnalMeta <- function(filenm, alg="ttest", meta=1, p.lvl=0.05, fc.lvl=0, nonpar=FALSE){
+PerformDEAnalMeta <- function(filenm, alg="limma", meta=1, p.lvl=0.05, fc.lvl=0, nonpar=FALSE){
     res <- DoStatComparison(filenm, alg, meta, "NA", "NA", "NA", p.lvl, fc.lvl, nonpar=FALSE);
     return(res);
 }
