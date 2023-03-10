@@ -1278,7 +1278,7 @@ ComputePathHeatmapTable <- function(dataSet){
   stat.pvals = stat.pvals[rankPval]
   dat = dat[rankPval,]
   reductionSet <- .get.rdt.set();
-  if(reductionSet$clustVec != "NA"){
+  if(length(reductionSet$clustVec) > 1){
     vec <- reductionSet$clustVec
     names(vec) <- colnames(dat);
     veco <- vec[order(vec)];
@@ -1342,7 +1342,7 @@ ComputePathHeatmapTable <- function(dataSet){
   # prepare meta info    
   # 1) convert meta.data info numbers
   # 2) match number to string (factor level)
-  if(reductionSet$clustVec != "NA"){
+  if(length(reductionSet$clustVec) > 1){
     metadf$Cluster <- reductionSet$clustVec;
     sample.cluster[[reductionSet$clustType]] <- smpl.int.rk;
     metadf <- metadf[smpl.int.rk,]
