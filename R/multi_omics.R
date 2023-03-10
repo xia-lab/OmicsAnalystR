@@ -1267,8 +1267,8 @@ ComputePathHeatmapTable <- function(dataSet){
   metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")])
   colnames(metadf) = meta.nms
   
-  res <- PerformFastUnivTests(dataSet$data.proc, dataSet$meta[,1]);
-  
+  res <- dataSet$comp.res[rownames(data),c(1:2)]
+  colnames(res) <- c("statistic", "p.value")
   stat.pvals <- unname(as.vector(res[,2]));
   
   # scale each gene 
@@ -1378,9 +1378,12 @@ ComputePathHeatmapTable <- function(dataSet){
   # note, use {} will lose order; use [[],[]] to retain the order
   
   gene.id = orig.gene.nms; if(length(gene.id) ==1) { gene.id <- matrix(gene.id) };
-  
   hit.inx <- match(gene.id , unname(enrich.nms1));
   lbls <- names(enrich.nms1[hit.inx]);
+
+  # re-order by p-value
+  gene.id <- gene.id[rankPval];
+  lbls <- lbls[rankPval];
   
   json.res <- list(
     data.name = dataSet$name,
