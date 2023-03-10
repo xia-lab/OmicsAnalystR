@@ -665,7 +665,6 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
 }
 
 NormalizeDataWrapper <-function (nm, opt, colNorm){
-  
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
     for(i in 1:length(sel.nms)){
@@ -685,18 +684,16 @@ NormalizeDataWrapper <-function (nm, opt, colNorm){
   }else{
     
     dataSet <- readRDS(nm);
-    
     data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
     dataSet$data.proc <- data;
+
     if(exists("m2m", dataSet)){
-      
       data.norm.taxa <- lapply(dataSet$data.filt.taxa, function(x) {
         NormalizingDataOmics(x, opt, colNorm, "NA")
-      }
-      )
-      
+      })
       dataSet$data.proc.taxa <- data.norm.taxa
     }
+
     RegisterData(dataSet)
     return(1)
   }
@@ -744,7 +741,7 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   }
 }
 
-NormalizingDataOmics <-function (data, norm.opt, colNorm="NA", scaleNorm="NA"){
+NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="NA"){
   msg <- ""
   rnms <- rownames(data)
   cnms <- colnames(data)
@@ -789,14 +786,10 @@ NormalizingDataOmics <-function (data, norm.opt, colNorm="NA", scaleNorm="NA"){
     data <- y$E; # copy per million
     msg <- paste(msg, "Limma based on log2-counts per million transformation.", collapse=" ");
   } else if(norm.opt=="rle"){
-    suppressMessages(library(edgeR))
-    otuRLE <- edgeRnorm(data,method="RLE");
-    data <- as.matrix(otuRLE$counts);
+    data <- edgeRnorm(data,method="RLE");
     msg <- c(msg, paste("Performed RLE Normalization"));
   }else if(norm.opt=="TMM"){
-    suppressMessages(library(edgeR))
-    otuTMM <- edgeRnorm(data,method="TMM");
-    data <- as.matrix(otuTMM$counts);
+    data <- edgeRnorm(data,method="TMM");
     msg <- c(msg, paste("Performed TMM Normalization"));
   }else if(norm.opt=="clr"){
     data <- apply(data, 2, clr_transform);
@@ -1155,7 +1148,6 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
   for(i in 1:length(sel.nms)){
     dataSet <- readRDS(sel.nms[i])
     dat <- dataSet$data.proc
-    #colnames(dat) <- paste0(colnames(dat), "_-", dataSet$type)
     if(i==1){
       st <- stack(as.data.frame(dat))
       st$Dataset <- rep(sel.nms[i], nrow(dat))

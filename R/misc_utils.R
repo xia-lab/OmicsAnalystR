@@ -843,23 +843,12 @@ clr_transform <- function(x, base=2){
 
 
 edgeRnorm = function(x,method){
-  # Enforce orientation.
-  # See if adding a single observation, 1,
-  # everywhere (so not zeros) prevents errors
-  # without needing to borrow and modify
-  # calcNormFactors (and its dependent functions)
-  # It did. This fixed all problems.
-  # Can the 1 be reduced to something smaller and still work?
-  x = x + 1;
-  # Now turn into a DGEList
-  y = DGEList(counts=x, remove.zeros=TRUE);
+
   # Perform edgeR-encoded normalization, using the specified method (...)
-  z = edgeR::calcNormFactors(y, method=method);
-  # A check that we didn't divide by zero inside `calcNormFactors`
-  if( !all(is.finite(z$samples$norm.factors)) ){
-    AddErrMsg(paste("Something wrong with edgeR::calcNormFactors on this data, non-finite $norm.factors."));
-    return(0);
-  }
+  nf <- edgeR::calcNormFactors(x, method=method);
+  y <- voom(x,plot=F,lib.size=colSums(x)*nf);
+  z <- y$E; # copy per million
+
   return(z)
 }
 
