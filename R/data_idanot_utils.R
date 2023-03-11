@@ -238,11 +238,9 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   }
   
   msg <- c(msg, paste0("A total of ", length(na.omit(dataSet$name.map$hit.inx)), " are mapped."))
-  #dataSet$enrich_ids <- rownames(dataSet$data.proc)
-  #dataSet$enrich_ids[dataSet$name.map$match.state == 1] <- dataSet$name.map$hit.values[dataSet$name.map$match.state == 1]
-  names(dataSet$enrich_ids) <- dataSet$enrich_ids
+
   data <- as.matrix(dataSet$data.raw);
-  rownames(data) <- names(dataSet$enrich_ids);
+  rownames(data) <- unname(dataSet$enrich_ids);
   data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
   data <- as.data.frame(data)
   dataSet$data.annotated <- data
@@ -261,10 +259,10 @@ AnnotateMetaboliteData <- function(dataName, idtype){
 #'License: MIT
 #'@export
 #'
-SkippingAnnotation <- function(dataName, idtype=""){
+SkippingAnnotation <- function(dataName, idtype){
   
   dataSet <- readRDS(dataName);
-
+  
   data <- dataSet$data.raw;
   qvec <- rownames(data);
   

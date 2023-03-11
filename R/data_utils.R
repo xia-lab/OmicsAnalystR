@@ -727,6 +727,48 @@ CheckDataType <- function(dataName, type){
   }
 }
 
+CheckNormalizedData <- function(dataName, omicsType){
+  dataSet <- readRDS(dataName);
+  dataSet$isValueNormalized <- "true";
+
+  dataSet$type <- omicsType
+  if(omicsType == "rna_b"){
+    readableType <- "Transcriptomics";
+  }else if (omicsType == "met_t"){
+    readableType <- "Metabolomics";
+  }else if (omicsType == "mic_m"){
+    readableType <- "Microbiome";
+  }else if (omicsType == "prot"){
+    readableType <- "Proteomics";
+  }else if (omicsType == "mirna"){
+    readableType <- "miRNA";
+  }else{
+    readableType <-  omicsType;
+  }
+  dataSet$readableType <- readableType;
+
+  RegisterData(dataSet);
+}
+
+SetParamsNormalizedData <- function(dataName){
+    dataSet <- readRDS(dataName);
+
+    int.mat <- dataSet$data.annotated;
+    msg.vec <- "";
+  
+    if(sum(is.na(int.mat)) == 0){ # check if any missing values
+      dataSet$data.proc <- int.mat;
+      msg.vec <<- msg.vec;
+      res <- 1;
+    } else {
+      msg.vec <<- c(msg.vec, "Missing values detected! Please upload normalized data with no missing values.");
+      res <- 0;
+    }
+
+    RegisterData(dataSet);
+    return(res)
+}
+
 RemoveMissingPercent <- function(dataName="", percent=0.5){
 
   dataSet <- readRDS(dataName);

@@ -848,56 +848,6 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   return(data)
 }
 
-# Function to annotate metabolite data to internal database
-AnnotateMetaboliteData <- function(dataName, idtype){
-  #if(dataSet$name != dataName){
-  dataSet <- readRDS(dataName);
-  dataSet$name <- dataName
-  #}
-  
-  data <- dataSet$data.raw;
-  qvec <- rownames(data);
-  
-  # record all the data
-  if(!exists("name.map", where = dataSet)){
-    dataSet$name.map <- list();
-  }
-  
-  # map to cpd db from metaboanalyst
-  dataSet <- MetaboliteMappingExact(dataSet, qvec, idtype)
-  
-  # do some sanity check
-  todo.inx <- which(is.na(dataSet$name.map$hit.inx));
-  resint <- 1;
-  print(length(todo.inx)/length(dataSet$name.map$hit.inx));
-  if(length(todo.inx)/length(dataSet$name.map$hit.inx) > 0.5){
-    msg <- c("Over half of the compound IDs could not be matched to our database. Please make 
-             sure that correct compound IDs or common compound names are used.");
-    resint <- 2;
-  }else if (length(todo.inx) > 15){
-    msg <- c("There are >15 compounds without matches. You can either proceed or if necessary, update these compound IDs and upload again.");   
-    resint <- 1;     
-  }else{
-    msg <- paste0("Name matching OK!", " A total of ", nrow(data), " are mapped.");  
-    resint <- 1; 
-  }
-  
-  msg <- c(msg, paste0("A total of ", length(na.omit(dataSet$name.map$hit.inx)), " are mapped."))
-  #dataSet$enrich_ids <- rownames(dataSet$data.proc)
-  #dataSet$enrich_ids[dataSet$name.map$match.state == 1] <- dataSet$name.map$hit.values[dataSet$name.map$match.state == 1]
-  #names(dataSet$enrich_ids) <- dataSet$enrich_ids
-  data <- as.matrix(dataSet$data.raw);
-  rownames(data) <- unname(dataSet$enrich_ids);
-  data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
-  data <- as.data.frame(data)
-  dataSet$data.annotated <- data
-  RegisterData(dataSet);
-  
-  msg.vec <<- msg
-  
-  return(resint)
-}
-
 ReadOmicsData <- function(fileName, omics.type=NA) {
   # need to handle reading .csv files too!
   
@@ -2271,27 +2221,6 @@ CheckMetaIntegrity <- function(){
 }
 
 SameElements <- function(a, b) return(identical(sort(a), sort(b)));
-
-# Function to annotate metabolite data to internal database
-SkippingAnnotation <- function(dataName, idtype){
-  
-  #if(dataSet$name != dataName){
-  dataSet <- readRDS(dataName);
-  #}
-  
-  data <- dataSet$data.raw;
-  qvec <- rownames(data);
-  
-  dataSet$enrich_ids <- rownames(dataSet$data.raw)
-  names(dataSet$enrich_ids) <- rownames(dataSet$data.raw)
-  dataSet$data.annotated <- dataSet$data.raw
-  
-  RegisterData(dataSet);
-  
-  
-  return(1)
-}
-
 
 #'Plot t-sne plot for multi-omics samples
 #'@description 
