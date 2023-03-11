@@ -705,10 +705,10 @@ ScaleDataWrapper <-function (nm, scaleNorm){
     sel.nms <- names(mdata.all)
     for(i in 1:length(sel.nms)){
       dataSet = readRDS(sel.nms[i])
-      data <- NormalizingDataOmics(dataSet$data.filtered, "NA", "NA", scaleNorm)
+      data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
       dataSet$data.proc <- data;
       if(exists("m2m",dataSet)){
-        data.norm.taxa <- lapply(dataSet$dataSet$data.filt.taxa, function(x) {
+        data.norm.taxa <- lapply(dataSet$dataSet$data.proc.taxa, function(x) {
           NormalizingDataOmics(x, "NA", "NA", scaleNorm)
         }
         )
@@ -721,11 +721,11 @@ ScaleDataWrapper <-function (nm, scaleNorm){
     
     dataSet <- readRDS(nm);
     
-    data <- NormalizingDataOmics(dataSet$data.filtered, "NA", "NA", scaleNorm)
+    data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
       
-      data.norm.taxa <- lapply(dataSet$data.filt.taxa, function(x) {
+      data.norm.taxa <- lapply(dataSet$data.proc.taxa, function(x) {
         NormalizingDataOmics(x, "NA", "NA", scaleNorm)
       }
       )
