@@ -35,8 +35,8 @@ Init.Data <- function(){
   rcmd.vecu <<- vector()
   table.nmu <<- ""
   isKo <<- F
-  integOpts <<- c("o2pls", "rcca", "scca", "mcia", "procrustes")
-  loadingOpts <<- c("o2pls", "mcia","rcca", "mbpca", "diablo", "rcca", "spls")
+  integOpts <<- c("mcia")
+  loadingOpts <<- c("mcia","diablo")
   merged.reduction <<- F
   reductionOptGlobal <<- "pca"
   dataSet <- list(annotated=FALSE);
@@ -290,11 +290,11 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
   sink();
 }
 
-DoDimensionReductionIntegrative <- function(omicsType, reductionOpt, method="globalscore", dimn){
+DoDimensionReductionIntegrative <- function(omicsType, reductionOpt, dimn){
     if(!exists("my.reduce.dimension")){ # public web on same user dir
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
     }
-    return(my.reduce.dimension(omicsType, reductionOpt, method, dimn));
+    return(my.reduce.dimension(omicsType, reductionOpt, dimn));
 }
 
 
@@ -324,7 +324,7 @@ PerformClustering <- function(init, nclust, type){
     hc = hclust(distMat, "complete")
     cluster <- cutree(hc, k = nclust)
   }
-  if(reductionOptGlobal %in% c(loadingOpts, "procrustes")){
+  if(reductionOptGlobal %in% loadingOpts){
     dataSet$newmeta$cluster=cluster
   }else{
     dataSet$meta$cluster=cluster
@@ -493,7 +493,7 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
   level <- as.numeric(level)
   names = strsplit(names.vec, "; ")[[1]]
   reductionSet <- .get.rdt.set();
-  if(reductionOptGlobal %in% c("diablo", "spls") || omics != "NA"){
+  if(reductionOptGlobal %in% c("diablo") || omics != "NA"){
     if(grepl("pca_", omics, fixed=TRUE)){
         pca.scatter <- qs::qread("pca.scatter.qs");
         pos.xyz<-pca.scatter[[ omics ]]$score/1000

@@ -32,7 +32,7 @@ my.json.scatter <- function(filenm){
   pos.xyz =  dataSet$pos.xyz
   nodes <- vector(mode="list");
   names <- c(rownames(pos.xyz))
-  if(reductionOptGlobal %in% c(loadingOpts,"procrustes")){
+  if(reductionOptGlobal %in% loadingOpts){
     metadf = dataSet$newmeta
   }else{
     metadf = meta
@@ -111,7 +111,7 @@ my.json.scatter <- function(filenm){
       );
     }
     #nodes = c(nodes, nodes2); # do not use linking points now
-  }else if(reductionOptGlobal %in% c("diablo", "spls")){
+  }else if(reductionOptGlobal %in% c("diablo")){
     names <- rownames(dataSet$pos.xyz2)
     nodes_samples2 <- vector(mode="list");
     pos.xyz2 =  dataSet$pos.xyz2;
@@ -140,11 +140,7 @@ my.json.scatter <- function(filenm){
     }
   }
   
-  if(reductionOptGlobal == "procrustes"){
-    pos.xyz.length = nrow(pos.xyz)
-    edge.mat <- cbind(id=c(1:(pos.xyz.length)), source=names[c(1:(pos.xyz.length/2))], target=names[c(((pos.xyz.length/2)+1):pos.xyz.length) ], opacity = 0);
-  #mcia hides linking edges
-  #}else if(reductionOptGlobal == "mcia"){
+  if(reductionOptGlobal == "mcia"){
    # pos.xyz.length = nrow(pos.xyz)
    # edge.mat <- cbind(id=c(1:(pos.xyz.length)), source=names, target=c(rownames(dataSet$mcia.seg.points), rownames(dataSet$mcia.seg.points)), opacity = 0);
   }else{
@@ -227,7 +223,7 @@ my.json.scatter <- function(filenm){
     netData <- list(omicstype=omicstype.vec, nodes=nodes, edges=edge.mat, modules=modules, objects=a$objects, ellipse=meshes, meta=metadf, loading=nodes2, reductionOpt=reductionOptGlobal , objectsLoading=aLoading$objects, sigMat=sig.mats);
   }
   
-  if(reductionOptGlobal %in% c("diablo", "spls")){
+  if(reductionOptGlobal %in% c("diablo")){
     type <- omicstype.vec[[2]]
     netData[[ type]] <- nodes_samples2;
     if(length(omicstype.vec)>2){
@@ -270,7 +266,6 @@ my.json.scatter <- function(filenm){
   }
   
   pca.scatter <- qs::qread("pca.scatter.qs");
-  if(reductionOptGlobal != "procrustes"){
     for(i in 1:length(omicstype.vec)){
       pos<-pca.scatter[[paste0("pca_", omicstype.vec[i])]]$score
       
@@ -315,7 +310,6 @@ my.json.scatter <- function(filenm){
       nm <- paste0("pca_", omicstype.vec[[i]], "_loading")
       netData[[nm]] <- pca_loading;
     }
-  }
   
   dataSet$misc$pct2 <- c(dataSet$misc$pct2, pca.scatter$pct2);
   

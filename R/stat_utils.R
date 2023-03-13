@@ -383,7 +383,7 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
   library(cluster)
   reductionSet <- .get.rdt.set();
   pos.xyz = reductionSet$pos.xyz
-  if(reductionOptGlobal  %in% c(loadingOpts, "procrustes")){
+  if(reductionOptGlobal  %in% loadingOpts){
     metadf = reductionSet$newmeta
   }else{
     metadf = reductionSet$meta

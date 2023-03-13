@@ -488,49 +488,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   reductionSet<-.get.rdt.set();
   
   Cairo(file=imgNm, width=10, height=h, type="png",unit="in", bg="white", dpi=dpi);
-  if(alg == "procrustes"){
-    res <- reductionSet$dim.res
-    error = residuals(res[[1]])
-    require("ggrepel")
-    
-    error.df = data.frame(Samples=names(error), Procrustes_residual=unname(error))
-    
-    rankres <- rank(-abs(error), ties.method="random");
-    inx.x <- which(rankres < 6);
-    inx.y <- error[inx.x];
-    nms <- names(error)[inx.x];
-    subsetdf <- error.df[which(error.df$Samples %in% nms),]
-    
-    p = ggplot(error.df, aes(x = Samples, y = Procrustes_residual)) + geom_col() + geom_hline(yintercept = summary(error)[c(2,3,5)])+
-      theme(axis.text.x=element_blank(),
-            axis.ticks.x=element_blank()) +
-      geom_text_repel(
-        data = subsetdf,
-        aes(label = Samples),
-        size = 5,
-        box.padding = unit(0.35, "lines"),
-        point.padding = unit(0.3, "lines")
-      ) +
-      theme_bw()
-    print(p)
-  }else if(alg == "rcca"){
-    require(mixOmics)
-    plot(reductionSet$dim.res, scree.type = "barplot")
-    
-  }else if(alg == "spls"){
-    #save.image("diag.RData");
-    require(mixOmics)
-    tune.spls <- mixOmics:::perf(reductionSet$dim.res, validation = "Mfold", folds = 10, progressBar = FALSE, nrepeat = 1)
-    if("Q2.total" %in% names(tune.spls)){
-      plot(tune.spls$Q2.total)
-    }else{
-      r = data.frame(Comp=seq.int(nrow(tune.spls$measures$Q2.total$values)), Q2.total=tune.spls$measures$Q2.total$values$value)
-      rownames(r) = paste("comp", seq.int(nrow(r)))
-      plot(r)
-    }
-    abline(h = 0.0975)
-    
-  }else if(alg == "diablo"){
+  if(alg == "diablo"){
     require(mixOmics)
     res = reductionSet$dim.res    
     set.seed(123) # for reproducibility, only when the `cpus' argument is not used
@@ -541,32 +499,8 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   }else if(alg == "mcia"){
     res = reductionSet$dim.res 
     p1<-plot.mcoin(type=3, res, phenovec=reductionSet$cls, sample.lab=FALSE, df.color=length(names(mdata.all)))   
-    print(p1)
-  }else if(alg == "mbpca"){
-    res = reductionSet$dim.res 
-    plotEig(3, res@eig)
-    #mogsa::plot(res, value="eig", type=2, xlab="Component", ylab="Eigenvalue")    
+    print(p1)  
   }else if(alg == "spectrum"){
-    #res <- ComputeSilhouette("snf");
-    #sp2 <- fviz_silhouette(res[[2]], titlenm=sel.nms[[2]])+
-    #theme(axis.title.y=element_blank())
-    #lims <- layer_scales(sp2)$y$get_limits()
-    
-    #sp1 <- fviz_silhouette(res[[1]], titlenm=sel.nms[[1]])+ ylim(lims)+
-    #theme(legend.position="none")
-    
-    
-    #fig.list.sub<-list();
-    #fig.list.sub[[1]] <- sp1
-    #fig.list.sub[[2]] <- sp2
-    
-    #p11 <- ggarrange(plotlist=fig.list.sub, ncol = 2, nrow = 1)
-    #fig.list[[1]] <- p11
-    #if(!is.null(reductionSet$clustRes$eigenvector_analysis)){
-    #fig.list[[1]] <- function(){plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigenvector_analysis$evals)};
-    #}else{
-    #fig.list[[1]] <- function(){plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigensystem$values[1:10])};
-    #}
     if(!is.null(reductionSet$clustRes$eigenvector_analysis)){
       plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigenvector_analysis[,2]);
     }else{
@@ -624,7 +558,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
 DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   require("igraph");
   if(! method %in% dim.res.methods){
-    intRes <- DoDimensionReductionIntegrative("omics", method, method="globalscore", 3);
+    intRes <- DoDimensionReductionIntegrative("omics", method, 3);
   }
   
   threshold <- as.numeric(threshold)
@@ -1208,33 +1142,32 @@ ComputeHeatmap <- function(fileNm, type){
 }
 
 ComputePathHeatmapTable <- function(dataSet){
-  data <- dataSet$data.proc
+  data <- dataSet$data.proc;
   sig.ids <- rownames(dataSet$data.proc);
-  enrich.nms1 <- dataSet$enrich_ids
+  enrich.nms1 <- dataSet$enrich_ids;
   
-  metadf <- dataSet$meta
-  meta.nms <- colnames(metadf)[-ncol(metadf)]
-  metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")])
-  colnames(metadf) = meta.nms
+  metadf <- dataSet$meta;
+  meta.nms <- colnames(metadf)[-ncol(metadf)];
+  metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")]);
+  colnames(metadf) = meta.nms;
   
-  res <- dataSet$comp.res[rownames(data),c(1:2)]
-  colnames(res) <- c("statistic", "p.value")
+  res <- dataSet$comp.res[rownames(data),c(1:2)];
+  colnames(res) <- c("statistic", "p.value");
   stat.pvals <- unname(as.vector(res[,2]));
   
   # scale each gene 
   dat <- t(scale(t(data)));
   
-  rankPval = order(as.vector(stat.pvals))
-  stat.pvals = stat.pvals[rankPval]
-  dat = dat[rankPval,]
+  rankPval = order(as.vector(stat.pvals));
+  stat.pvals = stat.pvals[rankPval];
+  dat = dat[rankPval,];
   reductionSet <- .get.rdt.set();
-  if(length(reductionSet$clustVec) > 1){
-    vec <- reductionSet$clustVec
+  if (length(reductionSet$clustVec) > 1) {
+    vec <- reductionSet$clustVec;
     names(vec) <- colnames(dat);
     veco <- vec[order(vec)];
     smpl.int.rk <- match(names(veco), colnames(dat));
     dat <- dat[, smpl.int.rk];
-    
   }
   
   # now pearson and euclidean will be the same after scaleing
@@ -1259,13 +1192,13 @@ ComputePathHeatmapTable <- function(dataSet){
     
     dat.dist <- dist(t(dat));
     smpl.ward.ord <- hclust(dat.dist, "ward.D")$order;
-    smpl.ward.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.ward.ord])
+    smpl.ward.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.ward.ord]);
     smpl.ave.ord <- hclust(dat.dist, "ave")$order;
-    smpl.ave.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.ave.ord])
+    smpl.ave.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.ave.ord]);
     smpl.single.ord <- hclust(dat.dist, "single")$order;
-    smpl.single.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.single.ord])
+    smpl.single.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.single.ord]);
     smpl.complete.ord <- hclust(dat.dist, "complete")$order;
-    smpl.complete.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.complete.ord])
+    smpl.complete.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.complete.ord]);
   }else{
     # force not to be single element vector which will be scaler
     #stat.pvals <- matrix(stat.pvals);
@@ -1380,65 +1313,6 @@ PlotDiagnosticPca <- function(imgNm, dpi=72, format="png",type="diablo"){
     )
     grid.arrange(grobs =fig.list, nrow=length(fig.list))
     dev.off();  
-  }else if(type == "rcca" || type == "spls"){
-    res = reductionSet$dim.res 
-    Factor <- as.factor(reductionSet$meta$newcolumn)
-    library(ggplot2)
-    library("ggpubr")
-    scrs <- list()
-    for(i in 1:length(res$variates)){
-      
-      pca.rest <- as.data.frame(res$variates[[i]][,c(1:3)])
-      colnames(pca.rest) <- c("PC1", "PC2", "PC3")
-      pca.rest$Conditions <- Factor
-      pca.rest$names <- rownames(res$variates[[i]])
-      
-      xlim <- GetExtendRange(pca.rest[,1]);
-      ylim <- GetExtendRange(pca.rest[,2]);
-      if("prop_expl_var" %in% names(res)){
-        var.vec <- res$prop_expl_var[[i]] 
-      }else{
-        var.vec <- res$explained_variance[[i]] 
-      }
-      # proe <- signif(as.numeric(var.vec), 4)
-      proe <- signif(var.vec/sum(var.vec), 4)
-      
-      xlabel <- paste0("Variate 1 (", proe[1]*100,"%)")
-      ylabel <- paste0("Variate 2 (", proe[2]*100,"%)")
-      
-      if(i == 1){
-        fig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
-          geom_point(size=3, alpha=0.5) + 
-          xlim(xlim) + 
-          ylim(ylim) + 
-          xlab(xlabel) + 
-          ylab(ylabel) + 
-          theme_bw() +
-          theme(legend.position = "none") + 
-          ggtitle(reductionSet$omicstype[[1]])
-        fig.list[[i]] <- fig
-      } else {
-        fig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
-          geom_point(size=3, alpha=0.5) + 
-          xlim(xlim) + 
-          ylim(ylim) + 
-          xlab(xlabel) + 
-          ylab(ylabel) + 
-          theme(axis.text.x=element_blank(),
-                axis.ticks.x=element_blank(),
-                axis.text.y=element_blank(),
-                axis.ticks.y=element_blank()) + 
-          ggtitle(reductionSet$omicstype[[2]]) +
-          theme_bw()
-        fig.list[[i]] <- fig
-      }
-    }
-    
-    h<-8
-    Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
-    p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = 1, widths=c(7,8));
-    print(p1)
-    dev.off();
   }else if(type == "mcia"){
     library(omicade4)
     mcoin <- reductionSet$dim.res
@@ -1446,49 +1320,6 @@ PlotDiagnosticPca <- function(imgNm, dpi=72, format="png",type="diablo"){
     Cairo(file=imgNm, width=10, height=h, type=format, bg="white", unit="in", dpi=dpi);
     plot.mcoin(type=1, mcoin, phenovec=reductionSet$meta$newcolumn, sample.lab=FALSE, df.color=length(names(mdata.all)))
     dev.off();
-  } else if(type == "mbpca"){
-    res = reductionSet$dim.res 
-    scrs <- moaScore(res);
-    scr <- as.data.frame(scrs[,c(1:3)])
-    Factor <- as.factor(reductionSet$meta$newcolumn)
-    pca.rest <- scr
-    pca.rest$Conditions <- Factor
-    pca.rest$names <- rownames(scr)
-    
-    xlim <- GetExtendRange(pca.rest$PC1);
-    ylim <- GetExtendRange(pca.rest$PC2);
-    
-    xlabel <- paste0("PC1")
-    ylabel <- paste0("PC2")
-    
-    library(ggplot2)
-    pcafig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
-      geom_point(size=3, alpha=0.5) + xlim(xlim) + ylim(ylim)+ xlab(xlabel) + ylab(ylabel) +
-      theme_bw()
-    
-    Cairo(file=imgNm, width=10, height = 8, type=format, bg="white", unit="in", dpi=dpi);
-    print(pcafig)
-    dev.off();
-  } else if(type == "procrustes"){
-    library(ggplot2)
-    library(grid)
-    pro.test <- reductionSet$dim.res[[1]]
-    pct <- pro.test$svd$d
-    ctest <- data.frame(rda1=pro.test$Yrot[,1], rda2=pro.test$Yrot[,2], xrda1=pro.test$X[,1],
-                        xrda2=pro.test$X[,2],Type=reductionSet$newmeta[,"omics"], Conditions = reductionSet$newmeta[,1])
-    xlabel <- paste0("Component 1 ", "(" , signif(pct[1],4), ")")
-    ylabel <- paste0("Component 2 ", "(" , signif(pct[2],4), ")")
-    
-    p <- ggplot(ctest) +
-      geom_point(aes(x=rda1, y=rda2, colour=Conditions, shape=Type)) +
-      geom_point(aes(x=xrda1, y=xrda2, colour=Conditions, shape=Type)) +
-      geom_segment(aes(x=rda1,y=rda2,xend=xrda1,yend=xrda2,colour=Conditions), alpha=0.4,arrow=arrow(length=unit(0.1,"cm"))) + 
-      xlab(xlabel) + ylab(ylabel) +
-      theme_bw()
-    Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
-    print(p)
-    dev.off();
-  }
 }
 
 PlotDiagnosticLoading <- function(imgNm, dpi=72, format="png",type="diablo"){
@@ -1515,44 +1346,12 @@ PlotDiagnosticLoading <- function(imgNm, dpi=72, format="png",type="diablo"){
     Cairo(file=imgNm, width=13, height=h, type=format, bg="white", unit="in", dpi=dpi);
     grid.arrange(grobs =fig.list, nrow=length(fig.list))
     dev.off();
-  }else if(type == "rcca" || type == "spls"){
-    Cairo(file=imgNm, width=12, height=10, type=format, bg="white", unit="in", dpi=dpi);
-    plotVar(reductionSet$dim.res, comp = 1:2, cutoff = 0.5, var.names = c(TRUE, TRUE),
-            cex = c(4, 4), title = 'rCCA comp 1 - 2')
-    dev.off();
   }else if(type == "mcia"){
     library(omicade4)
     mcoin <- reductionSet$dim.res
     
     Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
     plot.mcoin(type=2, mcoin, phenovec=reductionSet$cls, sample.lab=FALSE, df.color=1:length(names(mdata.all)))
-    dev.off();
-  }else if(type == "mbpca"){
-    library(ggplot2)
-    moa <- reductionSet$dim.res 
-    loading <- moa@loading[,c(1:3)]
-    loading <- as.data.frame(loading)
-    colnames(loading) = c("PC1", "PC2", "PC3")
-    d.types <- rownames(moa@RV)
-    loading$Type <- gsub(".*_", "", rownames(loading))
-    for(i in 1:length(d.types)){
-      rownames(loading) = gsub(paste0("_", d.types[i]), "",rownames(loading))
-    }
-    loading$Type <- as.factor(loading$Type)
-    
-    xlim <- GetExtendRange(loading[,1]);
-    ylim <- GetExtendRange(loading[,2]);
-    
-    xlabel <- paste0("PC1")
-    ylabel <- paste0("PC2")
-    
-    pcafig <- ggplot(loading, aes(x=PC1, y=PC2,  color=Type)) +
-      geom_point(size=3, alpha=0.5) + 
-      xlim(xlim) + ylim(ylim) + xlab(xlabel) + ylab(ylabel) +
-      theme_bw()
-    
-    Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
-    print(pcafig)
     dev.off();
   }
 }
@@ -1876,10 +1675,6 @@ GetDiagnosticSummary<- function(type){
     reductionSet <- .get.rdt.set();
     clustNum <- length(unique(reductionSet$clustVec))
     return(c(clustNum, signif(reductionSet$clustNmi)))
-  }else if(type == "procrustes"){
-    reductionSet <- .get.rdt.set();
-    res <- reductionSet$dim.res[[2]];
-    return(c(signif(res$ss,4), signif(res$scale,4)));
   }else{
     return(c("","") )
   }
