@@ -1321,6 +1321,7 @@ PlotDiagnosticPca <- function(imgNm, dpi=72, format="png",type="diablo"){
     plot.mcoin(type=1, mcoin, phenovec=reductionSet$meta$newcolumn, sample.lab=FALSE, df.color=length(names(mdata.all)))
     dev.off();
 }
+}
 
 PlotDiagnosticLoading <- function(imgNm, dpi=72, format="png",type="diablo"){
   require("Cairo");
@@ -2089,8 +2090,7 @@ GetNetworkTopology <- function(netnm){
   globalProperties[["Average path length"]] <-signif(mean_distance(g), 3);
   globalProperties[["Clustering coefficient"]] <- transitivity(g, type="global");
   propertiesVector <- c(globalProperties[[1]], globalProperties[[2]], globalProperties[[3]], globalProperties[[4]]);
-  #print(propertiesVector);
-  return(propertiesVector);
+  return(propertiesVector)
 }
 
 

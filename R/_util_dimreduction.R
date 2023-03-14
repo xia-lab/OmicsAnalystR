@@ -6,7 +6,7 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-my.reduce.dimension <- function(omicsType, reductionOpt, dimn){\  
+my.reduce.dimension <- function(omicsType, reductionOpt, dimn){  
   dimn = as.numeric(dimn);
   if(dimn == 2){
     dimn = 3;
@@ -58,7 +58,7 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){\
       x <- data.frame(x, stringsAsFactors = FALSE);
       x <- t(x);
     })
-    design = matrix(1, ncol = length(dats), nrow = length(dats), 
+    design = matrix(0.2, ncol = length(dats), nrow = length(dats), 
                     dimnames = list(names(dats), names(dats)))
     
     res = mixOmics:::block.splsda(X = dats, Y = Y, ncomp =dimn, design = design)
@@ -110,7 +110,7 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){\
     pos.xyz = mcoin$mcoa$Tl1
     loading.pos.xyz = mcoin$mcoa$axis #not really loading, score plot of second omics
     rownames(loading.pos.xyz) = featureNms
-    loadingNames = rownames(loading.pos.xyz)
+    loadingNames = featureNms
     names = rownames(pos.xyz)
     ndata <- length(mcoin$coa)
     syn <- mcoin$mcoa$SynVar
@@ -118,20 +118,20 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){\
     for (i in 1:(ndata)) {
       sync <- rbind(sync, syn)
     }
-    sync <- sync[,c(1:3)]
+    sync <- sync[,c(1:3)];
     colnames(sync) = c("Axis1", "Axis2", "Axis3");
     
-    seg.names = rownames(sync)
-    sync2 = rbind(sync, pos.xyz)
-    maxVal <- max(abs(sync2))
-    sync2 <- sync2/maxVal
-    sync= sync2[c(1:length(seg.names)),]
-    rownames(sync)=seg.names;
+    seg.names = rownames(sync);
+    sync2 = rbind(sync, pos.xyz);
+    maxVal <- max(abs(sync2));
+    sync2 <- sync2/maxVal;
+    sync = sync2[c(1:length(seg.names)),];
+    rownames(sync) = seg.names;
     dataSet$mcia.seg.points = sync;
-    dataSet$misc$Correlation = mcoin$mcoa$RV[1,2]
-    dataSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100
-    pos.xyz = sync2[c((length(seg.names)+1):nrow(sync2)),]
-    rownames(pos.xyz) = names
+    dataSet$misc$Correlation = mcoin$mcoa$RV[1,2];
+    dataSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100;
+    pos.xyz = sync2[c((length(seg.names)+1):nrow(sync2)),];
+    rownames(pos.xyz) = names;
     
     type.vec<-vector()
     for(i in 1:length(d.list)){
