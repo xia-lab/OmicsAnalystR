@@ -32,7 +32,7 @@ my.json.scatter <- function(filenm){
   pos.xyz =  reductionSet$pos.xyz
   nodes <- vector(mode="list");
   names <- c(rownames(pos.xyz))
-  metadf = reductionSet$newmeta
+  metadf = reductionSet$meta
 
   
   a=list();
@@ -88,7 +88,6 @@ my.json.scatter <- function(filenm){
   ellipse ="NA"
   
   library(RJSONIO)
-    metadf = reductionSet$newmeta
     
     loading.data = reductionSet$loading.pos.xyz
     cluster = reductionSet$loadingCluster
