@@ -6,13 +6,11 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-my.reduce.dimension <- function(omicsType, reductionOpt, dimn){  
-  dimn = as.numeric(dimn);
-  if(dimn == 2){
-    dimn = 3;
-  }
+unsupervised.reduce.dimension <- function(reductionOpt){  
 
-  sel.nms <- names(mdata.all)[mdata.all==1];
+    ncomps = 10;
+
+    sel.nms <- names(mdata.all)[mdata.all==1];
     data.list = list()
     d.list = list()
     omics.type = vector();
@@ -25,13 +23,12 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){
 
       d.list[[dataSet$type]] = list()
       data.list[[dataSet$type]] <- dataSet$data.proc
-      d.list[[dataSet$type]][["data.proc"]] = dataSet$data.proc #dat1
-      d.list[[dataSet$type]][["meta"]] = dataSet$meta #meta1
-      d.list[[dataSet$type]][["comp.res"]] = dataSet$comp.res #comp.res
+      d.list[[dataSet$type]][["data.proc"]] = dataSet$data.proc
+      d.list[[dataSet$type]][["meta"]] = dataSet$meta
+      d.list[[dataSet$type]][["comp.res"]] = dataSet$comp.res
       d.list[[dataSet$type]][["enrich.nms"]] = dataSet$enrich_ids
 
-      if(i == 1){
-        
+      if(i == 1){       
         newmeta <- dataSet$meta
         comp.res1 = dataSet$comp.res
         enrich.nms1 = dataSet$enrich_ids
@@ -47,6 +44,7 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){
       }
       
     }
+
     dataSet$comp.res = comp.res1
     dataSet$enrich_ids = enrich.nms1
     dataSet$comp.res.inx = comp.res.inx1
@@ -54,14 +52,17 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){
   if(reductionOpt == "diablo"){
     library(mixOmics)
     Y <- dataSet$meta[,1]
+
     dats = lapply(data.list, function(x){
       x <- data.frame(x, stringsAsFactors = FALSE);
       x <- t(x);
-    })
+    });
+
     design = matrix(0.2, ncol = length(dats), nrow = length(dats), 
-                    dimnames = list(names(dats), names(dats)))
-    
-    res = mixOmics:::block.splsda(X = dats, Y = Y, ncomp =dimn, design = design)
+                    dimnames = list(names(dats), names(dats)));
+    diag(design) = 0;
+
+    res = mixOmics:::block.splsda(X = dats, Y = Y, ncomp = 5, design = design)
     pos.xyz <- res$variates[[1]]
     pos.xyz2 <- res$variates[[2]]
     
@@ -105,6 +106,7 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){
       dim.res.methods <<- c(dim.res.methods, "diablo")
     }
   } else if(reductionOpt == "mcia") {
+
     library(omicade4)
     mcoin <- mcia(data.list, cia.nf=3)
     pos.xyz = mcoin$mcoa$Tl1
@@ -146,66 +148,31 @@ my.reduce.dimension <- function(omicsType, reductionOpt, dimn){
 
   }
 
-  if(reductionOpt != "mcia"){ # had to rescale with segment points
-    pos.xyz <- as.data.frame(pos.xyz)
-    pos.xyz <- unitAutoScale(pos.xyz);
-    rownames(pos.xyz) <- names;
-  }
-
-  if(reductionOpt == "diablo"){
-    names2 <- rownames(pos.xyz2)
-    pos.xyz2 <- as.data.frame(pos.xyz2)
-    pos.xyz2 <- unitAutoScale(pos.xyz2);
-    rownames(pos.xyz2) <- names2;
-    dataSet$pos.xyz2 <- pos.xyz2
-  }
-
   dataSet$pos.xyz = pos.xyz
   dataSet$newmeta = newmeta
 
   hit.inx <- match(loadingNames, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
 
-  if(reductionOpt %in% loadingOpts){
-    loading.pos.xyz = as.data.frame(loading.pos.xyz)
-    loading.pos.xyz <- unitAutoScale(loading.pos.xyz);
-    
-    rownames(loading.pos.xyz) = loadingNames
-    dataSet$loading.names = loadingNames
-    for(i in 1:length(names(data.list))){
-      loadingNames <- gsub(paste0("_", names(data.list)[i]), "", loadingNames)
-    }
-    dataSet$loading.enrich = loadingSymbols
-    dataSet$loading.pos.xyz = loading.pos.xyz
-    if(reductionOpt == "o2pls"){ #second loading plot
-      loading.pos.xyz2 <- as.data.frame(loading.pos.xyz2)
-      loading.pos.xyz2 <- unitAutoScale(loading.pos.xyz2);
-      rownames(loading.pos.xyz2) = loadingNames2
-      dataSet$loading.names2 = loadingNames2
-      dataSet$loading.pos.xyz2 = loading.pos.xyz2
-    }
-  }
+loading.pos.xyz = as.data.frame(loading.pos.xyz)
+loading.pos.xyz <- unitAutoScale(loading.pos.xyz);
+
+rownames(loading.pos.xyz) = loadingNames
+dataSet$loading.names = loadingNames
+for(i in 1:length(names(data.list))){
+  loadingNames <- gsub(paste0("_", names(data.list)[i]), "", loadingNames)
+}
+dataSet$loading.enrich = loadingSymbols
+dataSet$loading.pos.xyz = loading.pos.xyz
 
   reductionOptGlobal <<- reductionOpt
   dataSet$omicstype <-names(data.list)
   .set.rdt.set(dataSet);
-  
-  if(dimn == 2){
-    netData <-list()
-    if(reductionOpt == "mcia"){
-      pos.xyz = rbind(pos.xyz, dataSet$mcia.seg.points);
-    }
-    netData$score=pos.xyz
-    if(reductionOpt %in% loadingOpts){
-      netData$loading = list(pos=loading.pos.xyz, name=loadingSymbols);
-    }else{
-      netData$loading = "NA";
-    }
-    sink(TwoDJsonName);
-    cat(toJSON(netData));
-    sink();
-  }
 
   return(1)
 }
 
+
+supervised.reduce.dimension <- function(reductionOpt){ 
+    return(1);
+}

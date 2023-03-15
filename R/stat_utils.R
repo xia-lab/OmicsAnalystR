@@ -383,11 +383,8 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
   library(cluster)
   reductionSet <- .get.rdt.set();
   pos.xyz = reductionSet$pos.xyz
-  if(reductionOptGlobal  %in% loadingOpts){
     metadf = reductionSet$newmeta
-  }else{
-    metadf = reductionSet$meta
-  }
+
   selMetas = unique(metadf[,meta])
   clustersHolder = list()
   library(ADPclust)
@@ -472,17 +469,13 @@ PerformCustomClustering <- function(filenm, type, ids){
   idsvec <- strsplit(ids, "; ")[[1]];
   reductionSet <- .get.rdt.set();
   pos.xyz = reductionSet$pos.xyz
-  if(reductionOptGlobal  %in% loadingOpts){
-    metadf = reductionSet$newmeta
-  }else{
-    metadf = reductionSet$meta
-  }
+  metadf = reductionSet$newmeta
   
   clustersHolder = list()
   
   inx = which(rownames(pos.xyz) %in% idsvec)
   clusList = list()
-  kmax=10
+  kmax = 10
   r=fviz_nbclust(pos.xyz[inx,], kmeans, method = "silhouette", k.max = kmax)
   maxScore = max(r$data$y)
   inx2 = r$data$y == maxScore

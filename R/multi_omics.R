@@ -909,7 +909,6 @@ ReadOmicsData <- function(fileName, omics.type=NA) {
   names(dataSet$enrich_ids) = rownames(dataSet$data.proc)
   # update current dataset
   RegisterData(dataSet);
-  partialToBeSaved <<- c(partialToBeSaved, c(fileName))
   return(1)
 }
 
@@ -1137,7 +1136,6 @@ ComputeHeatmap <- function(fileNm, type){
   sink();
   current.msg <<- "Data is now ready for heatmap visualization!";
   jsonNms$heatmap <<- fileNm
-  partialToBeSaved <<- c(partialToBeSaved, c(fileNm))
   return(1)
 }
 

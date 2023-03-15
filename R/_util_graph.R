@@ -163,19 +163,9 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
       mol.types <- V(g)$moltype; 
     }
         mol.types <- rep(names(data.list)[1],length(node.exp)); 
-  #
         mir.inx <- nms %in% enrich.nms2
         shapes[mir.inx] <- "square";
         mol.types[mir.inx] <- names(data.list)[2]
-        #node.sizes[mir.inx] <- node.sizes[mir.inx] + 0.5;
-
-    #update mir node color
-    #topo.colsw[mir.inx] <- "#306EFF"; # dark blue
-    #topo.colsb[mir.inx] <- "#98F5FF";
-    #topo.colsc[mir.inx] <- "#98F5FF";
-
-    #mol.types[mir.inx] = dataSet2$type;
-    #mol.types[!mir.inx] = dataSet$type;
 
     freq = table(mol.types);
 
@@ -301,10 +291,6 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
           degree=node.dgr[i], 
           between=node.btw[i])
       );
-      if(ppi.net$db.type == "signal"){
-        nodes[[i]]["uniprot"] = uni.vec[i]
-        nodes[[i]]["molLocation"] = sig.types[i]
-      }
     }
 
     # save node table
@@ -330,11 +316,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
 
     # covert to json
     require(RJSONIO);
-    if(ppi.net$db.type == "signal"){
-      netData <- list(nodes=nodes, edges=edge.mat, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, node.info = node.info, nodeTypes= unique(mol.types), nodeColors = colVec, tblNm=table.nmu, idType="entrez");
-    }else{
-      netData <- list(nodes=nodes, edges=edge.mat, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm=table.nmu, nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
-    }
+    netData <- list(nodes=nodes, edges=edge.mat, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm=table.nmu, nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
 
     if(!is.null(E(g)$correlation)){
       netData[["maxCorrelation"]] <- max(E(g)$correlation)
@@ -342,7 +324,6 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
     }
 
     jsonNms$network <<- filenm
-    partialToBeSaved <<- c(partialToBeSaved, c(filenm))
 
     sink(filenm);
     cat(toJSON(netData));

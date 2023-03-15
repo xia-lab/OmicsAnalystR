@@ -36,7 +36,6 @@ Init.Data <- function(){
   table.nmu <<- ""
   isKo <<- F
   integOpts <<- c("mcia")
-  loadingOpts <<- c("mcia","diablo")
   merged.reduction <<- F
   reductionOptGlobal <<- "pca"
   dataSet <- list(annotated=FALSE);
@@ -290,11 +289,21 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
   sink();
 }
 
-DoDimensionReductionIntegrative <- function(omicsType, reductionOpt, dimn){
-    if(!exists("my.reduce.dimension")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
+DoDimensionReductionIntegrative <- function(reductionOpt){
+
+    if(reductionOpt == "mcia" | reductionOpt == "mofa"){
+        if(!exists("unsupervised.reduce.dimension")){ # public web on same user dir
+            compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
+        }
+        dr.res <- unsupervised.reduce.dimension(reductionOpt);
+    } else {
+        if(!exists("supervised.reduce.dimension")){ # public web on same user dir
+            compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
+        }
+        dr.res <- supervised.reduce.dimension(reductionOpt);
     }
-    return(my.reduce.dimension(omicsType, reductionOpt, dimn));
+
+    return(1)
 }
 
 
@@ -324,19 +333,13 @@ PerformClustering <- function(init, nclust, type){
     hc = hclust(distMat, "complete")
     cluster <- cutree(hc, k = nclust)
   }
-  if(reductionOptGlobal %in% loadingOpts){
-    dataSet$newmeta$cluster=cluster
-  }else{
-    dataSet$meta$cluster=cluster
-  }
+  dataSet$newmeta$cluster=cluster
   
-  if(reductionOptGlobal %in% loadingOpts){
     loading.pos.xyz = dataSet$loading.pos.xyz
     nclust = as.numeric(nclust)
     ans = ADPclust::adpclust(pos.xyz, nclust=nclust)
     cluster = ans$clusters
     dataSet$loadingCluster=cluster
-  }
   
   .set.rdt.set(dataSet);
   return(1)
@@ -565,10 +568,6 @@ ClearFactorStrings<-function(cls.nm, query){
     query <- factor(query);
   }
   return (query);
-}
-
-GetFilesToBeSaved <-function(naviString){
-    return(unique(partialToBeSaved));
 }
 
 GetCurrentJson <-function(type){
