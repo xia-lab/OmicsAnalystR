@@ -632,41 +632,39 @@ ReadMetaData <- function(metafilename){
       return(0);
     }
 
-# need to add metadata sanity check
-# are sample names identical to data$orig
-# order samples in same way as in abundance table
-smpl.nms <- metadata[,1];
-smpl.var <- colnames(metadata)[-1];  
-sel.nms <- names(mdata.all)
+    # need to add metadata sanity check
+    # are sample names identical to data$orig
+    # order samples in same way as in abundance table
+    smpl.nms <- metadata[,1];
+    smpl.var <- colnames(metadata)[-1];  
+    sel.nms <- names(mdata.all)
 
-for(i in 1:length(sel.nms)){
-  dataSet <- readRDS(sel.nms[i]);
-  
-  
-  data.smpl.nms <- colnames(dataSet$data.proc)
-  nm.hits <- data.smpl.nms %in% smpl.nms;
-  if(!all(nm.hits)){
-    AddErrMsg("Some sample names in your data are not in the metadata file!");
-    mis.nms <- data.smpl.nms[!nm.hits];
-    AddErrMsg(paste(mis.nms, collapse="; "));
-    return(0);
-  }
-  
-  # now remove extra meta if present, and order them
-  nm.hits2 <- which(smpl.nms %in% data.smpl.nms);
-  metadata1 <- metadata[nm.hits2,];
-  metadata1 <- metadata1[,-1];
+   for(i in 1:length(sel.nms)){
+    dataSet <- readRDS(sel.nms[i]);
+    data.smpl.nms <- colnames(dataSet$data.proc)
+    nm.hits <- data.smpl.nms %in% smpl.nms;
+    if(!all(nm.hits)){
+      AddErrMsg("Some sample names in your data are not in the metadata file!");
+      mis.nms <- data.smpl.nms[!nm.hits];
+      AddErrMsg(paste(mis.nms, collapse="; "));
+      return(0);
+    }
 
-  if(!is.data.frame(metadata1)){
-    metadata1 <- data.frame(metadata1, stringsAsFactors=T);
-    colnames(metadata1) <- colnames(metadata)[2]
-  }else{
-    metadata1[] <- lapply( metadata1, factor)
+    # now remove extra meta if present, and order them
+    nm.hits2 <- which(smpl.nms %in% data.smpl.nms);
+    metadata1 <- metadata[nm.hits2,];
+    metadata1 <- metadata1[,-1];
+
+    if(!is.data.frame(metadata1)){
+      metadata1 <- data.frame(metadata1, stringsAsFactors=T);
+      colnames(metadata1) <- colnames(metadata)[2]
+    }else{
+      metadata1[] <- lapply( metadata1, factor)
+    }
+    rownames(metadata1) <- data.smpl.nms;
+    dataSet$meta <- metadata1;
+    RegisterData(dataSet);
   }
-  rownames(metadata1) <- data.smpl.nms;
-  dataSet$meta <- metadata1;
-  RegisterData(dataSet);
-}
   return(1);
 }
 
