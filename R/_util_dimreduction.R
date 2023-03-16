@@ -7,7 +7,8 @@
 ###################################################
 
 unsupervised.reduce.dimension <- function(reductionOpt){  
-  ncomps = 10;
+  
+  ncomps = 5;
   
   sel.nms <- names(mdata.all)[mdata.all==1];
   data.list = list()
@@ -45,22 +46,59 @@ unsupervised.reduce.dimension <- function(reductionOpt){
     mcoin <- mcia(data.list, cia.nf=ncomps)
     
     pos.xyz = mcoin$mcoa$SynVar;
+    colnames(pos.xyz) <- c(paste0("Factor", 1:5))
+    
     loading.pos.xyz = mcoin$mcoa$Tco;
+    colnames(pos.xyz) <- c(paste0("Factor", 1:5))
     rownames(loading.pos.xyz) = featureNms
     
     # get sample and weight names
-    loadingNames = featureNms
     names = rownames(pos.xyz)
     
     reductionSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100;
-    reductionSet$pos.xyz = pos.xyz;
-    reductionSet$loading.pos.xyz = loading.pos.xyz;
+  } else if (reductionOpt == "mofa") {
+    library(MOFA2)
+    
+    # set up model
+    data.list <- lapply(data.list, as.matrix)
+    MOFAobject <- create_mofa(data.list);
+    data_opts <- get_default_data_options(MOFAobject);
+    model_opts <- get_default_model_options(MOFAobject);
+    model_opts$num_factors <- ncomps;
+    train_opts <- get_default_training_options(MOFAobject);
+    
+    MOFAobject <- prepare_mofa(
+      object = MOFAobject,
+      data_options = data_opts,
+      model_options = model_opts,
+      training_options = train_opts
+    );
+    
+    model <- run_mofa(MOFAobject, save_data = FALSE, use_basilisk = TRUE);
+    
+    factors <- get_factors(model, as.data.frame = T);
+    pos.xyz <- reshape2::dcast(factors, sample ~ factor, value.var = "value")
+    rownames(pos.xyz) <- pos.xyz$sample
+    pos.xyz <- pos.xyz[,-1]
+    
+    weights <- get_weights(model, as.data.frame = T);
+    loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
+    rownames(loading.pos.xyz) <- loading.pos.xyz$feature
+    loading.pos.xyz <- loading.pos.xyz[,-1]
+
   }
   
-  hit.inx <- match(loadingNames, unname(enrich.nms1));
+  # preserve original order
+  loading.pos.xyz <- loading.pos.xyz[match(featureNms, rownames(loading.pos.xyz)), ]
+  pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ]
+  
+  reductionSet$pos.xyz = pos.xyz;
+  reductionSet$loading.pos.xyz = loading.pos.xyz;
+  
+  hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
   reductionSet$loading.enrich = loadingSymbols
-  reductionSet$loading.names = loadingNames
+  reductionSet$loading.names = featureNms
   reductionSet$omicstype <-names(data.list)
   
   reductionOptGlobal <<- reductionOpt
