@@ -7,6 +7,8 @@
 ###################################################
 
 unsupervised.reduce.dimension <- function(reductionOpt){  
+  reductionOpt <<- reductionOpt;
+  save.image(file="test.RData");
   
   ncomps = 5;
   
@@ -85,7 +87,47 @@ unsupervised.reduce.dimension <- function(reductionOpt){
     loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
     rownames(loading.pos.xyz) <- loading.pos.xyz$feature
     loading.pos.xyz <- loading.pos.xyz[,-1]
-
+    
+  } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
+    library(mixOmics)
+    Y <- reductionSet$meta[,1];
+    
+    design = matrix(0.2, ncol = length(data.list), nrow = length(data.list), 
+                    dimnames = list(names(data.list), names(data.list)))
+    diag(design) = 0;
+    
+    data.list <- lapply(data.list, t)
+    model = block.splsda(X = data.list, Y = Y, ncomp = 3, design = design)
+    
+    # must calculate centroid factor scores
+    variates <- model$variates
+    variates$Y <- NULL
+    variates <- lapply(variates, function(df){
+      x_min <- min(df[,1])
+      x_max <- max(df[,1])
+      y_min <- min(df[,2])
+      y_max <- max(df[,2])
+      z_min <- min(df[,3])
+      z_max <- max(df[,3])
+      df[,1] <- (df[,1] - x_min)/ (x_max - x_min) - 0.5
+      df[,2] <- (df[,2] - y_min)/ (y_max - y_min) - 0.5
+      df[,3] <- (df[,3] - z_min)/ (z_max - z_min) - 0.5
+      df
+    })
+    pos.xyz <- lapply(c(Factor1='comp1', Factor2='comp2', Factor3='comp3'), function(w){
+      xORy <- lapply(variates, function(v) v[,w, drop=FALSE])
+      xORy <- Reduce(x = xORy, f = cbind)
+      xORy <- rowMeans(xORy)
+    })
+    pos.xyz <- as.data.frame(pos.xyz)
+    
+    # concatenate feature weights
+    loading.pos.xyz <- data.frame()
+    for(i in omics.type){
+      loading.pos.xyz <- rbind(loading.pos.xyz, model[["loadings"]][[i]])
+    }
+    colnames(loading.pos.xyz) <- c("Factor1", "Factor2", "Factor3")
+    
   }
   
   # preserve original order
