@@ -488,19 +488,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   reductionSet<-.get.rdt.set();
   
   Cairo(file=imgNm, width=10, height=h, type="png",unit="in", bg="white", dpi=dpi);
-  if(alg == "diablo"){
-    require(mixOmics)
-    res = reductionSet$dim.res    
-    set.seed(123) # for reproducibility, only when the `cpus' argument is not used
-    # this code takes a couple of min to run
-    perf.res <- mixOmics:::perf(res, validation = 'Mfold', folds = 10, nrepeat = 1, dist="max.dist")
-    diablo.comp <<- median(perf.res$choice.ncomp$WeightedVote)
-    plot(perf.res) 
-  }else if(alg == "mcia"){
-    res = reductionSet$dim.res 
-    p1<-plot.mcoin(type=3, res, phenovec=reductionSet$cls, sample.lab=FALSE, df.color=length(names(mdata.all)))   
-    print(p1)  
-  }else if(alg == "spectrum"){
+  if(alg == "spectrum"){
     if(!is.null(reductionSet$clustRes$eigenvector_analysis)){
       plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigenvector_analysis[,2]);
     }else{
@@ -1349,6 +1337,37 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   dev.off();
 }
 
+PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
+
+  require("Cairo");
+  library(ggplot2)
+  dpi<-as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  
+  sel.nms <- names(mdata.all)
+  data.list <- list()
+  for(i in 1:length(sel.nms)){
+    dat = readRDS(sel.nms[i])
+    data.list[[i]] <- dat$data.proc
+  }
+  reductionSet <- .get.rdt.set();
+}
+
+PlotDimredFactors <- function(imgNm, dpi=72, format="png"){
+  require("Cairo");
+  library(ggplot2)
+  dpi<-as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  
+  sel.nms <- names(mdata.all)
+  data.list <- list()
+  for(i in 1:length(sel.nms)){
+    dat = readRDS(sel.nms[i])
+    data.list[[i]] <- dat$data.proc
+  }
+  reductionSet <- .get.rdt.set();
+}
+
 ComputeSpectrum <- function(method="1", clusterNum="-1"){
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
@@ -1417,185 +1436,6 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   .set.rdt.set(reductionSet);
   return(1)
 }
-
-
-plot.mcoin <- function(type=1, x, axes=1:2, sample.lab=TRUE, sample.legend=TRUE, sample.color=1, phenovec=NULL, df.color=1, df.pch=NA, gene.nlab=0, ...) {
-  mcoin <- x
-  if (!inherits(mcoin, "mcia"))
-    stop("mcia object expected, please run mcia first")
-  
-  ndata <- length(mcoin$coa)
-  eig <- mcoin$mcoa$pseudoeig
-  cov2 <- mcoin$mcoa$cov2[, axes] #pseueig
-  
-  if (!length(sample.color) %in% c(1, nrow(mcoin$mcoa$SynVar)))
-    stop("length of sample.color should be either 1 or # of samples")
-  if (!length(df.color) %in% c(1, ndata))
-    stop("length of df.color should be either 1 or # of samples")
-  
-  if (is.na(df.pch[1])) {
-    pch <- c(16, 17, 15, 18, 1, 2, 0, 5)
-    if (ndata > 8) {
-      pch <- rep(pch, ceiling(ndata/8))[1:ndata]
-      warning("more than 8 datasets in mcia, df.pch is recycled used")
-    } else {
-      pch <- pch[1:ndata]
-    }
-  } else {
-    if (length(df.pch) != ndata)
-      stop("the length of df.pch should be the same with datasets in mcia, recycled use df.pch is not allowed")
-    pch <- df.pch
-  }
-  
-  #layout(matrix(c(1,2,3,4), 2, 2, byrow = TRUE))
-  if(type == 1){
-    splot.sample.mcia(mcoin, axis1=axes[1], axis2=axes[2], 
-                      col=sample.color, pch=pch,
-                      sample.lab=sample.lab,
-                      legend=sample.legend,
-                      sub="sample space",
-                      phenovec=phenovec)
-  }else if (type == 2){
-    
-    splot.mol.mcia(mcoin, axis1=axes[1], axis2=axes[2], col=df.color, pch=pch, gene.nlab=gene.nlab)
-  }else if (type == 3){
-    # plot c(2, 1)
-    # par(mar=c(3, 3, 3, 3))
-    # barplot(eig, col="black",names.arg=paste("eig", 1:length(eig)))
-    # legend(x="topright", pch=pch, col=df.color, legend=names(mcoin$coa), box.col="white")
-    
-    nkeig <- ncol(mcoin$mcoa$Tli)
-    eig <- mcoin$mcoa$pseudoeig[c(1:10)]
-    proe <- eig/sum(eig)
-    
-    par(mar=c(3, 4, 1, 4))
-    neig <- length(eig)
-    po <- barplot(eig, plot=FALSE)
-    barplot(eig,names.arg= 1:neig, col=c(rep("cyan", nkeig), rep("gray", neig-nkeig)), xlab="", ylab="Eigen Value")
-    
-    par(new=T) 
-    plot(cbind(po, proe), frame.plot=FALSE, pch=20, axes=FALSE, xlab="Eigen Vector", ylab="")
-    points(x=po, y=proe, pch=20)
-    lines(x=po, y=proe)
-    axis(side=4)
-    mtext(side=4, text="Percentage", line=2.5, cex=0.8)
-    legend(x="topright", pch=pch, col=df.color, legend=names(mcoin$coa), box.col="white")
-  }else{
-    #plot c(2, 2)
-    par(mar=c(4.5, 4.5, 0.5, 0.5))
-    plot(cov2, pch=".", main="", axes=TRUE, col=NA, 
-         xlab=paste("pseudoeig", axes[1]), ylab=paste("pseudoeig", axes[2]))
-    scatterutil.grid(0)
-    points(cov2, pch=pch, col=df.color)
-  }
-}
-
-splot.sample.mcia <- function(x, axis1=1, axis2=2, 
-                              col=1, pch=20, sample.lab=TRUE, 
-                              legend=TRUE, sub="",phenovec=NULL) {
-  
-  # plot matched samples from mcia
-  if (!inherits(x, "mcia"))
-    stop("x should be an object of class mcia!")
-  if (!is.null(phenovec))
-    phenovec <- as.factor(phenovec)
-  ndata <- length(x$coa)
-  dfxy <- x$mcoa$Tl1
-  syn <- x$mcoa$SynVar
-  pl <- pch
-  cl <- col
-  
-  if (!is.null(phenovec) && length(phenovec) != nrow(syn))
-    stop("the length of phenovec should be the same with # of samples")
-  if (!axis1 %in% 1:ncol(dfxy))
-    stop("Uncharacterized axis selected by axis1")
-  if (!axis2 %in% 1:ncol(dfxy))
-    stop("Uncharacterized axis selected by axis1")
-  if (!length(col) %in% c(1, nrow(syn), length(levels(phenovec))))
-    stop("length of col should be either 1 or # of samples")
-  if (!length(pch) %in% c(1, ndata))
-    stop("length of pch should be either 1 or # of data frame")
-  
-  sync <- c()
-  for (i in 1:(ndata)) {
-    sync <- rbind(sync, syn)
-  }
-  c <- x$mcoa$TL$"T"
-  
-  if (length(col) == 1) {
-    if (is.null(phenovec))
-      col <- rep(col, length(c)) else
-        col <- c(phenovec)
-  } else if (length(col) == length(levels(phenovec))) {
-    if (!is.null(phenovec))
-      col <- col[c(phenovec)]
-  } else
-    col <- rep(col, ndata)
-  
-  if (length(pch) == 1)
-    pch <- rep(pch, length(c)) else
-      pch <- rep(pch, table(c))
-  
-  par(mar = c(0.1, 0.1, 0.1, 0.1))
-  coo <- scatterutil.base(dfxy = dfxy, xax = axis1, yax = axis2, sub = sub, 
-                          xlim = NULL, ylim = NULL, grid = TRUE, 
-                          addaxes = TRUE, cgrid = 1, include.origin = TRUE, 
-                          origin = c(0, 0), csub = 1.25, possub = "bottomleft", 
-                          pixmap = NULL, contour = NULL, area = NULL, add.plot = FALSE)
-  
-  points(dfxy[, c(axis1, axis2)], pch=pch, col=col)
-  segments(sync[, axis1], sync[, axis2], dfxy[, axis1], dfxy[, axis2], col=col)
-  
-  if (sample.lab) {
-    lab <- rownames(syn)
-    text(x=syn[, axis1], y=syn[, axis2], lab)
-  }
-  
-  if (legend && any(c(length(cl) != 1, length(pl) != 1, !is.null(phenovec)))) {
-    
-    ple <- c()
-    if (length(pl) != 1) {
-      pl <- pl
-      ple <- names(x$coa)
-    }
-    
-    cle <- c()
-    if (length(cl) == nrow(syn)) {
-      cl <- cl
-      cle <- rownames(syn)
-    } else if (length(cl) == 1 && !is.null(phenovec)) {
-      cl <- sort(unique(c(phenovec)))
-      cle <- levels(phenovec)
-    } else if (length(cl) == length(levels(phenovec))) {
-      cl <- cl
-      cle <- levels(phenovec)
-    }
-    
-    pch.i <- c(pl, rep(20, length(cl)))
-    if (length(pl)==1)
-      col.i <- cl else
-        col.i <- c(rep(1, ndata), cl)
-    le.i <- c(ple, cle)
-    
-    legend("topleft", fill=FALSE, col=col.i, pch=pch.i, legend=le.i, border=F, bty="n")
-  }
-  box()
-}
-
-splot.mol.mcia <- function(x, axis1, axis2, col, pch, gene.nlab) {
-  ndata <- length(x$coa)
-  co <- x$mcoa$Tco[, c(axis1, axis2)]
-  c <- as.numeric(x$mcoa$TC$"T")
-  if (length(col) == 1)
-    col <- rep(col, ndata)
-  if (length(pch) == 1)
-    pch <- rep(pch, ndata)
-  made4::plotgenes(co, colpoints=0, nlab=gene.nlab, pch=".", axis1=1, axis2=2, sub="variable space")
-  for (i in 1:ndata) {
-    points(co[c %in% i, ], col=col[i], pch=pch[i])
-  }
-}
-
 
 GetDiagnosticSummary<- function(type){
   if(type %in% c("perturbation", "spectrum", "snf")){
