@@ -45,10 +45,10 @@ reduce.dimension <- function(reductionOpt){
     mcoin <- mcia(data.list, cia.nf=ncomps)
     
     pos.xyz = mcoin$mcoa$SynVar;
-    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomp))
+    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     
     loading.pos.xyz = mcoin$mcoa$Tco;
-    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomp))
+    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     rownames(loading.pos.xyz) = featureNms
     
     # get sample and weight names
@@ -99,7 +99,7 @@ reduce.dimension <- function(reductionOpt){
     diag(design) = 0;
     
     data.list <- lapply(data.list, t)
-    model = block.splsda(X = data.list, Y = Y, ncomp = ncomp, design = design)
+    model = block.splsda(X = data.list, Y = Y, ncomp = ncomps, design = design)
     
     # must calculate centroid factor scores
     variates <- model$variates
@@ -134,7 +134,7 @@ reduce.dimension <- function(reductionOpt){
     for(i in omics.type){
       loading.pos.xyz <- rbind(loading.pos.xyz, model[["loadings"]][[i]])
     }
-    colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomp));
+    colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps));
     
     var.exp <- model$prop_expl_var;
     var.exp$Y <- NULL;
