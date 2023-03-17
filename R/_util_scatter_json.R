@@ -204,7 +204,9 @@ my.json.scatter <- function(filenm){
   sink(filenm);
   cat(toJSON(netData));
   sink();
-  
+  reductionSet$pos.xyz <- pos.xyz;
+  reductionSet$loading.pos.xyz <- loading.data;
+
   .set.rdt.set(reductionSet);
   return(1);
 }
