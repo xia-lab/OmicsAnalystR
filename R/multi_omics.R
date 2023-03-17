@@ -1372,9 +1372,18 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   dev.off();
 }
 
-PlotDimredFactors <- function(imgNm, dpi=72, format="png"){
+PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
+  imgNm <<- imgNm;
+  dpi <<- dpi;
+  format2 <<- format;
+  save.image(file="test.RData");
+  format <- format2;
+  
   require("Cairo");
   library(ggplot2)
+  library(GGally)
+  library(grid)
+  
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
@@ -1385,6 +1394,69 @@ PlotDimredFactors <- function(imgNm, dpi=72, format="png"){
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
+  
+  pclabels <- paste0("Factor ", 1:pc.num);
+  
+  # draw plot
+  Cairo::Cairo(file = imgNm, unit="in", dpi=dpi, width=10, height=10, type=format, bg="white");
+  
+  data <- as.data.frame(reductionSet$pos.xyz[,1:pc.num]);
+  meta.info <- reductionSet$meta;
+  meta.info <- meta.info[match(rownames(data), rownames(meta.info)),]
+  
+
+  inx <- which(colnames(meta.info) == meta)
+  cls <- meta.info[, inx];
+  #cls.type <- mSetObj$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
+  cls.type <- "disc";
+  
+  if (cls.type == "disc"){ ## code to execute if metadata class is discrete
+    
+    uniq.cols <- GetColorSchema(unique(cls))
+    
+    # make plot
+    p <- ggpairs(data, 
+                 lower = list(continuous = wrap("points")), 
+                 upper = list(continuous = wrap("density")),
+                 diag = list(continuous = wrap("densityDiag", alpha = 0.5, color = NA)),
+                 columnLabels = pclabels, mapping = aes(color = cls))
+    
+    auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) + 
+      theme_bw() + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
+      scale_color_manual(values = uniq.cols) + guides(col = guide_legend(nrow = 1))
+    p <- p + theme_bw() + scale_color_manual(values = uniq.cols) + scale_fill_manual(values = uniq.cols) + 
+      theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"))
+    mylegend <- grab_legend(auxplot)
+    
+  } else { ## code to excute if metadata class is continuous
+    
+    colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(9, "Blues"))(20));
+    num.cls <- as.numeric(as.character(cls));
+    cols <- colors[as.numeric(cut(num.cls,breaks = 20))];
+    
+    # make plot
+    p <- ggpairs(data, lower = list(continuous = wrap("points", color = cols)), 
+                 upper = list(continuous = wrap("density", color = "#505050")),
+                 diag = list(continuous = wrap("densityDiag", fill = "#505050", color = NA)),
+                 columnLabels = pclabels)
+    
+    auxplot <- ggplot(data.frame(cls = num.cls), aes(x=cls, y=cls, color=cls)) + 
+      theme_bw() + geom_point(size = 6) + 
+      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
+      guides(col = guide_legend(nrow = 1))
+    
+    p <- p + theme_bw() + theme(plot.margin = unit(c(0.25, 0.25, 0.8, 0.25), "in"))
+    mylegend <- grab_legend(auxplot)
+    
+  }
+  
+  grid.newpage()
+  grid.draw(p)
+  vp = viewport(x=5, y=0.3, width=.35, height=.3, default.units = "in") ## control legend position
+  pushViewport(vp)
+  grid.draw(mylegend)
+  upViewport()
+  dev.off()
 }
 
 ComputeSpectrum <- function(method="1", clusterNum="-1"){
