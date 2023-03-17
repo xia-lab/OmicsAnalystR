@@ -1373,11 +1373,6 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  imgNm <<- imgNm;
-  dpi <<- dpi;
-  format2 <<- format;
-  save.image(file="test.RData");
-  format <- format2;
   
   require("Cairo");
   library(ggplot2)
