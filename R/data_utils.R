@@ -291,19 +291,12 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
 
 DoDimensionReductionIntegrative <- function(reductionOpt){
 
-    if(reductionOpt == "mcia" | reductionOpt == "mofa"){
-        if(!exists("unsupervised.reduce.dimension")){ # public web on same user dir
-            compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
-        }
-        dr.res <- unsupervised.reduce.dimension(reductionOpt);
-    } else {
-        if(!exists("supervised.reduce.dimension")){ # public web on same user dir
-            compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
-        }
-        dr.res <- supervised.reduce.dimension(reductionOpt);
+    if(!exists("reduce.dimension")){ # public web on same user dir
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_dimreduction.Rc");    
     }
+    dr.res <- reduce.dimension(reductionOpt);
 
-    return(1)
+    return(dr.res)
 }
 
 

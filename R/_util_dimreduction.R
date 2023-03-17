@@ -6,8 +6,7 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-unsupervised.reduce.dimension <- function(reductionOpt){  
-  
+reduce.dimension <- function(reductionOpt){  
   ncomps = 5;
   
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -46,15 +45,18 @@ unsupervised.reduce.dimension <- function(reductionOpt){
     mcoin <- mcia(data.list, cia.nf=ncomps)
     
     pos.xyz = mcoin$mcoa$SynVar;
-    colnames(pos.xyz) <- c(paste0("Factor", 1:5))
+    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     
     loading.pos.xyz = mcoin$mcoa$Tco;
-    colnames(pos.xyz) <- c(paste0("Factor", 1:5))
+    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     rownames(loading.pos.xyz) = featureNms
     
     # get sample and weight names
     names = rownames(pos.xyz)
     
+    var.exp <- t(mcoin$mcoa$cov2);
+    rownames(var.exp) <- colnames(pos.xyz);
+
     reductionSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100;
   } else if (reductionOpt == "mofa") {
     library(MOFA2)
@@ -86,126 +88,77 @@ unsupervised.reduce.dimension <- function(reductionOpt){
     rownames(loading.pos.xyz) <- loading.pos.xyz$feature
     loading.pos.xyz <- loading.pos.xyz[,-1]
 
+    var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]];
+
+  } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
+    library(mixOmics)
+    Y <- reductionSet$meta[,1];
+    
+    design = matrix(0.2, ncol = length(data.list), nrow = length(data.list), 
+                    dimnames = list(names(data.list), names(data.list)))
+    diag(design) = 0;
+    
+    data.list <- lapply(data.list, t)
+    model = block.splsda(X = data.list, Y = Y, ncomp = ncomps, design = design)
+    
+    # must calculate centroid factor scores
+    variates <- model$variates
+    variates$Y <- NULL
+    variates <- lapply(variates, function(df){
+      x_min <- min(df[,1])
+      x_max <- max(df[,1])
+      y_min <- min(df[,2])
+      y_max <- max(df[,2])
+      z_min <- min(df[,3])
+      z_max <- max(df[,3])
+      f4_min <- min(df[,4])
+      f4_max <- max(df[,4])
+      f5_min <- min(df[,5])
+      f5_max <- max(df[,5])
+      df[,1] <- (df[,1] - x_min)/ (x_max - x_min) - 0.5
+      df[,2] <- (df[,2] - y_min)/ (y_max - y_min) - 0.5
+      df[,3] <- (df[,3] - z_min)/ (z_max - z_min) - 0.5
+      df[,4] <- (df[,4] - f4_min)/ (f4_max - f4_min) - 0.5
+      df[,5] <- (df[,5] - f5_min)/ (f5_max - f5_min) - 0.5
+      df
+    })
+    pos.xyz <- lapply(c(Factor1='comp1', Factor2='comp2', Factor3='comp3', Factor4='comp4', Factor5='comp5'), function(w){
+      xORy <- lapply(variates, function(v) v[,w, drop=FALSE])
+      xORy <- Reduce(x = xORy, f = cbind)
+      xORy <- rowMeans(xORy)
+    })
+    pos.xyz <- as.data.frame(pos.xyz)
+    
+    # concatenate feature weights
+    loading.pos.xyz <- data.frame()
+    for(i in omics.type){
+      loading.pos.xyz <- rbind(loading.pos.xyz, model[["loadings"]][[i]])
+    }
+    colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps));
+    
+    var.exp <- model$prop_expl_var;
+    var.exp$Y <- NULL;
+    var.exp <- as.matrix(as.data.frame(var.exp));
+    rownames(var.exp) <- colnames(pos.xyz);
+
   }
   
   # preserve original order
   loading.pos.xyz <- loading.pos.xyz[match(featureNms, rownames(loading.pos.xyz)), ]
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ]
   
-  reductionSet$pos.xyz = pos.xyz;
-  reductionSet$loading.pos.xyz = loading.pos.xyz;
+  reductionSet$pos.xyz <- pos.xyz;
+  reductionSet$loading.pos.xyz <- loading.pos.xyz;
+  reductionSet$var.exp <- var.exp;
   
   hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
-  reductionSet$loading.enrich = loadingSymbols
-  reductionSet$loading.names = featureNms
-  reductionSet$omicstype <-names(data.list)
+  reductionSet$loading.enrich <- loadingSymbols
+  reductionSet$loading.names <- featureNms
+  reductionSet$omicstype <- names(data.list)
   
   reductionOptGlobal <<- reductionOpt
   .set.rdt.set(reductionSet);
   
   return(1)
-}
-
-
-supervised.reduce.dimension <- function(reductionOpt){ 
-  ncomps = 10;
-  
-  sel.nms <- names(mdata.all)[mdata.all==1];
-  data.list = list()
-  omics.type = vector();
-  featureNms <- vector();
-  
-  for(i in 1:length(sel.nms)){
-    
-    dataSet = readRDS(sel.nms[i])
-    omics.type <- c(omics.type, dataSet$type)
-    data.list[[dataSet$type]] <- dataSet$data.proc
-    
-    if(i == 1){       
-      comp.res1 = dataSet$comp.res
-      enrich.nms1 = dataSet$enrich_ids
-      comp.res.inx1 = rep(1, nrow(comp.res1));
-      featureNms <- rownames(dataSet$data.proc);
-    } else {
-      comp.res1 = rbind(comp.res1, dataSet$comp.res)
-      enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
-      comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
-      featureNms <- c(featureNms, rownames(dataSet$data.proc));
-    }
-  }
-  
-  reductionSet <- list()
-  reductionSet$comp.res = comp.res1
-  reductionSet$enrich_ids = enrich.nms1
-  reductionSet$comp.res.inx = comp.res.inx1
-  reductionSet$meta = dataSet$meta
-  
-  if(reductionOpt == "diablo"){
-    library(mixOmics)
-    Y <- reductionSet$meta[,1]
-    
-    dats = lapply(data.list, function(x){
-      x <- data.frame(x, stringsAsFactors = FALSE);
-      x <- t(x);
-    });
-    
-    design = matrix(0.2, ncol = length(dats), nrow = length(dats), 
-                    dimnames = list(names(dats), names(dats)));
-    diag(design) = 0;
-    
-    res = mixOmics:::block.splsda(X = dats, Y = Y, ncomp = 5, design = design)
-    pos.xyz <- res$variates[[1]]
-    pos.xyz2 <- res$variates[[2]]
-    
-    for(i in 1:length(res$loadings)){
-      pos = as.data.frame(res$loadings[[i]])
-      rn <- rownames(res$loadings[[i]])
-      pos <- unitAutoScale(pos);
-      res$loadings[[i]] <- pos
-      rownames(res$loadings[[i]]) <- rn
-    }
-    
-    loading.pos.xyz <- rbind(res$loadings[[1]], res$loadings[[2]])
-    rownames(loading.pos.xyz) = c(rownames(data.list[[1]]), rownames(data.list[[2]]))
-    loadingNames=rownames(loading.pos.xyz)
-    
-    names = rownames(pos.xyz)
-    
-    for(i in 1:length(names(data.list))){
-      if("prop_expl_var" %in% names(res)){
-        var.vec <- res$prop_expl_var
-      }else if("explained_variance" %in% names(res)){
-        var.vec <- res$explained_variance
-      }else{
-        var.vec <- 0;
-      }
-      reductionSet$misc$pct[[names(data.list)[i]]] = unname(signif(as.numeric(var.vec[[i]],4)))*100
-      if(i==1){
-        loading.pos.xyz <- res$loadings[[i]]
-        loadingNames=rownames(data.list[[i]])
-      }else{
-        loading.pos.xyz <- rbind(loading.pos.xyz, res$loadings[[i]])
-        loadingNames=c(loadingNames,rownames(data.list[[i]]))
-      }
-    }
-    rownames(loading.pos.xyz) <- loadingNames;
-    reductionSet$pos.xyz = pos.xyz;
-    reductionSet$loading.pos.xyz = loading.pos.xyz;
-    
-    if(! "diablo" %in% dim.res.methods){
-      dim.res.methods <<- c(dim.res.methods, "diablo")
-    }
-  }
-  
-  hit.inx <- match(loadingNames, unname(enrich.nms1));
-  loadingSymbols <- names(enrich.nms1[hit.inx]);
-  reductionSet$loading.enrich = loadingSymbols
-  reductionSet$loading.names = loadingNames
-  reductionSet$omicstype <-names(data.list)
-  
-  reductionOptGlobal <<- reductionOpt
-  .set.rdt.set(reductionSet);
-  
-    return(1);
 }

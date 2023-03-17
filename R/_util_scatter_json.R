@@ -29,7 +29,8 @@ my.json.scatter <- function(filenm){
   Sys.setenv(RGL_USE_NULL = TRUE)
   library(rgl)
   library(igraph)
-  pos.xyz =  reductionSet$pos.xyz
+  pos.xyz <-  reductionSet$pos.xyz
+  pos.xyz <- unitAutoScale(pos.xyz);
   nodes <- vector(mode="list");
   names <- c(rownames(pos.xyz))
   metadf = reductionSet$meta
@@ -90,6 +91,7 @@ my.json.scatter <- function(filenm){
   library(RJSONIO)
     
     loading.data = reductionSet$loading.pos.xyz
+    loading.data <- unitAutoScale(loading.data);
     cluster = reductionSet$loadingCluster
     aLoading=list();
     aLoading$objects = "NA";
