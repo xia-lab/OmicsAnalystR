@@ -59,8 +59,11 @@ reduce.dimension <- function(reductionOpt){
 
     reductionSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100;
   } else if (reductionOpt == "mofa") {
+    tmp_dir <- tempdir();
+    do.call(file.remove, list(list.files(tmp_dir, full.names = TRUE, recursive = TRUE)));
+
     library(MOFA2)
-    
+
     # set up model
     data.list <- lapply(data.list, as.matrix)
     MOFAobject <- create_mofa(data.list);
@@ -76,7 +79,7 @@ reduce.dimension <- function(reductionOpt){
       training_options = train_opts
     );
     
-    model <- run_mofa(MOFAobject, save_data = FALSE, use_basilisk = TRUE);
+    model <- run_mofa(MOFAobject, save_data = FALSE, use_basilisk = TRUE, outfile="mofa_model.hdf5");
     
     factors <- get_factors(model, as.data.frame = T);
     pos.xyz <- reshape2::dcast(factors, sample ~ factor, value.var = "value")
