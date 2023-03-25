@@ -1143,9 +1143,9 @@ ComputePathHeatmapTable <- function(dataSet){
   # scale each gene 
   dat <- t(scale(t(data)));
   
-  rankPval = order(as.vector(stat.pvals));
-  stat.pvals = stat.pvals[rankPval];
-  dat = dat[rankPval,];
+  rankPval <- order(as.vector(stat.pvals));
+  stat.pvals <- stat.pvals[rankPval];
+  dat <- dat[rankPval,];
   reductionSet <- .get.rdt.set();
   if (length(reductionSet$clustVec) > 1) {
     vec <- reductionSet$clustVec;

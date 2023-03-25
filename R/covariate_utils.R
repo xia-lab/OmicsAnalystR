@@ -56,23 +56,22 @@ GetCovDnIDs <- function(){
 ##############################################
 
 GetCovSigFileName <-function(dataName){
-  dataSet <- qs::qread(dataName)
+  dataSet <- qs::qread(dataName);
   dataSet$analSet$cov$sig.nm;
 }
 
 GetCovSigMat<-function(dataName){
-  dataSet <- qs::qread(dataName)
- 
+  dataSet <- qs::qread(dataName);
   return(CleanNumber(as.matrix(dataSet$analSet$cov$sig.mat)));
 }
 
 GetCovSigRowNames<-function(dataName){
-  dataSet <- qs::qread(dataName)
+  dataSet <- qs::qread(dataName);
   rownames(dataSet$analSet$cov$sig.mat);
 }
 
 GetCovSigColNames<-function(dataName){
-  dataSet <- qs::qread(dataName)
+  dataSet <- qs::qread(dataName);
   colnames(dataSet$analSet$cov$sig.mat);
 }
 
@@ -294,6 +293,9 @@ CovariateScatter.Anal <- function(dataName,
   dataSet$analSet$cov <- cov; 
   # for plotting adjp vs p
   dataSet$analSet$cov.mat <- both.mat; 
+
+  #reformat for comp.res
+
   jsonNm <- gsub(paste0(".", format), ".json", imgName);
   jsonObj <- RJSONIO::toJSON(both.mat);
   sink(jsonNm);
@@ -373,5 +375,69 @@ AddMsg <- function(msg){
   msg.vec <<- c(msg.vec, msg);
   if(!.on.public.web){
     print(msg);
+  }
+}
+
+
+#'Plot compound summary for multi-linear regression tool
+#'@param cmpdNm Input the name of the compound to plot
+#'@param format Input the format of the image to create
+#'@param dpi Input the dpi of the image to create
+#'@param width Input the width of the image to create
+#'@param meta Input the metadata to visualize
+#'@param version version
+#'@author Jessica Ewald\email{jessica.ewald@mcgill.ca}
+#'McGill University, Canada
+#'License: GPL-3 License
+#'@export
+#'
+PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png", dpi=72, width=NA){
+  dataSet <- qs::qread(dataName);
+  rdtSet <- .get.rdt.set();
+  
+  if(.on.public.web){
+    load_ggplot()
+  }
+  
+  if(is.na(width)){
+    w <- 7.5;
+  }else{
+    w <- width;
+  }
+  
+  meta.info <- rdtSet$dataSet$meta.info
+  sel.cls <- meta.info[,meta]
+  cls.type <- unname(rdtSet$dataSet$meta.types[meta])
+  xlab = meta;
+  h <- 6;
+  imgName <- rdtSet$dataSet$url.var.nms[cmpdNm];
+  imgName <- paste(imgName, "_", meta, "_", version, "_summary_dpi", dpi, ".", format, sep="");
+  
+  df.norm <- data.frame(value=rdtSet$dataSet$norm[, cmpdNm], name = sel.cls)
+  
+  col <- unique(GetColorSchema(sel.cls));
+  
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+  if(cls.type == "disc"){
+    p <- ggplot2::ggplot(df.norm, aes(x=name, y=value, fill=name)) + geom_boxplot(outlier.shape = NA, outlier.colour=NA) + theme_bw() + geom_jitter(size=1) 
+    p <- p + scale_fill_manual(values=col) + theme(axis.text.x = element_text(angle=90, hjust=1))
+    p <- p + ggtitle(cmpdNm) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
+    p <- p + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
+    p <- p + theme(plot.margin = margin(t=0.15, r=0.25, b=0.15, l=0.25, "cm"), axis.text = element_text(size=10)) 
+  }else{
+    p <- ggplot2::ggplot(df.norm, aes(x=name, y=value)) 
+    p <- p + geom_point(size=2) + theme_bw()  + geom_smooth(method=lm,se=T)     
+    p <- p + theme(axis.text.x = element_text(angle=90, hjust=1)) + guides(size="none")
+    p <- p + ggtitle(cmpdNm) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
+    p <- p + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
+    p <- p + theme(plot.margin = margin(t=0.15, r=0.25, b=0.15, l=0.25, "cm"), axis.text = element_text(size=10)) 
+  }
+  print(p)
+  dev.off()
+
+  if(.on.public.web){
+    return(imgName);
+  }else{
+    return(.set.rdt.set(rdtSet));
   }
 }
