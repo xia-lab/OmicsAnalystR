@@ -75,14 +75,14 @@ ComputeSubnetStats <- function(comps){
         nd.queries <- V(g)$name;
         sel.nms <- names(mdata.all)[mdata.all==1];
         nd.res <- "";
-        dataSet <- readRDS(sel.nms[reductionSet$micidx]);
+        dataSet <- qs::qread(sel.nms[reductionSet$micidx]);
         lbl = reductionSet$taxlvl
      
         nms <- unique(dataSet$taxa_table[,reductionSet$taxlvl]);
           if(sum(nms %in% nd.queries)>0 && !grepl(lbl, nd.res)){
             nd.res <- paste0(lbl,": ", sum(nms %in% nd.queries), "; ", nd.res)
           }
-           dataSet <- readRDS(sel.nms[reductionSet$residx]);
+           dataSet <- qs::qread(sel.nms[reductionSet$residx]);
         lbl = "Metabolite"
         
         nms <- unique(unname(dataSet$enrich_ids));
@@ -103,7 +103,7 @@ ComputeSubnetStats <- function(comps){
       sel.nms <- names(mdata.all)[mdata.all==1];
       nd.res <- "";
       for( i in 1:length(sel.nms)){
-           dataSet <- readRDS(sel.nms[[i]]);
+           dataSet <- qs::qread(sel.nms[[i]]);
         if(dataSet$type == "mirna"){
           lbl = "miRNA"
         }else if(dataSet$type == "rna_b"){

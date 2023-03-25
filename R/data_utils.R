@@ -27,7 +27,7 @@ Init.Data <- function(){
 
   dim.res.methods <<- vector();
   jsonNms <<- list()
-  reductionSet<- list()
+  reductionSet <- list()
   reductionSet$clustVec <- "NA";
   fileTypeu <<- "NA"
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")
@@ -66,7 +66,10 @@ Init.Data <- function(){
   }
 
   cmdSet <- list(annotated=FALSE);
+  msgSet <- list(annotated=FALSE);
+
   saveSet(cmdSet, "cmdSet");
+  saveSet(msgSet, "msgSet");
 
   .set.rdt.set(reductionSet);
 }
@@ -84,7 +87,7 @@ SetOrganism <- function(org){
 #'@export
 #'
 SanityCheckData <- function(fileName){
-  dataSet <- readRDS(fileName);
+  dataSet <- qs::qread(fileName);
   
   # general sanity check then omics specific
   
@@ -191,7 +194,7 @@ SanityCheckData <- function(fileName){
 # for now only most current will be selected
 RegisterData <- function(dataSet){
   dataName <- dataSet$name;
-  saveRDS(dataSet, file=dataName);
+  qs::qsave(dataSet, file=dataName);
   mdata.all <<- lapply(mdata.all, function(x){ x <- 0;});
   mdata.all[[dataName]] <<- 1;
   print(paste("Sucessfully registered data:", dataName));
@@ -201,7 +204,7 @@ RegisterData <- function(dataSet){
 # only for switching single expression data results
 SetCurrentData <- function(nm){
   #if(dataSet$name != nm){
-    dataSet <- readRDS(nm);
+    dataSet <- qs::qread(nm);
   #}
   return(1);
 }
@@ -270,7 +273,7 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
   if(omicstype != "NA"){
   sel.nms <- names(mdata.all)[mdata.all==1];
     for(i in 1:length(sel.nms)){
-      dat = readRDS(sel.nms[i])
+      dat = qs::qread(sel.nms[i])
       if(dat$type == omicstype){
         dataSet <- dat;
       }
@@ -346,7 +349,7 @@ doScatterJson <- function(filenm){
 }
 
 PlotDataProfile<-function(dataName,type, boxplotName, pcaName){
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   if(type=="normalize"){
     qc.boxplot2(as.matrix(dataSet$data.proc), boxplotName);
     qc.pcaplot2(as.matrix(dataSet$data.proc), pcaName);
@@ -426,7 +429,7 @@ qc.pcaplot2 <- function(x, imgNm){
 
 ScalingData <-function (nm,opt){
   #if(dataSet$name != nm){
-    dataSet <- readRDS(nm);
+    dataSet <- qs::qread(nm);
   #}
   return(ScalingDataOmics(dataSet, opt))
 }
@@ -473,13 +476,13 @@ PlotCluster <-function(opt, name, filenm, dpi, type){
 ###
 
 ReadDataForMetaInfo<-function(dataName){
-  dataSet <- readRDS(dataName)
+  dataSet <- qs::qread(dataName)
   return(colnames(dataSet$meta));
 }
 
 GetFeatureNum <-function(dataName){
   #if(dataSet$name != dataName){
-    dataSet <- readRDS(dataName);
+    dataSet <- qs::qread(dataName);
   #}
   return(nrow(dataSet$data.proc));
 }
@@ -498,7 +501,7 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
         omics.inx = 1;
         sel.nms <- names(mdata.all)[mdata.all==1];
         for(i in 1:length(sel.nms)){
-        dataSet <- readRDS(sel.nms[i]);
+        dataSet <- qs::qread(sel.nms[i]);
             if(omics == dataSet$type){
                 omics.inx = i;
             }
@@ -540,29 +543,6 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
   return(filenm);
 }
 
-ClearFactorStrings<-function(cls.nm, query){
-  # remove leading and trailing space
-  query<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", query, perl=TRUE);
-  
-  # kill multiple white space
-  query <- gsub(" +","_",query);
-  # remove non alphabets and non numbers 
-  query <- gsub("[^[:alnum:] ]", "_", query);
-  
-  # test all numbers (i.e. Time points)
-  chars <- substr(query, 0, 1);
-  num.inx<- chars >= '0' & chars <= '9';
-  if(all(num.inx)){
-    query = as.numeric(query);
-    nquery <- paste(cls.nm, query, sep="_");
-    query <- factor(nquery, levels=paste(cls.nm, sort(unique(query)), sep="_"));
-  }else{
-    query[num.inx] <- paste(cls.nm, query[num.inx], sep="_");
-    query <- factor(query);
-  }
-  return (query);
-}
-
 GetCurrentJson <-function(type){
   return(jsonNms[[type]]);
 }
@@ -579,7 +559,7 @@ GetCurrentDatasets <-function(type){
 
 SetGroupContrast <- function(dataName, grps, meta="NA"){
   #if(dataSet$name != dataName){
-    dataSet <- readRDS(dataName);
+    dataSet <- qs::qread(dataName);
   #}
 
     if(meta == "NA"){
@@ -607,7 +587,7 @@ SetGroupContrast <- function(dataName, grps, meta="NA"){
 # the data in the memory could be changed
 GetGroupNames <- function(dataName, meta="NA"){
     #if(dataSet$name != dataName){
-        dataSet <- readRDS(dataName);
+        dataSet <- qs::qread(dataName);
     #}
     if(meta == "NA"){
         return(levels(factor(dataSet$meta[,1])));
@@ -633,7 +613,7 @@ ReadMetaData <- function(metafilename){
     sel.nms <- names(mdata.all)
 
    for(i in 1:length(sel.nms)){
-    dataSet <- readRDS(sel.nms[i]);
+    dataSet <- qs::qread(sel.nms[i]);
     data.smpl.nms <- colnames(dataSet$data.proc)
     nm.hits <- data.smpl.nms %in% smpl.nms;
     if(!all(nm.hits)){
@@ -662,7 +642,7 @@ ReadMetaData <- function(metafilename){
 }
 
 CheckDataType <- function(dataName, type){
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   isOk <- T;
   data <- dataSet$data.raw
   containsNeg <- "TRUE" %in% names(table(data < 0)) 
@@ -718,7 +698,7 @@ CheckDataType <- function(dataName, type){
 }
 
 CheckNormalizedData <- function(dataName, omicsType){
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   dataSet$isValueNormalized <- "true";
 
   dataSet$type <- omicsType
@@ -741,7 +721,7 @@ CheckNormalizedData <- function(dataName, omicsType){
 }
 
 SetParamsNormalizedData <- function(dataName){
-    dataSet <- readRDS(dataName);
+    dataSet <- qs::qread(dataName);
 
     int.mat <- dataSet$data.annotated;
     msg.vec <- "";
@@ -761,7 +741,7 @@ SetParamsNormalizedData <- function(dataName){
 
 RemoveMissingPercent <- function(dataName="", percent=0.5){
 
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   
   int.mat <- dataSet$data.annotated;
   good.inx1 <- apply(is.na(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% NA for each feature
@@ -784,7 +764,7 @@ RemoveMissingPercent <- function(dataName="", percent=0.5){
 ImputeMissingVar <- function(dataName="", method="min"){
 
   # get parameters
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   int.mat <- dataSet$data.annotated;
   new.mat <- NULL;
   msg.vec <- "";
@@ -854,7 +834,7 @@ ImputeMissingVar <- function(dataName="", method="min"){
 
 
 FilteringData <- function(nm, countOpt="pct",count, var){
-  dataSet <- readRDS(nm);
+  dataSet <- qs::qread(nm);
   return(FilteringDataOmics(dataSet,countOpt, count,  var))
 }
 
@@ -941,7 +921,7 @@ ReplaceMissingByLoD <- function(int.mat){
 
 
 SetCustomSig <- function(dataName, ids){
-    dataSet <- readRDS(dataName);
+    dataSet <- qs::qread(dataName);
     lines <- strsplit(ids, "\r|\n|\r\n")[[1]];
     lines<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", lines, perl=TRUE);
 
@@ -998,25 +978,14 @@ GetRCommandHistory <- function(){
 }
 
 
-ReadMetaDataFile <- function(metafilename){
-  metadata <- .readDataTable(metafilename);
-    metadata[is.na(metadata)] = "NA"
-    if(class(metadata) == "try-error"){
-      AddErrMsg("Failed to read in the metadata file! Please make sure that the metadata file is in the right format and does not have empty cells or contains NA.");
-      return(0);
-    }
-  qs::qsave(metadata, "metadata.qs");
-  return(1);
-}
-
-
 ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   # need to handle reading .csv files too!
-  
+  rdtSet <- .get.rdt.set();
+
   data <- .readDataTable(fileName)
   dataSet <- list();
   
-  meta.info <- qs::qread("metadata.qs");
+  meta.info <- rdtSet$dataSet$meta.info;
   
   if(class(data) == "try-error" || ncol(data) == 1){
     AddErrMsg("Data format error. Failed to read in the data!");

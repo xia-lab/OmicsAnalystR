@@ -18,7 +18,7 @@
 #'
 AnnotateMicrobiomeData <- function(dataName,org){
   library("tidyverse")
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   
   data <- dataSet$data.raw;
   #  mic.vec <- rownames(data);
@@ -87,7 +87,7 @@ AnnotateMicrobiomeData <- function(dataName,org){
 AnnotateGeneData <- function(dataName, org, idtype){
   
   #if(dataSet$name != dataName){
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   #}
   
   if(org == "NA"){
@@ -207,7 +207,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
 #'@export
 #'
 AnnotateMetaboliteData <- function(dataName, idtype){
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   dataSet$name <- dataName
   
   data <- dataSet$data.raw;
@@ -261,7 +261,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
 #'
 SkippingAnnotation <- function(dataName, idtype){
   
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
   
   data <- dataSet$data.raw;
   qvec <- rownames(data);

@@ -16,7 +16,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
         if(!(is.null(reductionSet$taxlvl)) & reductionSet$taxlvl != "Feature"){
 
           micidx <-reductionSet$micidx 
-          dataSet = readRDS(sel.nms[micidx])
+          dataSet = qs::qread(sel.nms[micidx])
           dat1 = dataSet$data.proc.taxa[[reductionSet$taxlvl]]
           meta1 = dataSet$meta
           comp.res1 = dataSet$comp.res.taxa[[reductionSet$taxlvl]]
@@ -30,7 +30,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
           seeds <- rownames(dataSet$sig.mat.tax[[reductionSet$taxlvl]]) 
         
           residx <-reductionSet$residx 
-          dataSet2 = readRDS(sel.nms[residx])
+          dataSet2 = qs::qread(sel.nms[residx])
           dat2 = dataSet2$data.proc
           meta2 = dataSet2$meta
           comp.res1 = rbind(comp.res1, dataSet2$comp.res)
@@ -48,7 +48,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
 
           for(i in 1:length(sel.nms)){
           if(i == 1){
-            dataSet = readRDS(sel.nms[i]);
+            dataSet = qs::qread(sel.nms[i]);
             dat1 = dataSet$data.proc;
             meta1 = dataSet$meta;
             comp.res1 = dataSet$comp.res;
@@ -60,7 +60,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
             expr.vec[comp.inx] = -log(as.numeric(comp.res1[which(rownames(comp.res1) %in% names(expr.vec)) ,2]));
             seeds <- rownames(dataSet$sig.mat);
           }else{
-            dataSet2 = readRDS(sel.nms[i]);
+            dataSet2 = qs::qread(sel.nms[i]);
             dat2 = dataSet2$data.proc;
             meta2 = dataSet2$meta;
             comp.res1 = rbind(comp.res1, dataSet2$comp.res);
@@ -196,7 +196,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
     if(!(is.null(reductionSet$taxlvl)) & reductionSet$taxlvl != "Feature"){
       
 
-        dataSet <- readRDS(sel.nms[[reductionSet$micidx]]);   
+        dataSet <- qs::qread(sel.nms[[reductionSet$micidx]]);   
         dat.nms <- unique(dataSet$taxa_table[,reductionSet$taxlvl]);
         inx <- which(V(g)$name %in% dat.nms);
         inxNum <- V(g)$name %in% dat.nms;
@@ -205,7 +205,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
         names(numOfTypes)[reductionSet$micidx] <- sel.nms[[reductionSet$micidx]];
         V(g)$layers[inx] <- sel.nms[[reductionSet$micidx]];
         
-        dataSet <- readRDS(sel.nms[[reductionSet$residx]]);   
+        dataSet <- qs::qread(sel.nms[[reductionSet$residx]]);   
         dat.nms <- unique(unname(dataSet$enrich_ids));
         inx <- which(V(g)$name %in% dat.nms);
         inxNum <- V(g)$name %in% dat.nms;
@@ -231,7 +231,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
       
       for( i in 1:length(sel.nms)){
         
-        dataSet <- readRDS(sel.nms[[i]]);   
+        dataSet <- qs::qread(sel.nms[[i]]);   
         dat.nms <- unique(unname(dataSet$enrich_ids));
         inx <- which(V(g)$name %in% dat.nms)
         inxNum <- V(g)$name %in% dat.nms

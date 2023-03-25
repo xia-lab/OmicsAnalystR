@@ -13,7 +13,7 @@ my.json.scatter <- function(filenm){
   sel.nms <- names(mdata.all)[mdata.all==1];
 
   for(i in 1:length(sel.nms)){
-    dataSet = readRDS(sel.nms[i])
+    dataSet = qs::qread(sel.nms[i])
     sig.mats[[dataSet$type]] <- dataSet$sig.mat
     omicstype.vec <- c(omicstype.vec, dataSet$type)
     if(i == 1){

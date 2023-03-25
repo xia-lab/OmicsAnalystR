@@ -11,7 +11,7 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
     meta = 1;
   }
   
-  dataSet <- readRDS(filenm);
+  dataSet <- qs::qread(filenm);
   
   # check if just p.val update or whole method update
   if(dataSet$de.method == alg){
@@ -117,7 +117,7 @@ DoStatComparison <- function(filenm, alg="limma", meta, selected, meta.vec, norm
 
 
 UpdateDE<-function(dataName, p.lvl = 0.05){
-  dataSet <- readRDS(dataName);
+  dataSet <- qs::qread(dataName);
 
   res <- dataSet$comp.res
   
@@ -180,13 +180,13 @@ DoStatComparisonVis <- function(filenm, alg, meta, selected, meta.vec, omicstype
   }
   if(meta.vec == "NA"){ # process page
     #if(dataSet$name != filenm){
-    dataSet <- readRDS(filenm);
+    dataSet <- qs::qread(filenm);
     #}
   }else{
     if(omicstype != "NA"){
       sel.nms <- names(mdata.all)
       for(i in 1:length(sel.nms)){
-        dat = readRDS(sel.nms[i])
+        dat = qs::qread(sel.nms[i])
         if(dat$type == omicstype){
           dataSet = dat;
         }

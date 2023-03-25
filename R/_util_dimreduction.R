@@ -16,7 +16,7 @@ reduce.dimension <- function(reductionOpt){
   
   for(i in 1:length(sel.nms)){
     
-    dataSet = readRDS(sel.nms[i])
+    dataSet = qs::qread(sel.nms[i])
     omics.type <- c(omics.type, dataSet$type)
     data.list[[dataSet$type]] <- dataSet$data.proc
     
@@ -33,7 +33,7 @@ reduce.dimension <- function(reductionOpt){
     }
   }
   
-  reductionSet <- list()
+  reductionSet <- .get.rdt.set();
   reductionSet$comp.res = comp.res1
   reductionSet$enrich_ids = enrich.nms1
   reductionSet$comp.res.inx = comp.res.inx1

@@ -112,25 +112,20 @@ RemoveDuplicates <- function(data, lvlOpt, quiet=T){
 # utils to remove from
 # within, leading and trailing spaces
 # remove /
-ClearFactorStrings<-function(cls.nm, query){
+ClearFactorStrings<-function(query,cls.nm){
   # remove leading and trailing space
   query<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", query, perl=TRUE);
-  
   # kill multiple white space
   query <- gsub(" +","_",query);
-  # remove non alphabets and non numbers 
+  # remove non alphabets and non numbers
   query <- gsub("[^[:alnum:] ]", "_", query);
-  
-  # test all numbers (i.e. Time points)
   chars <- substr(query, 0, 1);
   num.inx<- chars >= '0' & chars <= '9';
   if(all(num.inx)){
-    query <- as.numeric(query);
-    nquery <- paste(cls.nm, query, sep="_");
-    query <- factor(nquery, levels=paste(cls.nm, sort(unique(query)), sep="_"));
+    query = as.numeric(query);
+    query <- factor(query, levels=sort(unique(query)));
   }else{
-    query[num.inx] <- paste(cls.nm, query[num.inx], sep="_");
-    query <- factor(query);
+   query<-factor(query, levels= unique(query))
   }
   return (query);
 }
@@ -909,4 +904,26 @@ readSet <- function(obj=NA, set=""){
       }
     #}
     return(obj);
+}
+
+
+#'Replace infinite numbers
+#'@description Replace -Inf, Inf to 99999 and -99999
+#'@param bdata Input matrix to clean numbers
+#'@author Jeff Xia\email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: GNU GPL (>= 2)
+#'
+CleanNumber <-function(bdata){
+  if(sum(bdata==Inf)>0){
+    inx <- bdata == Inf;
+    bdata[inx] <- NA;
+    bdata[inx] <- 999999;
+  }
+  if(sum(bdata==-Inf)>0){
+    inx <- bdata == -Inf;
+    bdata[inx] <- NA;
+    bdata[inx] <- -999999;
+  }
+  bdata;
 }

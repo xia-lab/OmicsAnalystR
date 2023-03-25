@@ -13,7 +13,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
     for(i in 1:length(sel.nms)){
       nm = sel.nms[i]
       
-      dataSet <- readRDS(nm);
+      dataSet <- qs::qread(nm);
       
       if(i==1){
         all.mat <- dataSet$data.proc
@@ -68,7 +68,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
     reductionSet$corr.axis.nms <- list();
     for(i in 1:length(sel.nms)){
       nm = sel.nms[i]
-      dataSet <- readRDS(nm);
+      dataSet <- qs::qread(nm);
       
       inx = which( rownames(reductionSet$loading.pos.xyz) %in% rownames(dataSet$data.proc));
       loading.df <- reductionSet$loading.pos.xyz[inx, ]
@@ -122,7 +122,7 @@ DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkI
     sel.nms <- names(mdata.all)[sel.inx];
     for(i in 1:length(sel.nms)){
       nm = sel.nms[i]
-      dataSet <- readRDS(nm);
+      dataSet <- qs::qread(nm);
       labels <- c(labels, dataSet$enrich_ids);
     } 
     
@@ -240,11 +240,11 @@ DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkI
       micidx <- reductionSet$micidx
       residx <- reductionSet$residx
       
-      dataSet <- readRDS(sel.nms[micidx]);
+      dataSet <- qs::qread(sel.nms[micidx]);
       
       labels <- unique(dataSet$taxa_table[,taxlvl])
       labels <- setNames(labels, labels)
-      dataSet <- readRDS(sel.nms[residx]);
+      dataSet <- qs::qread(sel.nms[residx]);
       labels <- c(labels, dataSet$enrich_ids);
       
       corr.mat <- reductionSet$corr.mat.taxa[[taxlvl]]
@@ -388,7 +388,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   m2midx<-0
   for(i in 1:length(sel.nms)){
     nm = sel.nms[i]
-    dataSet <- readRDS(nm);
+    dataSet <- qs::qread(nm);
     labels <- c(labels, dataSet$enrich_ids);
     
     if(exists("m2m",dataSet)){
@@ -555,7 +555,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   data <- list()
   labels <- vector();
   for(i in 1:length(sel.nms)){
-    dataSet = readRDS(sel.nms[i])
+    dataSet = qs::qread(sel.nms[i])
     dat <- dataSet$data.proc
     df <- data.frame(dat, stringsAsFactors = FALSE)
     df <- t(df)
@@ -590,7 +590,7 @@ NormalizeDataWrapper <-function (nm, opt, colNorm){
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
     for(i in 1:length(sel.nms)){
-      dataSet = readRDS(sel.nms[i])
+      dataSet = qs::qread(sel.nms[i])
       data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
       dataSet$data.proc <- data;
       if(exists("m2m",dataSet)){
@@ -605,7 +605,7 @@ NormalizeDataWrapper <-function (nm, opt, colNorm){
     return(1)
   }else{
     
-    dataSet <- readRDS(nm);
+    dataSet <- qs::qread(nm);
     data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
     dataSet$data.proc <- data;
 
@@ -626,7 +626,7 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
     for(i in 1:length(sel.nms)){
-      dataSet = readRDS(sel.nms[i])
+      dataSet = qs::qread(sel.nms[i])
       data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
       dataSet$data.proc <- data;
       if(exists("m2m",dataSet)){
@@ -641,7 +641,7 @@ ScaleDataWrapper <-function (nm, scaleNorm){
     return(1)
   }else{
     
-    dataSet <- readRDS(nm);
+    dataSet <- qs::qread(nm);
     
     data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
     dataSet$data.proc <- data;
@@ -790,7 +790,7 @@ ReadOmicsData <- function(fileName, omics.type=NA) {
       # test NA
       na.inx <- is.na(cls.lbls);
       cls.lbls[na.inx] <- "NA";
-      cls.lbls <- ClearFactorStrings(cls.nm, cls.lbls);
+      cls.lbls <- ClearFactorStrings(cls.lbls, cls.nm);
       
       meta.info[[cls.nm]] <- cls.lbls;
     }
@@ -901,7 +901,7 @@ ReadOmicsData <- function(fileName, omics.type=NA) {
 }
 
 SetOmicsType <- function(fileName, omics.type=NA) {
-  dataSet <- readRDS(fileName)
+  dataSet <- qs::qread(fileName)
   dataSet$type <- omics.type
   if(omics.type == "rna_b"){
     readableType <- "Transcriptomics";
@@ -946,7 +946,7 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   pct <- list();
   
   for(i in 1:length(sel.nms)){
-    dataSet = readRDS(sel.nms[i])
+    dataSet = qs::qread(sel.nms[i])
     x <- dataSet$data.proc
     pca <- prcomp(t(na.omit(x)), center=T, scale=T);
     imp.pca<-summary(pca)$importance;
@@ -1017,7 +1017,7 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
   merged.df <- data.frame
   df.list <- list()
   for(i in 1:length(sel.nms)){
-    dataSet <- readRDS(sel.nms[i])
+    dataSet <- qs::qread(sel.nms[i])
     dat <- dataSet$data.proc
     if(i==1){
       st <- stack(as.data.frame(dat))
@@ -1049,7 +1049,7 @@ GetMultiSummary<- function(){
   featureNum <- "";
   dat.nms <- "";
   for(i in 1:length(sel.nms)){
-    dataSet = readRDS(sel.nms[i])
+    dataSet = qs::qread(sel.nms[i])
     dat <- dataSet$data.proc
     if(i == 1){
       cls.lbls <- dataSet$meta[,1]
@@ -1069,9 +1069,8 @@ GetMultiSummary<- function(){
 }
 
 GetOmicsDataDims <- function(dataName){
-  #if(dataSet$name != dataName){
-  dataSet <- readRDS(dataName);
-  #}
+print(paste0(dataName, "=====dataname"));
+  dataSet <- qs::qread(dataName);
   dm <- dim(dataSet$data.proc);
   naNum <- sum(is.na(dataSet$data.proc));
   return(c(dm, naNum));
@@ -1113,7 +1112,7 @@ ComputeHeatmap <- function(fileNm, type){
   .set.rdt.set(reductionSet);
   res.list <- list()
   for(i in 1:length(sel.nms)){
-    dataSet <- readRDS(sel.nms[i])
+    dataSet <- qs::qread(sel.nms[i])
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
   }
@@ -1281,7 +1280,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   sel.nms <- names(mdata.all)
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = readRDS(sel.nms[i])
+    dat = qs::qread(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -1292,7 +1291,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   
   fig.list <- list()
   for(i in 1:length(sel.nms)){
-    dataSet = readRDS(sel.nms[i])
+    dataSet = qs::qread(sel.nms[i])
     x <- dataSet$data.proc
     pca <- prcomp(t(na.omit(x)));
     imp.pca<-summary(pca)$importance;
@@ -1385,7 +1384,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   sel.nms <- names(mdata.all)
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = readRDS(sel.nms[i])
+    dat = qs::qread(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -1459,7 +1458,7 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = readRDS(sel.nms[i])
+    dat = qs::qread(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -1498,7 +1497,7 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = readRDS(sel.nms[i])
+    dat = qs::qread(sel.nms[i])
     data.list[[i]] <- t(dat$data.proc)
   }
   reductionSet <- .get.rdt.set();
@@ -1661,7 +1660,7 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = readRDS(sel.nms[i])
+    dat = qs::qread(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -1715,7 +1714,7 @@ ComputeSilhouette <-function(type){
   
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = readRDS(sel.nms[i])
+    dat = qs::qread(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   
@@ -1839,7 +1838,7 @@ CheckMetaIntegrity <- function(){
   cnms <- list()
   metas <- list();
   for(i in 1:length(sel.nms)){
-    dat = readRDS(sel.nms[i])
+    dat = qs::qread(sel.nms[i])
     cnms[[i]] <- colnames(dat$data.proc);
     metas[[i]] <- dat$meta;
   }
@@ -1893,7 +1892,7 @@ PlotMultiTsne <- function(imgNm, dpi=72, format="png",factor="1"){
   pct <- list();
   
   for(i in 1:length(sel.nms)){
-    dataSet = readRDS(sel.nms[i])
+    dataSet = qs::qread(sel.nms[i])
     
     x <- t(dataSet$data.proc)
     max.perx <- floor((nrow(x)-1)/3);
