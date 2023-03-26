@@ -406,15 +406,15 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   }
   
   meta.info <- rdtSet$dataSet$meta.info
-  sel.cls <- meta.info[,meta]
+  sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)),meta]
   cls.type <- unname(rdtSet$dataSet$meta.types[meta])
   xlab = meta;
   h <- 6;
   imgName <- rdtSet$dataSet$url.var.nms[cmpdNm];
   imgName <- paste(imgName, "_", meta, "_", version, "_summary_dpi", dpi, ".", format, sep="");
   
-  df.norm <- data.frame(value=rdtSet$dataSet$norm[, cmpdNm], name = sel.cls)
-  
+  inx <- which(rownames(dataSet$data.proc) == cmpdNm)
+  df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = sel.cls)
   col <- unique(GetColorSchema(sel.cls));
   
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
