@@ -99,7 +99,7 @@ CovariateScatter.Anal <- function(dataName,
                                   block = "NA", 
                                   thresh=0.05,
                                   contrast.cls = "anova"){
-
+  save.image("scatter.RData");
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   
@@ -167,7 +167,7 @@ CovariateScatter.Anal <- function(dataName,
     }
     myargs[["levels"]] <- design;
     contrast.matrix <- do.call(makeContrasts, myargs);
-    
+    feature_table <- feature_table[,which(colnames(feature_table) %in% rownames(design)) ]
     # handle blocking factor
     if (block == "NA") {
       fit <- lmFit(feature_table, design)
@@ -200,6 +200,7 @@ CovariateScatter.Anal <- function(dataName,
       design <- model.matrix(formula(paste0("~ 0", paste0(" + ", vars, collapse = ""))), data = covariates);
     }
     
+    feature_table <- feature_table[,which(colnames(feature_table) %in% rownames(design)) ]
     # recent update: enable blocking factor for continuous primary metadata
     if (block == "NA") {
       fit <- lmFit(feature_table, design)
@@ -293,9 +294,9 @@ CovariateScatter.Anal <- function(dataName,
   dataSet$analSet$cov <- cov; 
   # for plotting adjp vs p
   dataSet$analSet$cov.mat <- both.mat; 
-
+  
   #reformat for comp.res
-
+  
   jsonNm <- gsub(paste0(".", format), ".json", imgName);
   jsonObj <- RJSONIO::toJSON(both.mat);
   sink(jsonNm);

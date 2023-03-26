@@ -112,16 +112,16 @@ RemoveDuplicates <- function(data, lvlOpt, quiet=T){
 # utils to remove from
 # within, leading and trailing spaces
 # remove /
-ClearFactorStrings<-function(query,cls.nm){
+ClearFactorStrings<-function(query){
   # remove leading and trailing space
-  query<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", query, perl=TRUE);
+ # query<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", query, perl=TRUE);
   # kill multiple white space
-  query <- gsub(" +","_",query);
+ # query <- gsub(" +","_",query);
   # remove non alphabets and non numbers
-  query <- gsub("[^[:alnum:] ]", "_", query);
+  #query <- gsub("[^[:alnum:] ]", "_", query);
   chars <- substr(query, 0, 1);
   num.inx<- chars >= '0' & chars <= '9';
-  if(all(num.inx)){
+  if(all(num.inx[!(is.na(num.inx))])){
     query = as.numeric(query);
     query <- factor(query, levels=sort(unique(query)));
   }else{
@@ -931,17 +931,18 @@ CleanNumber <-function(bdata){
 # get qualified inx with at least number of replicates
 GetDiscreteInx <- function(my.dat, min.rep=2){
   good.inx <- apply(my.dat, 2, function(x){
-                    good1.inx <- length(x) > length(unique(x));
-                    good2.inx <- min(table(x)) >= min.rep;
-                    return (good1.inx & good2.inx);
-            });
-   return(good.inx);
+    good1.inx <- length(x) > length(unique(x));
+    good2.inx <- min(table(x)) >= min.rep;
+    return (good1.inx & good2.inx);
+  });
+  return(good.inx);
 }
 
-# get columns that are "most likely" continuous values
 GetNumbericalInx <- function(my.dat){
   good.inx <- apply(my.dat, 2, function(x){
-                return(all(!is.na(as.numeric(as.character(x))))); 
-            });
-   return(good.inx);
+    isNum = as.numeric(as.character(x[x!="NA"]))
+    return(all(!is.na(as.numeric(as.character(isNum)))));
+  });
+  return(good.inx);
 }
+
