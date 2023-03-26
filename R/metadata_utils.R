@@ -5,7 +5,6 @@
 ###################################################
 
 ReadMetaDataFile <- function(metafilename){
-  save.image("meta.RData");
   reductionSet <- .get.rdt.set();
   res <- .readMetaData(metafilename,"", F)
   meta.types <- rep("disc", ncol(res$meta.info));

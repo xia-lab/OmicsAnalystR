@@ -795,10 +795,11 @@ ReadOmicsData <- function(fileName, omics.type=NA) {
       meta.info[[cls.nm]] <- cls.lbls;
     }
     meta.info <- data.frame(meta.info);
-    dataSet$meta <- meta.info
     data = data[-cls.inx,];
     rownames(dataSet$meta) <- colnames(data)[-1];
   }
+
+  dataSet$meta <- meta.info;
   
   if(class(data) == "try-error" || ncol(data) == 1){
     AddErrMsg("Data format error. Failed to read in the data!");
@@ -1128,10 +1129,12 @@ ComputeHeatmap <- function(fileNm, type){
 
 ComputePathHeatmapTable <- function(dataSet){
   data <- dataSet$data.proc;
+  rdtSet <- .get.rdt.set();
+
   sig.ids <- rownames(dataSet$data.proc);
   enrich.nms1 <- dataSet$enrich_ids;
   
-  metadf <- dataSet$meta;
+  metadf <- rdtSet$dataSet$meta.info;
   meta.nms <- colnames(metadf)[-ncol(metadf)];
   metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")]);
   colnames(metadf) = meta.nms;

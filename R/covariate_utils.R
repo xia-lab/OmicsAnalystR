@@ -296,7 +296,9 @@ CovariateScatter.Anal <- function(dataName,
   dataSet$analSet$cov.mat <- both.mat; 
   
   #reformat for comp.res
-  
+  dataSet$comp.res <- both.mat;
+
+
   jsonNm <- gsub(paste0(".", format), ".json", imgName);
   jsonObj <- RJSONIO::toJSON(both.mat);
   sink(jsonNm);

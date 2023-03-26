@@ -1082,6 +1082,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$readableType <- readableType;
   dataSet$enrich_ids = rownames(dataSet$data.proc)
   names(dataSet$enrich_ids) = rownames(dataSet$data.proc)
+  dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), ];
   # update current dataset
   RegisterData(dataSet);
   return(1)
