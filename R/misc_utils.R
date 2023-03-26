@@ -927,3 +927,21 @@ CleanNumber <-function(bdata){
   }
   bdata;
 }
+
+# get qualified inx with at least number of replicates
+GetDiscreteInx <- function(my.dat, min.rep=2){
+  good.inx <- apply(my.dat, 2, function(x){
+                    good1.inx <- length(x) > length(unique(x));
+                    good2.inx <- min(table(x)) >= min.rep;
+                    return (good1.inx & good2.inx);
+            });
+   return(good.inx);
+}
+
+# get columns that are "most likely" continuous values
+GetNumbericalInx <- function(my.dat){
+  good.inx <- apply(my.dat, 2, function(x){
+                return(all(!is.na(as.numeric(as.character(x))))); 
+            });
+   return(good.inx);
+}
