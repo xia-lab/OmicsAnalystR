@@ -1122,3 +1122,112 @@ intersect_rownames <- function(df_list) {
   
   return(row_names)
 }
+
+
+NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="NA"){
+  msg <- ""
+  rnms <- rownames(data)
+  cnms <- colnames(data)
+
+  # column(sample)-wise normalization
+  if(colNorm=="SumNorm"){
+    data<-t(apply(data, 2, SumNorm));
+    rownm<-"Normalization to constant sum";
+  }else if(colNorm=="MedianNorm"){
+    data<-t(apply(data, 2, MedianNorm));
+    rownm<-"Normalization to sample median";
+  }else{
+    # nothing to do
+    rownm<-"N/A";
+  }
+  
+  if(norm.opt=="log"){
+    min.val <- min(data[data>0], na.rm=T)/10;
+    numberOfNeg = sum(data<=0, na.rm = TRUE) + 1; 
+    totalNumber = length(data)
+    data[data<=0] <- min.val;
+    data <- log2(data);
+    msg <- paste(msg, "Log2 transformation.", collapse=" ");
+  }else if(norm.opt=="vsn"){
+    require(limma);
+    data <- normalizeVSN(data);
+    msg <- paste(msg, "VSN normalization.", collapse=" ");
+  }else if(norm.opt=="quantile"){
+    require('preprocessCore');
+    data <- normalize.quantiles(as.matrix(data), copy=TRUE);
+    msg <- paste(msg, "Quantile normalization.", collapse=" ");
+  }else if(norm.opt=="combined"){
+    require(limma);
+    data <- normalizeVSN(data);
+    require('preprocessCore');
+    data <- normalize.quantiles(as.matrix(data), copy=TRUE);
+    msg <- paste(msg, "VSN followed by quantile normalization.", collapse=" ");
+  }else if(norm.opt=="logcount"){ # for count data, do it in DE analysis, as it is dependent on design matrix
+    require(edgeR);
+    nf <- calcNormFactors(data);
+    y <- voom(data,plot=F,lib.size=colSums(data)*nf);
+    data <- y$E; # copy per million
+    msg <- paste(msg, "Limma based on log2-counts per million transformation.", collapse=" ");
+  } else if(norm.opt=="rle"){
+    data <- edgeRnorm(data,method="RLE");
+    msg <- c(msg, paste("Performed RLE Normalization"));
+  }else if(norm.opt=="TMM"){
+    data <- edgeRnorm(data,method="TMM");
+    msg <- c(msg, paste("Performed TMM Normalization"));
+  }else if(norm.opt=="clr"){
+    data <- apply(data, 2, clr_transform);
+    msg <- "Performed centered-log-ratio normalization.";
+  }else if(norm.opt=='LogNorm'){
+    min.val <- min(abs(data[data!=0]))/10;
+    data<-apply(data, 2, LogNorm, min.val);
+  }else if(norm.opt=='CrNorm'){
+    norm.data <- abs(data)^(1/3);
+    norm.data[data<0] <- - norm.data[data<0];
+    data <- norm.data;
+  }
+  
+  
+  # scaling
+  if(scaleNorm=='MeanCenter'){
+    data<-apply(data, 1, MeanCenter);
+    scalenm<-"Mean Centering";
+  }else if(scaleNorm=='AutoNorm'){
+    data<-apply(data, 1, AutoNorm);
+    scalenm<-"Autoscaling";
+  }else if(scaleNorm=='ParetoNorm'){
+    data<-apply(data, 1, ParetoNorm);
+    scalenm<-"Pareto Scaling";
+  }else if(scaleNorm=='RangeNorm'){
+    data<-apply(data, 1, RangeNorm);
+    scalenm<-"Range Scaling";
+  }else if(scaleNorm=="colsum"){
+    data <- sweep(data, 2, colSums(data), FUN="/")
+    data <- data*10000000;
+    #msg <- c(msg, paste("Performed total sum normalization."));
+  }else if(scaleNorm=="upperquartile"){
+    suppressMessages(library(edgeR))
+    otuUQ <- edgeRnorm(data,method="upperquartile");
+    data <- as.matrix(otuUQ$counts);
+    #msg <- c(msg, paste("Performed upper quartile normalization"));
+  }else if(scaleNorm=="CSS"){
+    suppressMessages(library(metagenomeSeq))
+    #biom and mothur data also has to be in class(matrix only not in phyloseq:otu_table)
+    data1 <- as(data,"matrix");
+    dataMR <- newMRexperiment(data1);
+    data <- cumNorm(dataMR,p=cumNormStat(dataMR));
+    data <- MRcounts(data,norm = T);
+    #msg <- c(msg, paste("Performed cumulative sum scaling normalization"));
+  }else{
+    scalenm<-"N/A";
+  }
+  if(scaleNorm %in% c('MeanCenter', 'AutoNorm', 'ParetoNorm', 'RangeNorm')){
+    data <- t(data)
+  }
+  
+  data <- as.data.frame(data)
+  rownames(data) <- rnms;
+  colnames(data) <- cnms;
+  msg.vec <<- msg;
+  return(data)
+}
+

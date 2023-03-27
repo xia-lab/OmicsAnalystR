@@ -3,10 +3,12 @@
 ## Description: Compute dimension reduction
 ## Authors: 
 ## G. Zhou (guangyan.zhou@mail.mcgill.ca) 
+## J. Ewald (jessica.ewald@mail.mcgill.ca) 
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
 reduce.dimension <- function(reductionOpt){  
+  save.image("reduce.RData");
   ncomps = 5;
   
   sel.nms <- names(mdata.all)[mdata.all==1];

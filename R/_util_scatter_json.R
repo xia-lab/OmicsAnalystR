@@ -101,7 +101,7 @@ my.json.scatter <- function(filenm){
     rownames(loading.data) = names
     de = reductionSet$comp.res[which(reductionSet$comp.res[,"ids"] %in% ids),]
     de[de == "NaN"] = 1
-    pv = as.numeric(de[,"p_value"])
+    pv = as.numeric(de[,2])
     pv_no_zero = pv[pv != 0]
     minval = min(pv_no_zero)
     pv[pv == 0] = minval/2
