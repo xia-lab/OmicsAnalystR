@@ -398,6 +398,7 @@ AddMsg <- function(msg){
 #'@export
 #'
 PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png", dpi=72, width=NA){
+  save.image("multi.RData");
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   
@@ -420,7 +421,12 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   imgName <- paste(imgName, "_", meta, "_", version, "_summary_dpi", dpi, ".", format, sep="");
   
   inx <- which(rownames(dataSet$data.proc) == cmpdNm)
-  df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = sel.cls)
+
+  if(cls.type == "cont"){
+    df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = as.numeric(sel.cls))
+  }else{
+    df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = sel.cls)
+  }
   col <- unique(GetColorSchema(sel.cls));
   
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
