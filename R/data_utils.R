@@ -986,7 +986,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet <- list();
   
   meta.info <- rdtSet$dataSet$meta.info;
-  
+
   if(class(data) == "try-error" || ncol(data) == 1){
     AddErrMsg("Data format error. Failed to read in the data!");
     AddErrMsg("Make sure the data table is saved as comma separated values (.csv) format!");
@@ -1086,4 +1086,39 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   # update current dataset
   RegisterData(dataSet);
   return(1)
+}
+
+SanityCheckMeta <- function(){
+
+  rdtSet <- .get.rdt.set();
+  sel.nms <- names(mdata.all)
+  data.list = list();
+
+  
+  for(i in 1:length(sel.nms)){
+    dataSet <- qs::qread(sel.nms[i])
+    data.list[[i]] <- dataSet$meta;
+    mdata.all[[i]] <- 1;
+  }
+
+  samples_intersect <- intersect_rownames(data.list);
+  meta.info <- rdtSet$dataSet$meta.info[samples_intersect,];
+  rdtSet$dataSet$meta.info <- meta.info;
+
+  for(i in 1:length(sel.nms)){
+    dataSet <- qs::qread(sel.nms[i])
+    dataSet$meta <- rdtSet$dataSet$meta.info;
+    dataSet$data.proc <- dataSet$data.proc[,samples_intersect];
+    print(dim(dataSet$data.proc));
+    RegisterData(dataSet);
+  }
+
+  return(.set.rdt.set(rdtSet));
+}
+
+intersect_rownames <- function(df_list) {
+  # Find the intersection of row names across all data frames
+  row_names <- Reduce(intersect, lapply(df_list, row.names))
+  
+  return(row_names)
 }

@@ -382,6 +382,7 @@ ExportOmicsPairs <- function(fileName, type){
 }
 
 DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
+  save.image("corr.RData");
   labels <- vector();
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
@@ -1128,15 +1129,16 @@ ComputeHeatmap <- function(fileNm, type){
 }
 
 ComputePathHeatmapTable <- function(dataSet){
+
   data <- dataSet$data.proc;
   rdtSet <- .get.rdt.set();
-
+  
   sig.ids <- rownames(dataSet$data.proc);
   enrich.nms1 <- dataSet$enrich_ids;
   
   metadf <- rdtSet$dataSet$meta.info;
   meta.nms <- colnames(metadf)[-ncol(metadf)];
-  metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")]);
+  #metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")]);
   colnames(metadf) = meta.nms;
   
   res <- dataSet$comp.res[rownames(data),c(1:2)];
@@ -1251,7 +1253,7 @@ ComputePathHeatmapTable <- function(dataSet){
   gene.id = orig.gene.nms; if(length(gene.id) ==1) { gene.id <- matrix(gene.id) };
   hit.inx <- match(gene.id , unname(enrich.nms1));
   lbls <- names(enrich.nms1[hit.inx]);
-
+  
   # re-order by p-value
   gene.id <- gene.id[rankPval];
   lbls <- lbls[rankPval];

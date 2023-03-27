@@ -297,6 +297,7 @@ CovariateScatter.Anal <- function(dataName,
   
   #reformat for comp.res
   dataSet$comp.res <- both.mat;
+  dataSet$sig.mat <- sig.mat
 
 
   jsonNm <- gsub(paste0(".", format), ".json", imgName);
