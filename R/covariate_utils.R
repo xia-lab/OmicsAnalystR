@@ -398,7 +398,6 @@ AddMsg <- function(msg){
 #'@export
 #'
 PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png", dpi=72, width=NA){
-  save.image("multi.RData");
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   
@@ -418,7 +417,7 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   xlab = meta;
   h <- 6;
   imgName <- rdtSet$dataSet$url.var.nms[cmpdNm];
-  imgName <- paste(imgName, "_", meta, "_", version, "_summary_dpi", dpi, ".", format, sep="");
+  imgName <- paste(cmpdNm, "_", meta, "_", version, "_summary_dpi", dpi, ".", format, sep="");
   
   inx <- which(rownames(dataSet$data.proc) == cmpdNm)
 
@@ -446,7 +445,7 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   }
   print(p)
   dev.off()
-
+  print(imgName);
   if(.on.public.web){
     return(imgName);
   }else{
