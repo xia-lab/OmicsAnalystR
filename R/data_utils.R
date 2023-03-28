@@ -587,12 +587,13 @@ SetGroupContrast <- function(dataName, grps, meta="NA"){
 # the data in the memory could be changed
 GetGroupNames <- function(dataName, meta="NA"){
     #if(dataSet$name != dataName){
-        dataSet <- qs::qread(dataName);
+    #    dataSet <- qs::qread(dataName);
     #}
+    rdtSet <- .get.rdt.set();
     if(meta == "NA"){
-        return(levels(factor(dataSet$meta[,1])));
+        return(levels(factor(rdtSet$dataSet$meta.info[,1])));
     }else{
-        return(levels(factor(dataSet$meta[,meta])));
+        return(levels(factor(rdtSet$dataSet$meta.info[,meta])));
     }
 
 }

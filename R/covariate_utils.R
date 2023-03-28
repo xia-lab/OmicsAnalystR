@@ -99,7 +99,7 @@ CovariateScatter.Anal <- function(dataName,
                                   block = "NA", 
                                   thresh=0.05,
                                   contrast.cls = "anova"){
-  save.image("scatter.RData");
+
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   
@@ -141,7 +141,7 @@ CovariateScatter.Anal <- function(dataName,
   #subset to samples contained in dataset
   covariates <- covariates[match(colnames(feature_table), rownames(covariates)),]
   if (block != "NA"){    
-    if(dataSet$meta.types[block] == "cont"){
+    if(rdtSet$dataSet$meta.types[block] == "cont"){
       AddErrMsg("Blocking factor can not be continuous data type.")
       return(c(-1,-1));
     }
@@ -306,8 +306,8 @@ CovariateScatter.Anal <- function(dataName,
   colnames(both.mat)[1] <- c("ids");
   dataSet$comp.res <- both.mat;
   dataSet$sig.mat <- sig.mat
-
-  return(RegisterData(dataSet));
+  RegisterData(dataSet)
+  return(sig.num);
 }
 
 

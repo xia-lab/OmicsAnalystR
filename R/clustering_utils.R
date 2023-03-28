@@ -28,7 +28,7 @@ ComputeHeatmap <- function(fileNm, type){
 }
 
 ComputePathHeatmapTable <- function(dataSet){
-
+  save.image("heat.RData");
   data <- dataSet$data.proc;
   rdtSet <- .get.rdt.set();
   
