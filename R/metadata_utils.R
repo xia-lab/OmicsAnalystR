@@ -10,9 +10,7 @@ ReadMetaDataFile <- function(metafilename){
   meta.types <- rep("disc", ncol(res$meta.info));
   meta.types[res$cont.inx] <- "cont";
   names(meta.types) <- colnames(res$meta.info);
-  print(meta.types);
   reductionSet$dataSet$meta.types <- meta.types;
-  #reductionSet$dataSet$meta.status <- rep("OK", ncol(res$meta.info) - 1);
   reductionSet$dataSet$meta.status <- rep("OK", ncol(res$meta.info) );
   reductionSet$dataSet$cont.inx <- res$cont.inx;
   reductionSet$dataSet$disc.inx <- res$disc.inx;

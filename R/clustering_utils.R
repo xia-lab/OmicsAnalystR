@@ -28,7 +28,6 @@ ComputeHeatmap <- function(fileNm, type){
 }
 
 ComputePathHeatmapTable <- function(dataSet){
-  save.image("heat.RData");
   data <- dataSet$data.proc;
   rdtSet <- .get.rdt.set();
   
@@ -36,9 +35,9 @@ ComputePathHeatmapTable <- function(dataSet){
   enrich.nms1 <- dataSet$enrich_ids;
   
   metadf <- rdtSet$dataSet$meta.info;
-  meta.nms <- colnames(metadf)[-ncol(metadf)];
+  #meta.nms <- colnames(metadf)[-ncol(metadf)];
   #metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")]);
-  colnames(metadf) = meta.nms;
+  #colnames(metadf) = meta.nms;
   
   res <- dataSet$comp.res[rownames(data),c(1:2)];
   colnames(res) <- c("statistic", "p.value");
@@ -120,27 +119,40 @@ ComputePathHeatmapTable <- function(dataSet){
     metadf <- metadf[smpl.int.rk,]
   }
   
+  meta.types <- reductionSet$dataSet$meta.types;
   meta <- metadf;
   grps <- colnames(metadf)
   nmeta <- meta.vec <- NULL;
   uniq.num <- 0;
+  meta.grps <- vector();
+  disc.inx <- rep(F, ncol(meta)*nrow(meta))
   for (i in 1:ncol(meta)){
     cls <- meta[,i];
     grp.nm <- grps[i];
     meta.vec <- c(meta.vec, as.character(cls))
     # make sure each label are unqiue across multiple meta data
-    ncls <- paste(grp.nm, as.numeric(cls)); # note, here to retain ordered factor
+    if(meta.types[grp.nm] == "disc"){
+      ncls <- paste(grp.nm, as.numeric(cls)+99); # note, here to retain ordered factor
+      disc.inx[c(nrow(meta)*(i-1)+1: nrow(meta)*i)] <- T;
+      
+    }else{
+       ncls <- as.numeric(cut(as.numeric(as.character((cls))), breaks=30)); # note, here to retain ordered factor
+    }
+    meta.grps <- c(meta.grps, paste(grp.nm, rownames(meta))); 
     nmeta <- c(nmeta, ncls);
     sample.cluster[[grps[i]]] <- order(cls)
   }
   
   # convert back to numeric
-  nmeta <- as.numeric(as.factor(nmeta))+99;
+  nmeta[disc.inx] <- as.numeric(as.factor(nmeta[disc.inx]))+99;
   unik.inx <- !duplicated(nmeta)   
   
   # get corresponding names
-  meta_anot <- meta.vec[unik.inx]; 
-  names(meta_anot) <- nmeta[unik.inx]; # name annotatation by their numbers
+  #meta_anot <- meta.vec[unik.inx]; 
+  #names(meta_anot) <- nmeta[unik.inx]; # name annotatation by their numbers
+
+  meta_anot <- meta.vec; 
+  names(meta_anot) <- meta.grps;
   
   nmeta <- matrix(nmeta, ncol=ncol(meta), byrow=F);
   colnames(nmeta) <- grps;
