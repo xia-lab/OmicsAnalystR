@@ -19,6 +19,19 @@ ReadMetaDataFile <- function(metafilename){
   return(.set.rdt.set(reductionSet));
 }
 
+GetPrimaryMeta <- function(){
+    rdtSet <- .get.rdt.set();
+    return(colnames(rdtSet$dataSet$meta.info)[1]);
+}
+
+GetMetaDims <- function(){
+  rdtSet <- .get.rdt.set();
+  dm <- dim(rdtSet$dataSet$meta.info);
+  print(dm);
+  return(dm);
+} 
+
+
 
 GetUniqueMetaNames <-function(metadata){
   rdtSet <- .get.rdt.set();
