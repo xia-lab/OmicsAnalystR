@@ -1105,7 +1105,6 @@ SanityCheckMeta <- function(){
   samples_intersect <- intersect_rownames(data.list);
   meta.info <- rdtSet$dataSet$meta.info[samples_intersect,];
   rdtSet$dataSet$meta.info <- meta.info;
-
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i])
     dataSet$meta <- rdtSet$dataSet$meta.info;
@@ -1113,8 +1112,13 @@ SanityCheckMeta <- function(){
     print(dim(dataSet$data.proc));
     RegisterData(dataSet);
   }
+  .set.rdt.set(rdtSet)
 
-  return(.set.rdt.set(rdtSet));
+disc.vec <- paste(names(rdtSet$dataSet$disc.inx)[which(rdtSet$dataSet$disc.inx)],collapse=", ")  
+cont.vec <- paste(names(rdtSet$dataSet$cont.inx)[which(rdtSet$dataSet$cont.inx)],collapse=", ")  
+na.vec <- na.check(meta.info)
+ return(c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
+         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec ));
 }
 
 intersect_rownames <- function(df_list) {

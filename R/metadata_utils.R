@@ -6,7 +6,7 @@
 
 ReadMetaDataFile <- function(metafilename){
   reductionSet <- .get.rdt.set();
-  res <- .readMetaData(metafilename,"", F)
+  res <- .readMetaData(metafilename,"", "false")
   meta.types <- rep("disc", ncol(res$meta.info));
   meta.types[res$cont.inx] <- "cont";
   names(meta.types) <- colnames(res$meta.info);
@@ -131,7 +131,6 @@ GetUniqueMetaNames <-function(metadata){
       return(NULL);
     }
     mydata[is.na(mydata)] <- "NA";
-    
     # look for #NAME, store in a list
     sam.inx <- grep("^#NAME", colnames(mydata)[1]);
     if(length(sam.inx) > 0){
@@ -157,13 +156,6 @@ GetUniqueMetaNames <-function(metadata){
     rownames(mydata) <- smpl_nm;
     colnames(mydata) <- smpl_var;
     
-    # empty cell or NA cannot be tolerated in metadata
-    na.inx  <- is.na(mydata);
-    na.msg <- na.msg1 <- NULL;
-    if(sum(na.inx) > 0){
-      na.msg1 <- paste("A total of", sum(na.inx), "empty or NA values were detected. Please update in using metadata editor");
-    }
-    
     #Check group label names for spaces and replace with underscore
     meta.info <- data.frame(mydata,check.names=FALSE);
     if(any(grepl("[[:blank:]]", names(meta.info)))){
@@ -172,8 +164,7 @@ GetUniqueMetaNames <-function(metadata){
     }
     
   }
-  
-  
+    
   disc.inx <- GetDiscreteInx(meta.info);
   if(sum(disc.inx) == length(disc.inx)){
     na.msg <- c(na.msg,"All metadata columns are OK!")
