@@ -90,8 +90,8 @@ my.json.scatter <- function(filenm){
   
   library(RJSONIO)
     
-    loading.data = reductionSet$loading.pos.xyz
-    loading.data <- unitAutoScale(loading.data);
+    loading.data.orig = reductionSet$loading.pos.xyz
+    loading.data <- unitAutoScale(loading.data.orig);
     cluster = reductionSet$loadingCluster
     aLoading=list();
     aLoading$objects = "NA";
@@ -133,6 +133,10 @@ my.json.scatter <- function(filenm){
         fx = unname(loading.data[i,1])*1000,
         fy = unname(loading.data[i,2])*1000,
         fz = unname(loading.data[i,3])*1000,
+        origX = loading.data.orig[i,1],
+        origY = loading.data.orig[i,2],
+        origZ = loading.data.orig[i,3],
+
         seedArr = seed_arr[i],
         colorb=colorb[i],
         colorw=colorb[i],
