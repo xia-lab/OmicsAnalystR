@@ -381,8 +381,6 @@ UpdateMetaName <-  function(oldvec,newvec){
   return(1);
 }
 
-
-
 CheckMetaNAs <- function(){
   rdtSet <- .get.rdt.set();
   meta <- rdtSet$dataSet$meta.info
