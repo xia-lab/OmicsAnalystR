@@ -457,7 +457,7 @@ AddMsg <- function(msg){
 PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png", dpi=72, width=NA){
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
-  
+  print(c(cmpdNm,meta))
   if(.on.public.web){
     load_ggplot()
   }
@@ -467,7 +467,6 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   }else{
     w <- width;
   }
-  
   meta.info <- rdtSet$dataSet$meta.info
   sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)),meta]
   cls.type <- unname(rdtSet$dataSet$meta.types[meta])
@@ -479,7 +478,7 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   inx <- which(rownames(dataSet$data.proc) == cmpdNm)
 
   if(cls.type == "cont"){
-    df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = as.numeric(sel.cls))
+    df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = as.numeric(as.character(sel.cls)))
   }else{
     df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = sel.cls)
   }
