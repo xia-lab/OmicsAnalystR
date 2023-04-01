@@ -177,7 +177,6 @@ SanityCheckData <- function(fileName){
   dataSet$minConc <- minConc;
   dataSet$data.proc <- int.mat;
   dataSet$cls <- cls.lbl
-  
   RegisterData(dataSet);
   return(1);
 }
@@ -1104,12 +1103,13 @@ SanityCheckMeta <- function(){
 
   samples_intersect <- intersect_rownames(data.list);
   meta.info <- rdtSet$dataSet$meta.info[samples_intersect,];
+
   rdtSet$dataSet$meta.info <- meta.info;
+  rdtSet$dataSet.origin <- rdtSet$dataSet;
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i])
     dataSet$meta <- rdtSet$dataSet$meta.info;
-    dataSet$data.proc <- dataSet$data.proc[,samples_intersect];
-    print(dim(dataSet$data.proc));
+    dataSet$data.proc <- dataSet$data.proc.origin <- dataSet$data.proc[,samples_intersect];
     RegisterData(dataSet);
   }
   .set.rdt.set(rdtSet)

@@ -102,7 +102,7 @@ CovariateScatter.Anal <- function(dataName,
 
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
-  
+  msg.lm <- ""
   # load libraries
   library(limma)
   library(dplyr)
@@ -124,18 +124,24 @@ CovariateScatter.Anal <- function(dataName,
   covariates <- rdtSet$dataSet$meta.info
   var.types <- rdtSet$dataSet[["meta.types"]]
   feature_table <- dataSet$data.proc
-  
   # process inputs
   thresh <- as.numeric(thresh)
   ref <- make.names(ref)
   analysis.type <- unname(rdtSet$dataSet$meta.types[analysis.var]);
   
   # process metadata table (covariates)
-  for(i in c(1:length(var.types))){ # ensure all columns are the right type
+   for(i in c(1:length(var.types))){ # ensure all columns are the right type
     if(var.types[i] == "disc"){
-      covariates[,i] <- covariates[,i] %>% make.names() %>% factor()
+      if(class(covariates[,i]) !="factor"){
+        covariates[,i] <- covariates[,i] %>% make.names() %>% factor()
+      }
     } else {
-      covariates[,i] <- covariates[,i] %>% as.character() %>% as.numeric()
+      if("NA" %in%covariates[,i] | any(is.na( covariates[,i])) ){
+        covariates[!is.na(covariates[,i]) & covariates[,i]!="NA" ,i] <- covariates[!is.na(covariates[,i]) & covariates[,i]!="NA",i] %>% as.character() %>% as.numeric()
+      }else{
+        covariates[,i] <- covariates[,i] %>% as.character() %>% as.numeric()
+      }
+      
     }
   }
   #subset to samples contained in dataset
@@ -149,10 +155,10 @@ CovariateScatter.Anal <- function(dataName,
   }
   
   sig.num <- 0;
-  
+
   if(analysis.type == "disc"){
     # build design and contrast matrix
-    covariates[, analysis.var] <- covariates[, analysis.var] %>% make.names() %>% factor();
+    #covariates[, analysis.var] <- covariates[, analysis.var] %>% make.names() %>% factor();
     grp.nms <- levels(covariates[, analysis.var]);
     design <- model.matrix(formula(paste0("~ 0", paste0(" + ", vars, collapse = ""))), data = covariates);
     colnames(design)[1:length(grp.nms)] <- grp.nms;
@@ -170,15 +176,40 @@ CovariateScatter.Anal <- function(dataName,
     feature_table <- feature_table[,which(colnames(feature_table) %in% rownames(design)) ]
     # handle blocking factor
     if (block == "NA") {
-      fit <- lmFit(feature_table, design)
+      fit <- tryCatch({
+        lmFit(feature_table, design)
+        }, error=function(e){
+           msg.lm <- c(msg.lm,e)
+        }, warning=function(w){
+          msg.lm <- c(msg.lm,w)
+        })
     } else {
       block.vec <- covariates[,block];
       corfit <- duplicateCorrelation(feature_table, design, block = block.vec)
-      fit <- lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
-    }
+      fit <- tryCatch({
+        lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
+      }, error=function(e){
+        msg.lm <- c(msg.lm,e)
+      }, warning=function(w){
+        msg.lm <- c(msg.lm,w)
+      })
+  }
     
-    fit <- contrasts.fit(fit, contrast.matrix);
-    fit <- eBayes(fit);
+    fit <-  tryCatch({
+      contrasts.fit(fit, contrast.matrix);
+    }, error=function(e){
+      msg.lm <- c(msg.lm,e)
+    }, warning=function(w){
+      msg.lm <- c(msg.lm,w)
+    })
+  
+    fit <-  tryCatch({
+      eBayes(fit);
+    }, error=function(e){
+      msg.lm <- c(msg.lm,e)
+    }, warning=function(w){
+      msg.lm <- c(msg.lm,w)
+    })
     rest <- topTable(fit, number = Inf);
     
     ### get results with no adjustment
@@ -203,14 +234,33 @@ CovariateScatter.Anal <- function(dataName,
     feature_table <- feature_table[,which(colnames(feature_table) %in% rownames(design)) ]
     # recent update: enable blocking factor for continuous primary metadata
     if (block == "NA") {
-      fit <- lmFit(feature_table, design)
+      fit <-  tryCatch({
+        lmFit(feature_table, design)
+      }, error=function(e){
+        msg.lm <- c(msg.lm,e)
+      }, warning=function(w){
+        msg.lm <- c(msg.lm,w)
+      })
     } else {
       block.vec <- covariates[,block];
       corfit <- duplicateCorrelation(feature_table, design, block = block.vec)
-      fit <- lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
-    }
+      fit <- tryCatch({
+        lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
+      }, error=function(e){
+         msg.lm <- c(msg.lm,e)
+      }, warning=function(w){
+        msg.lm <- c(msg.lm,w)
+      })
+   
+ }
+    fit <-   tryCatch({
+      eBayes(fit);
+    }, error=function(e){
+      msg.lm <- c(msg.lm,e)
+    }, warning=function(w){
+      msg.lm <- c(msg.lm,w)
+    })
     
-    fit <- eBayes(fit);
     rest <- topTable(fit, number = Inf, coef = analysis.var);
     colnames(rest)[1] <- analysis.var;
     
@@ -220,7 +270,11 @@ CovariateScatter.Anal <- function(dataName,
     fit <- eBayes(lmFit(feature_table, design));
     res.noadj <- topTable(fit, number = Inf);
   }
-  
+
+  if(msg.lm!=""){
+  AddMsg(msg.lm)
+   return(-1)
+  }
   
   # make visualization
   adj.mat <- rest[, c("P.Value", "adj.P.Val")]
