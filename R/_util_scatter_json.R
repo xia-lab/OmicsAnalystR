@@ -34,7 +34,6 @@ my.json.scatter <- function(filenm){
   nodes <- vector(mode="list");
   names <- c(rownames(pos.xyz))
   metadf = reductionSet$meta
-
   
   a=list();
   a$objects = "NA";
@@ -58,7 +57,7 @@ my.json.scatter <- function(filenm){
   if(length(names)>200){
     nodeSize = 16;
   }
-  
+ 
   for(i in 1:length(names)){
     nodes[[i]] <- list(
       id=names[i],
@@ -82,7 +81,6 @@ my.json.scatter <- function(filenm){
       )
     );
   }
-
   modules = "NA"
 
   # save node table
@@ -90,8 +88,8 @@ my.json.scatter <- function(filenm){
   
   library(RJSONIO)
     
-    loading.data = reductionSet$loading.pos.xyz
-    loading.data <- unitAutoScale(loading.data);
+    loading.data.orig = reductionSet$loading.pos.xyz
+    loading.data <- unitAutoScale(loading.data.orig);
     cluster = reductionSet$loadingCluster
     aLoading=list();
     aLoading$objects = "NA";
@@ -133,6 +131,10 @@ my.json.scatter <- function(filenm){
         fx = unname(loading.data[i,1])*1000,
         fy = unname(loading.data[i,2])*1000,
         fz = unname(loading.data[i,3])*1000,
+        origX = loading.data.orig[i,1],
+        origY = loading.data.orig[i,2],
+        origZ = loading.data.orig[i,3],
+
         seedArr = seed_arr[i],
         colorb=colorb[i],
         colorw=colorb[i],
@@ -172,7 +174,6 @@ my.json.scatter <- function(filenm){
       ids = loadingNames
       names = names(loading.enrich)
       
-      
       pca_loading <- loading.nodes[c(1:nrow(loading.data))];
       count = 1
       for(k in 1:length(loading.nodes)){
@@ -202,11 +203,13 @@ my.json.scatter <- function(filenm){
   jsonNms$scatter <<- filenm;
   
   sink(filenm);
-  cat(toJSON(netData));
+  cat(rjson::toJSON(netData));
   sink();
+
   reductionSet$pos.xyz <- pos.xyz;
   reductionSet$loading.pos.xyz <- loading.data;
 
   .set.rdt.set(reductionSet);
+
   return(1);
 }

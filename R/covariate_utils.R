@@ -356,6 +356,9 @@ CovariateScatter.Anal <- function(dataName,
   cat(jsonObj);
   sink();
 
+  sig.mat <- as.data.frame(sig.mat);
+  sig.mat$ids <- rownames(sig.mat);
+
   #reformat for comp.res
   colnames(both.mat)[1] <- c("ids");
   dataSet$comp.res <- both.mat;
