@@ -88,7 +88,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
   fgseaRes <- data.frame(fgseaRes, stringsAsFactors=FALSE);
   
   #get gene symbols
-  msgSet$current.msg <- "Functional analysis was completed";
+  current.msg <<- "Functional analysis was completed";
   
   # write json
   fun.anot <- hits.query; 
@@ -111,13 +111,13 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
   );
   
 
-  json.res$org <- paramSet$data.org
+  json.res$org <- data.org
   json.res$analType <- anal.type
   json.res$naviString <- "GSEA";
   
   json.mat <- RJSONIO::toJSON(json.res);
   json.nm <- paste(file.nm, ".json", sep="");
-  partialToBeSaved <- c(paramSet$partialToBeSaved, c(json.nm, "current_geneset.qs"))
+  partialToBeSaved <- c(partialToBeSaved, c(json.nm, "current_geneset.qs"))
   sink(json.nm)
   cat(json.mat);
   sink();
