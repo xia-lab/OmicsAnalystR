@@ -275,7 +275,8 @@ CovariateScatter.Anal <- function(dataName,
   AddMsg(msg.lm)
    return(-1)
   }
-  
+  print("rest====");
+  print(dim(rest));
   # make visualization
   adj.mat <- rest[, c("P.Value", "adj.P.Val")]
   noadj.mat <- res.noadj[, c("P.Value", "adj.P.Val")]
@@ -314,7 +315,6 @@ CovariateScatter.Anal <- function(dataName,
     rownames(sig.mat) <- rownames(rest)[inx.imp]
     # order the result simultaneously
   }
-  
   AddMsg(paste(c("A total of", sum(inx.imp), "significant features were found."), collapse=" "));
   rownames(both.mat) = both.mat[,1]
   both.mat <- both.mat[rownames(rest),]

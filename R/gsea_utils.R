@@ -11,19 +11,21 @@
 #'License: MIT
 #'@export
 #'
-PerformGSEA<- function(file.nm, fun.type, input.type="loading",loading.comp=1, mode = "multi"){
+PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="loading",loading.comp=1, mode = "multi"){
   rdtSet <- .get.rdt.set();
   setres <- .loadEnrichLib(fun.type, data.org);
   current.geneset <- setres$current.geneset;
   require("fgsea");
   
   if(input.type == "loading"){
-    loading.pos.xyz <- rdtSet$loading.pos.xyz;
+    loading.pos.xyz <- rdtSet$loading.pos.xyz.orig;
+    loading.pos.xyz <- loading.pos.xyz[loading.pos.xyz$omicstype == omics.type,]
     rankedVec <- loading.pos.xyz[,loading.comp];
     names(rankedVec) <- rownames(loading.pos.xyz);
   }else{
-    rankedVec <- rdtSet$comp.res[,"coefficient"];
-    names(rankedVec) <- rownames(rdtSet$comp.res);
+    dataSet <- qs::qread(dataName);
+    rankedVec <- dataSet$comp.res[,"coefficient"];
+    names(rankedVec) <- dataSet$comp.res$ids;
   }
   
   if(mode == "simple"){

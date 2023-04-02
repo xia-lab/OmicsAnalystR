@@ -89,7 +89,7 @@ my.json.scatter <- function(filenm){
   library(RJSONIO)
     
     loading.data.orig = reductionSet$loading.pos.xyz
-    loading.data <- unitAutoScale(loading.data.orig);
+    loading.data <- unitAutoScale(loading.data.orig[,c(1,2,3)]);
     cluster = reductionSet$loadingCluster
     aLoading=list();
     aLoading$objects = "NA";
@@ -207,6 +207,9 @@ my.json.scatter <- function(filenm){
   sink();
 
   reductionSet$pos.xyz <- pos.xyz;
+  loading.data.orig <- as.data.frame(loading.data.orig)
+  loading.data.orig$omicstype <- type.vec;
+  reductionSet$loading.pos.xyz.orig <- loading.data.orig;
   reductionSet$loading.pos.xyz <- loading.data;
 
   .set.rdt.set(reductionSet);
