@@ -240,10 +240,14 @@ CovariateScatter.Anal <- function(dataName,
     fstat <- rest[, "F"];
   }else{
     fstat <- rest[, "t"];
-  }    
-  
+  }  
+
   p.value <- rest[,"P.Value"];
-  
+  ord.inx <- order(rest[,"P.Value"], decreasing = FALSE);
+  rest <- rest[ord.inx,,drop=F];
+  colnames(rest)[1] <- "coefficient"; 
+  rest$ids <- rownames(rest);
+
   names(fstat) <- names(p.value) <- colnames(dataSet$data.proc);
   fdr.p <- rest[,"adj.P.Val"];
   inx.imp <- p.value <= thresh;
@@ -252,11 +256,9 @@ CovariateScatter.Anal <- function(dataName,
   if(sig.num > 0){ 
     sig.p <- p.value[inx.imp];
     sig.mat <- rest[inx.imp,];
-    sig.mat <- sapply(sig.mat, function(x) signif(x, 5));
+    sig.mat[,-ncol(sig.mat)] <- sapply(sig.mat[,-ncol(sig.mat)], function(x) signif(x, 5));
     rownames(sig.mat) <- rownames(rest)[inx.imp]
     # order the result simultaneously
-    ord.inx <- order(sig.p, decreasing = FALSE);
-    sig.mat <- sig.mat[ord.inx,,drop=F];
   }
   
   AddMsg(paste(c("A total of", sum(inx.imp), "significant features were found."), collapse=" "));
@@ -302,13 +304,12 @@ CovariateScatter.Anal <- function(dataName,
   cat(jsonObj);
   sink();
 
-  sig.mat <- as.data.frame(sig.mat);
-  sig.mat$ids <- rownames(sig.mat);
-
   #reformat for comp.res
   colnames(both.mat)[1] <- c("ids");
-  dataSet$comp.res <- both.mat;
+
+  dataSet$comp.res <- rest;
   dataSet$sig.mat <- sig.mat
+
   RegisterData(dataSet)
   return(sig.num);
 }
