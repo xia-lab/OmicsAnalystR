@@ -6,7 +6,7 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
-  
+
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -89,11 +89,13 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       for(j in 1:retainedComp){
         if(j == 1){
           loading <- loading.df[,1]
+          names(loading) <- rownames(loading.df)
           loading <- loading[order(-abs(loading))]
           reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
           toKeep <- names(loading)[c(1:numToKeep)]
         }else{
           loading <- loading.df[,j]
+          names(loading) <- rownames(loading.df)
           loading <- loading[order(-abs(loading))]
           reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
           toKeep <- c(toKeep, names(loading)[c(1:numToKeep)])
@@ -118,7 +120,7 @@ DoCorrelationFilter <- function(sign="both", crossOmicsOnly="false",networkInfer
 
 DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.9, 
                                 threshold.intra=0.5, numToKeep=2000,taxlvl="genus",datagem="agora",update="false"){
-  
+
   reductionSet <- .get.rdt.set();
   
   if(update=="false" | !(exists("selDatsCorr.taxa",reductionSet))){

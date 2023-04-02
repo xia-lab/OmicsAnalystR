@@ -113,12 +113,6 @@ RemoveDuplicates <- function(data, lvlOpt, quiet=T){
 # within, leading and trailing spaces
 # remove /
 ClearFactorStrings<-function(query){
-  # remove leading and trailing space
- # query<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", query, perl=TRUE);
-  # kill multiple white space
- # query <- gsub(" +","_",query);
-  # remove non alphabets and non numbers
-  #query <- gsub("[^[:alnum:] ]", "_", query);
   chars <- substr(query, 0, 1);
   num.inx<- chars >= '0' & chars <= '9';
   if(all(num.inx[!(is.na(num.inx))])){
@@ -931,6 +925,7 @@ CleanNumber <-function(bdata){
 # get qualified inx with at least number of replicates
 GetDiscreteInx <- function(my.dat, min.rep=2){
   good.inx <- apply(my.dat, 2, function(x){
+     x = x[x!="NA"]
     good1.inx <- length(x) > length(unique(x));
     good2.inx <- min(table(x)) >= min.rep;
     return (good1.inx & good2.inx);
@@ -946,3 +941,14 @@ GetNumbericalInx <- function(my.dat){
   return(good.inx);
 }
 
+na.check <- function(mydata){
+  na.idx <- apply(mydata,2,function(x) "NA" %in% x)
+  if(all(!na.idx)){
+    return("None")
+  }
+  na.num <- apply(mydata,2,function(x) length(which(x=="NA")))
+  naInfo <- data.frame(names(mydata)[na.idx],num = na.num[na.num>0])
+  naInfo <- apply(naInfo, 1, function(x) paste0(x[1]," (",x[2],")"))
+  naInfo <- paste(naInfo,collapse = ", ")
+  return(naInfo)
+}

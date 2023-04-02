@@ -491,7 +491,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  
+
   require("Cairo");
   library(ggplot2)
   library(GGally)
