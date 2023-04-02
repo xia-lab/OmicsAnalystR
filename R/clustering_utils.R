@@ -28,6 +28,7 @@ ComputeHeatmap <- function(fileNm, type){
 }
 
 ComputePathHeatmapTable <- function(dataSet){
+  save.image("path.RData");
   data <- dataSet$data.proc;
   rdtSet <- .get.rdt.set();
   
@@ -121,11 +122,13 @@ ComputePathHeatmapTable <- function(dataSet){
   
   meta.types <- reductionSet$dataSet$meta.types;
   meta <- metadf;
+  meta <- meta[which(rownames(meta) %in% orig.smpl.nms), ];
   grps <- colnames(metadf)
   nmeta <- meta.vec <- NULL;
   uniq.num <- 0;
   meta.grps <- vector();
-  disc.inx <- rep(F, ncol(meta)*nrow(meta))
+  disc.inx <- rep(F, ncol(meta)*nrow(meta));
+  
   for (i in 1:ncol(meta)){
     cls <- meta[,i];
     grp.nm <- grps[i];
@@ -134,13 +137,17 @@ ComputePathHeatmapTable <- function(dataSet){
     if(meta.types[grp.nm] == "disc"){
       ncls <- paste(grp.nm, as.numeric(cls)+99); # note, here to retain ordered factor
       disc.inx[c(nrow(meta)*(i-1)+1: nrow(meta)*i)] <- T;
+      sample.cluster[[grps[i]]] <- order(cls)
+
       
     }else{
-       ncls <- as.numeric(cut(as.numeric(as.character((cls))), breaks=30)); # note, here to retain ordered factor
+       ncls <- as.numeric(cut(order(cls), breaks=30)); # note, here to retain ordered factor
+       ord <- match(orig.smpl.nms, orig.smpl.nms[order(cls)]);
+       sample.cluster[[grps[i]]] <- ord
+
     }
     meta.grps <- c(meta.grps, paste(grp.nm, rownames(meta))); 
     nmeta <- c(nmeta, ncls);
-    sample.cluster[[grps[i]]] <- order(cls)
   }
   
   # convert back to numeric

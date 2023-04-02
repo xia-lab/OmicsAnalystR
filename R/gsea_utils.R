@@ -57,8 +57,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
   current.mset <- current.mset[!duplicated(names(current.mset))]
   
   ora.vec <- names(rankedVec)
-  ora.nms <- doEntrez2SymbolMapping(ora.vec)
-  
+  ora.nms <- ora.vec #doEntrez2SymbolMapping(ora.vec)
   hits.query <- lapply(current.mset, 
                        function(x) {
                          unique(ora.nms[ora.vec%in%unlist(x)]);
