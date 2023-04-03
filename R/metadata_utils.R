@@ -410,8 +410,8 @@ CheckEditRes <- function(){
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i])
     dataSet$meta <- rdtSet$dataSet$meta.info;
-    dataSet$data.proc <- dataSet$data.proc[colnames(dataSet$data.proc) %in% rownames(meta),]
-    dataSet$data.proc <- dataSet$data.proc[match(rownames(meta),colnames(dataSet$data.proc)),]
+    dataSet$data.proc <- dataSet$data.proc[,colnames(dataSet$data.proc) %in% rownames(meta)]
+    dataSet$data.proc <- dataSet$data.proc[,match(rownames(meta),colnames(dataSet$data.proc))]
     dataSet$cls <- cls
     dataSet$rmidx <- which(meta[,1]=="NA")
     dataSet$min.grp.size <- min.grp.size;

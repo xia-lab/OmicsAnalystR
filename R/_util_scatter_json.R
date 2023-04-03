@@ -89,7 +89,7 @@ my.json.scatter <- function(filenm){
   library(RJSONIO)
     
     loading.data.orig = reductionSet$loading.pos.xyz
-    loading.data <- unitAutoScale(loading.data.orig);
+    loading.data <- unitAutoScale(loading.data.orig[,c(1,2,3)]);
     cluster = reductionSet$loadingCluster
     aLoading=list();
     aLoading$objects = "NA";
@@ -99,7 +99,7 @@ my.json.scatter <- function(filenm){
     rownames(loading.data) = names
     de = reductionSet$comp.res[which(reductionSet$comp.res[,"ids"] %in% ids),]
     de[de == "NaN"] = 1
-    pv = as.numeric(de[,2])
+    pv = as.numeric(de[,"P.Value"])
     pv_no_zero = pv[pv != 0]
     minval = min(pv_no_zero)
     pv[pv == 0] = minval/2
@@ -207,6 +207,9 @@ my.json.scatter <- function(filenm){
   sink();
 
   reductionSet$pos.xyz <- pos.xyz;
+  loading.data.orig <- as.data.frame(loading.data.orig)
+  loading.data.orig$omicstype <- type.vec;
+  reductionSet$loading.pos.xyz.orig <- loading.data.orig;
   reductionSet$loading.pos.xyz <- loading.data;
 
   .set.rdt.set(reductionSet);
