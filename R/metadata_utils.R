@@ -26,7 +26,6 @@ GetPrimaryMeta <- function(){
 GetMetaDims <- function(){
   rdtSet <- .get.rdt.set();
   dm <- dim(rdtSet$dataSet$meta.info);
-  print(dm);
   return(dm);
 } 
 
@@ -231,7 +230,6 @@ GetMetaTypes <- function(colNm="NA"){
   }else{
     meta.types <- rdtSet$dataSet$meta.types[colNm]
   }
-  print(meta.types)
   return(unname(meta.types));
 }
 
@@ -244,6 +242,7 @@ SetMetaTypes <- function(metaTypes.vec){
 
 UpdateMetaOrder <- function(metacol){
   rdtSet <- .get.rdt.set();
+
   meta <- rdtSet$dataSet$meta.info
   if(length(metaVec)>0 & metacol %in% colnames(meta)){
    meta[,metacol] <- factor(as.character(meta[,metacol]),levels = metaVec)
@@ -297,7 +296,6 @@ UpdateMetaStatus <- function(cidx=1){
 
 GetSampleNm <- function(ridx=1){
   rdtSet <- .get.rdt.set();
-  print( rownames(rdtSet$dataSet$meta.info)[ridx])
   return( rownames(rdtSet$dataSet$meta.info)[ridx]);
 }
 
@@ -428,15 +426,21 @@ CheckEditRes <- function(){
 UpdateSampInfo <-  function(ridx=1,cidx=1,cell){
   rdtSet <- .get.rdt.set();
   meta <- rdtSet$dataSet$meta.info
-  rnames <- rownames(meta)
-  meta <- data.frame(apply(meta, 2, as.character))
-  rownames(meta) <- rnames
   if(cidx==0){
-    rownames(meta)[ridx]=cell
+   if(rownames(meta)[ridx]!=cell){
+   rownames(meta)[ridx]=cell
+ }
   }else{  
+  if(cell!=(as.character(meta[ridx,cidx]))){
+  if(cell %in% levels(meta[,cidx])){
+    meta[ridx,cidx] = cell
+   }else{
+    levels(meta[,cidx]) <- c(levels(meta[,cidx]), cell)
     meta[ridx,cidx] = cell
   }
-  
+meta[,cidx] <- droplevels(meta[,cidx])
+}
+}
   rdtSet$dataSet$meta.info = meta
   .set.rdt.set(rdtSet)
   return(1);
