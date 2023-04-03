@@ -345,7 +345,8 @@ GetDiscMetas <- function(){
 
 GetMetaDataCol <- function(colnm){
   rdtSet <- .get.rdt.set();
-  return(unique(rdtSet$dataSet$meta.info[,colnm]));
+  cls<-levels(rdtSet$dataSet$meta.info[,colnm])
+  return(cls[cls!="NA"]);
 }
 
 DeleteMetaCol <- function(metaCol){
