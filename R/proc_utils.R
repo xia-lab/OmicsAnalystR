@@ -309,3 +309,264 @@ M2Mscore <- function(qvec,mvec,taxlvl="Genus",dataGem="agora"){
   return(m2m.dic)
   
 }
+
+
+
+ReadOmicsDataFile <- function(fileName, omics.type=NA) {
+  # need to handle reading .csv files too!
+  rdtSet <- .get.rdt.set();
+
+  data <- .readDataTable(fileName)
+  dataSet <- list();
+  
+  meta.info <- rdtSet$dataSet$meta.info;
+
+  if(class(data) == "try-error" || ncol(data) == 1){
+    AddErrMsg("Data format error. Failed to read in the data!");
+    AddErrMsg("Make sure the data table is saved as comma separated values (.csv) format!");
+    AddErrMsg("Please also check the followings: ");
+    AddErrMsg("Either sample or feature names must in UTF-8 encoding; Latin, Greek letters are not allowed.");
+    AddErrMsg("We recommend to use a combination of English letters, underscore, and numbers for naming purpose.");
+    AddErrMsg("Make sure sample names and feature (peak, compound) names are unique.");
+    AddErrMsg("Missing values should be blank or NA without quote.");
+    AddErrMsg("Make sure the file delimeters are commas.");
+    return(0);
+  }
+  
+  var.nms <- data[,1];
+  data[,1] <- NULL;
+  smpl.nms <- colnames(data);
+  data <- as.matrix(data);
+  rownames(data) <- var.nms;
+  
+  data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
+  data <- as.data.frame(data)
+  var.nms <- rownames(data)
+  
+  msg <- paste("A total of ", ncol(data), " samples and ", nrow(data), " features were found")
+  
+  # Basic checks - no duplicate samples names
+  # Check for uniqueness of sample name
+  if(length(unique(smpl.nms))!=length(smpl.nms)){
+    dup.nm <- paste(smpl.nms[duplicated(smpl.nms)], collapse=" ");
+    AddErrMsg("Duplicate sample names are not allowed!");
+    AddErrMsg(dup.nm);
+    return(0);
+  }
+  
+  # checking variable names - no duplicate variables for metabolites and microbiome?
+  #if(length(unique(var.nms))!=length(var.nms)){
+  #  dup.nm <- paste(var.nms[duplicated(var.nms)], collapse=" ");
+  #  AddErrMsg("Duplicate feature names are not allowed!");
+  #  AddErrMsg(dup.nm);
+  #  return(0);
+  #}
+  
+  # now check for special characters in the data labels
+  if(sum(is.na(iconv(smpl.nms)))>0){
+    na.inx <- is.na(iconv(smpl.nms));
+    nms <- paste(smpl.nms[na.inx], collapse="; ");
+    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in sample names!", nms, collapse=" "));
+    return(0);
+  }
+  
+  if(sum(is.na(iconv(var.nms)))>0){
+    na.inx <- is.na(iconv(var.nms));
+    nms <- paste(var.nms[na.inx], collapse="; ");
+    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in feature names!", nms, collapse=" "));
+    return(0);
+  }
+  
+  # only keep alphabets, numbers, ",", "." "_", "-" "/"
+  smpl.nms <- CleanNames(smpl.nms, "sample_name");
+  
+  # keep a copy of original names for saving tables 
+  orig.var.nms <- var.nms;
+  var.nms <- CleanNames(var.nms, "var_name"); # allow space, comma and period
+  names(orig.var.nms) <- var.nms;
+  
+  current.msg <<- msg;
+  # now create the dataSet
+  dataSet$orig.var.nms <- orig.var.nms;
+  data <- data.frame(apply(data, 2, function(x) as.numeric(as.character(x))))
+  # now reassgin the dimension names
+  colnames(data) <- smpl.nms;
+  rownames(data) <- var.nms;
+  dataSet$data.proc <- data
+  dataSet$data.raw <- data
+  dataSet$data.annotated <- ""
+  dataSet$data.missed <- ""
+  dataSet$data.filtered <- ""
+  dataSet$name <- fileName;
+  dataSet$de.method <- "NA"
+  dataSet$type <- omics.type;
+  if(omics.type == "rna_b"){
+    readableType <- "Transcriptomics";
+  }else if (omics.type == "met_t" || omics.type == "met_u"){
+    readableType <- "Metabolomics";
+  }else if (omics.type == "mic_m"){
+    readableType <- "Microbiome";
+  }else if (omics.type == "prot"){
+    readableType <- "Proteomics";
+  }else if (omics.type == "mirna"){
+    readableType <- "miRNA";
+  }else{
+    readableType <-  omics.type;
+  }
+  dataSet$readableType <- readableType;
+  dataSet$enrich_ids = rownames(dataSet$data.proc)
+  names(dataSet$enrich_ids) = rownames(dataSet$data.proc)
+  dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), ];
+  # update current dataset
+  RegisterData(dataSet);
+  return(1)
+}
+
+SanityCheckMeta <- function(){
+
+  rdtSet <- .get.rdt.set();
+  sel.nms <- names(mdata.all)
+  data.list = list();
+
+  
+  for(i in 1:length(sel.nms)){
+    dataSet <- qs::qread(sel.nms[i])
+    data.list[[i]] <- dataSet$meta;
+    mdata.all[[i]] <- 1;
+  }
+
+  samples_intersect <- intersect_rownames(data.list);
+  meta.info <- rdtSet$dataSet$meta.info[samples_intersect,];
+
+  rdtSet$dataSet$meta.info <- meta.info;
+  rdtSet$dataSet.origin <- rdtSet$dataSet;
+  for(i in 1:length(sel.nms)){
+    dataSet <- qs::qread(sel.nms[i])
+    dataSet$meta <- rdtSet$dataSet$meta.info;
+    dataSet$data.proc <- dataSet$data.proc.origin <- dataSet$data.proc[,samples_intersect];
+    RegisterData(dataSet);
+  }
+  .set.rdt.set(rdtSet)
+
+disc.vec <- paste(names(rdtSet$dataSet$disc.inx)[which(rdtSet$dataSet$disc.inx)],collapse=", ")  
+cont.vec <- paste(names(rdtSet$dataSet$cont.inx)[which(rdtSet$dataSet$cont.inx)],collapse=", ")  
+na.vec <- na.check(meta.info)
+ return(c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
+         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec ));
+}
+
+intersect_rownames <- function(df_list) {
+  # Find the intersection of row names across all data frames
+  row_names <- Reduce(intersect, lapply(df_list, row.names))
+  
+  return(row_names)
+}
+
+
+NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="NA"){
+  msg <- ""
+  rnms <- rownames(data)
+  cnms <- colnames(data)
+
+  # column(sample)-wise normalization
+  if(colNorm=="SumNorm"){
+    data<-t(apply(data, 2, SumNorm));
+    rownm<-"Normalization to constant sum";
+  }else if(colNorm=="MedianNorm"){
+    data<-t(apply(data, 2, MedianNorm));
+    rownm<-"Normalization to sample median";
+  }else{
+    # nothing to do
+    rownm<-"N/A";
+  }
+  
+  if(norm.opt=="log"){
+    min.val <- min(data[data>0], na.rm=T)/10;
+    numberOfNeg = sum(data<=0, na.rm = TRUE) + 1; 
+    totalNumber = length(data)
+    data[data<=0] <- min.val;
+    data <- log2(data);
+    msg <- paste(msg, "Log2 transformation.", collapse=" ");
+  }else if(norm.opt=="vsn"){
+    require(limma);
+    data <- normalizeVSN(data);
+    msg <- paste(msg, "VSN normalization.", collapse=" ");
+  }else if(norm.opt=="quantile"){
+    require('preprocessCore');
+    data <- normalize.quantiles(as.matrix(data), copy=TRUE);
+    msg <- paste(msg, "Quantile normalization.", collapse=" ");
+  }else if(norm.opt=="combined"){
+    require(limma);
+    data <- normalizeVSN(data);
+    require('preprocessCore');
+    data <- normalize.quantiles(as.matrix(data), copy=TRUE);
+    msg <- paste(msg, "VSN followed by quantile normalization.", collapse=" ");
+  }else if(norm.opt=="logcount"){ # for count data, do it in DE analysis, as it is dependent on design matrix
+    require(edgeR);
+    nf <- calcNormFactors(data);
+    y <- voom(data,plot=F,lib.size=colSums(data)*nf);
+    data <- y$E; # copy per million
+    msg <- paste(msg, "Limma based on log2-counts per million transformation.", collapse=" ");
+  } else if(norm.opt=="rle"){
+    data <- edgeRnorm(data,method="RLE");
+    msg <- c(msg, paste("Performed RLE Normalization"));
+  }else if(norm.opt=="TMM"){
+    data <- edgeRnorm(data,method="TMM");
+    msg <- c(msg, paste("Performed TMM Normalization"));
+  }else if(norm.opt=="clr"){
+    data <- apply(data, 2, clr_transform);
+    msg <- "Performed centered-log-ratio normalization.";
+  }else if(norm.opt=='LogNorm'){
+    min.val <- min(abs(data[data!=0]))/10;
+    data<-apply(data, 2, LogNorm, min.val);
+  }else if(norm.opt=='CrNorm'){
+    norm.data <- abs(data)^(1/3);
+    norm.data[data<0] <- - norm.data[data<0];
+    data <- norm.data;
+  }
+  
+  
+  # scaling
+  if(scaleNorm=='MeanCenter'){
+    data<-apply(data, 1, MeanCenter);
+    scalenm<-"Mean Centering";
+  }else if(scaleNorm=='AutoNorm'){
+    data<-apply(data, 1, AutoNorm);
+    scalenm<-"Autoscaling";
+  }else if(scaleNorm=='ParetoNorm'){
+    data<-apply(data, 1, ParetoNorm);
+    scalenm<-"Pareto Scaling";
+  }else if(scaleNorm=='RangeNorm'){
+    data<-apply(data, 1, RangeNorm);
+    scalenm<-"Range Scaling";
+  }else if(scaleNorm=="colsum"){
+    data <- sweep(data, 2, colSums(data), FUN="/")
+    data <- data*10000000;
+    #msg <- c(msg, paste("Performed total sum normalization."));
+  }else if(scaleNorm=="upperquartile"){
+    suppressMessages(library(edgeR))
+    otuUQ <- edgeRnorm(data,method="upperquartile");
+    data <- as.matrix(otuUQ$counts);
+    #msg <- c(msg, paste("Performed upper quartile normalization"));
+  }else if(scaleNorm=="CSS"){
+    suppressMessages(library(metagenomeSeq))
+    #biom and mothur data also has to be in class(matrix only not in phyloseq:otu_table)
+    data1 <- as(data,"matrix");
+    dataMR <- newMRexperiment(data1);
+    data <- cumNorm(dataMR,p=cumNormStat(dataMR));
+    data <- MRcounts(data,norm = T);
+    #msg <- c(msg, paste("Performed cumulative sum scaling normalization"));
+  }else{
+    scalenm<-"N/A";
+  }
+  if(scaleNorm %in% c('MeanCenter', 'AutoNorm', 'ParetoNorm', 'RangeNorm')){
+    data <- t(data)
+  }
+  
+  data <- as.data.frame(data)
+  rownames(data) <- rnms;
+  colnames(data) <- cnms;
+  msg.vec <<- msg;
+  return(data)
+}
+

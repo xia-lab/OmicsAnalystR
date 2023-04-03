@@ -3,6 +3,7 @@
 ## Description: Compute 3D scatter plot from dimension reduction results
 ## Authors: 
 ## G. Zhou (guangyan.zhou@mail.mcgill.ca) 
+## J. Ewald (jessica.ewald@mail.mcgill.ca) 
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
@@ -215,4 +216,61 @@ my.json.scatter <- function(filenm){
   .set.rdt.set(reductionSet);
 
   return(1);
+}
+
+
+ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
+
+  level <- as.numeric(level)
+  names = strsplit(names.vec, "; ")[[1]]
+  reductionSet <- .get.rdt.set();
+  if(reductionOptGlobal %in% c("diablo") || omics != "NA"){
+    if(grepl("pca_", omics, fixed=TRUE)){
+        pca.scatter <- qs::qread("pca.scatter.qs");
+        pos.xyz<-pca.scatter[[ omics ]]$score/1000
+        print(head(pos.xyz))
+    }else{
+        omics.inx = 1;
+        sel.nms <- names(mdata.all)[mdata.all==1];
+        for(i in 1:length(sel.nms)){
+        dataSet <- qs::qread(sel.nms[i]);
+            if(omics == dataSet$type){
+                omics.inx = i;
+            }
+        }
+        if(omics.inx == 1){
+            pos.xyz = reductionSet$pos.xyz
+        }else{
+            pos.xyz = reductionSet$pos.xyz2
+        }
+    }
+
+  }else{
+  pos.xyz = reductionSet$pos.xyz
+  }
+
+  inx = rownames(pos.xyz) %in% names;
+  coords = as.matrix(pos.xyz[inx,c(1:3)])
+  mesh = list()
+  if(type == "alpha"){
+    library(alphashape3d)
+    library(rgl)
+    sh=ashape3d(coords, 1.0, pert = FALSE, eps = 1e-09);
+    mesh[[1]] = as.mesh3d(sh, triangles=T);
+  }else if(type == "ellipse"){
+    library(rgl);
+    pos=cov(coords, y = NULL, use = "everything");
+    mesh[[1]] = ellipse3d(x=as.matrix(pos), level=level);
+  }else{
+    library(ks);
+    res=kde(coords);
+    r = plot(res, cont=level*100, display="rgl");
+    sc = scene3d();
+    mesh = sc$objects;
+  }
+  library(RJSONIO);
+  sink(filenm);
+  cat(toJSON(mesh));
+  sink();
+  return(filenm);
 }
