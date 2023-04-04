@@ -207,6 +207,20 @@ if(grp.num <= 18){ # update color and respect default
   }
 }
 
+generate_continuous_colors <- function(n, primary_color="green", filenm=NULL) {
+  colors <- colorRampPalette(c("white", primary_color))(n)
+
+  if(is.null(filenm)){
+    return(colors);
+  }else{
+    library(RJSONIO)
+    sink(filenm);
+    cat(toJSON(colors));
+    sink();
+    return(filenm);
+  }
+}
+
 unitAutoScale <- function(df){
     df <- as.data.frame(df)
     row.nms <- rownames(df);

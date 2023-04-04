@@ -75,7 +75,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       nm = sel.nms[i]
       dataSet <- qs::qread(nm);
       
-      inx = which( rownames(reductionSet$loading.pos.xyz) %in% rownames(dataSet$data.proc));
+      inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
       loading.df <- reductionSet$loading.pos.xyz[inx, ]
       
       if(retainedNumber > nrow(loading.df)){

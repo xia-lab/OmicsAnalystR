@@ -15,7 +15,7 @@ reduce.dimension <- function(reductionOpt){
   data.list = list()
   omics.type = vector();
   featureNms <- vector();
-  
+  type.vec <- vector();
   for(i in 1:length(sel.nms)){
     
     dataSet = qs::qread(sel.nms[i])
@@ -27,11 +27,14 @@ reduce.dimension <- function(reductionOpt){
       enrich.nms1 = dataSet$enrich_ids
       comp.res.inx1 = rep(1, nrow(comp.res1));
       featureNms <- rownames(dataSet$data.proc);
+      omics.vec <- rep(dataSet$type, length(featureNms));
     } else {
       comp.res1 = rbind(comp.res1, dataSet$comp.res)
       enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
       comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
       featureNms <- c(featureNms, rownames(dataSet$data.proc));
+      omics.vec <- c(omics.vec,rep(dataSet$type, length(featureNms)));
+
     }
   }
   
@@ -51,8 +54,8 @@ reduce.dimension <- function(reductionOpt){
     
     loading.pos.xyz = mcoin$mcoa$Tco;
     colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
-    rownames(loading.pos.xyz) = featureNms
-    
+    loading.pos.xyz$ids = featureNms;
+
     # get sample and weight names
     names = rownames(pos.xyz)
     
@@ -90,7 +93,7 @@ reduce.dimension <- function(reductionOpt){
     
     weights <- get_weights(model, as.data.frame = T);
     loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
-    rownames(loading.pos.xyz) <- loading.pos.xyz$feature
+    loading.pos.xyz$ids <- loading.pos.xyz$feature
     loading.pos.xyz <- loading.pos.xyz[,-1]
 
     var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]];
@@ -149,7 +152,7 @@ reduce.dimension <- function(reductionOpt){
   }
   
   # preserve original order
-  loading.pos.xyz <- loading.pos.xyz[match(featureNms, rownames(loading.pos.xyz)), ]
+  loading.pos.xyz <- loading.pos.xyz[match(featureNms, loading.pos.xyz$ids), ]
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ]
   
   reductionSet$pos.xyz <- pos.xyz;

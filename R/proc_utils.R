@@ -390,6 +390,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$orig.var.nms <- orig.var.nms;
   data <- data.frame(apply(data, 2, function(x) as.numeric(as.character(x))))
   # now reassgin the dimension names
+
   colnames(data) <- smpl.nms;
   rownames(data) <- var.nms;
   dataSet$data.proc <- data

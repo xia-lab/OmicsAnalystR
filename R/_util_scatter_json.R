@@ -34,7 +34,7 @@ my.json.scatter <- function(filenm){
   pos.xyz <- unitAutoScale(pos.xyz);
   nodes <- vector(mode="list");
   names <- c(rownames(pos.xyz))
-  metadf = reductionSet$meta
+  metadf = reductionSet$dataSet$meta.info
   
   a=list();
   a$objects = "NA";
@@ -112,6 +112,8 @@ my.json.scatter <- function(filenm){
         type.vec[inx] <- omicstype.vec[[i]]
       }
     }
+    ids_and_omicstype = paste0(reductionSet$loading.names, "_", type.vec);
+
     colors<- ComputeColorGradient(pvals, "black", F, F);
     colorb <- colors;
     sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 25));
@@ -124,7 +126,8 @@ my.json.scatter <- function(filenm){
 
     for(i in 1:length(pvals)){
       loading.nodes[[i]] <- list(
-        id=ids[i],
+        id=ids_and_omicstype[i],
+        featureId=ids[i],
         label=names[i],
         size=sizes[i],
         cluster=1,
@@ -151,7 +154,7 @@ my.json.scatter <- function(filenm){
       );
     }
 
-    netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf, loading=loading.nodes, reductionOpt=reductionOptGlobal , objectsLoading=aLoading$objects, sigMat=sig.mats);
+    netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=reductionOptGlobal , objectsLoading=aLoading$objects, sigMat=sig.mats);
   
   # user can compare dimred results to single-omics PCA
   pca.scatter <- qs::qread("pca.scatter.qs");
