@@ -267,10 +267,13 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   
   # now create the json object
   nodes <- vector(mode="list");
+
+  ids_and_omicstype = paste0(nms, "_", mol.types);
   for(i in 1:length(node.sizes)){
     
     nodes[[i]] <- list(
       id=nms[i],
+      featureId=nms[i],
       idnb = i, 
       label=lbls[i],
       x = pos.xy[i,1],
