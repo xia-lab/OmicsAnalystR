@@ -8,7 +8,6 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt){  
-  save.image("reduce.RData");
   ncomps = 5;
   
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -16,6 +15,7 @@ reduce.dimension <- function(reductionOpt){
   omics.type = vector();
   featureNms <- vector();
   type.vec <- vector();
+
   for(i in 1:length(sel.nms)){
     
     dataSet = qs::qread(sel.nms[i])
