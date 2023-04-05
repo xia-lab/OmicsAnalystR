@@ -299,37 +299,32 @@ doIdMapping <- function(q.vec, type){
   }
 }
 
-
-
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-
   require("Cairo");
   library(ggplot2)
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx]
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
   reductionSet <- .get.rdt.set();
-
+  
   df <- reductionSet$var.exp;
   df <- reshape2::melt(df)
-  colnames(df) <- c("Factor", "Dataset", "value")
+  colnames(df) <- c("Component", "Dataset", "value")
+  df$Component <- gsub("Factor","", df$Component);
+  for(i in 1:length(sel.nms)){
+    dataSet <- qs::qread(sel.nms[i]);
+    df$Dataset <- gsub(dataSet$type,dataSet$name, df$Dataset);
+  }
   min_r2 = 0
   max_r2 = max(df$value)
   
-  p1 <- ggplot(df, aes_string(y="Factor", x="Dataset")) + 
-    geom_tile(aes_string(fill="value"), color="black") +
-    labs(x="", y="", title="") +
-    scale_fill_gradientn(colors=c("gray97","darkblue"), guide="colorbar", limits=c(min_r2,max_r2)) +
-    guides(fill=guide_colorbar("Var. (%)")) +
-    theme(
-      axis.text.x = element_text(size=rel(1.0), color="black"),
-      axis.text.y = element_text(size=rel(1.1), color="black"),
-      axis.line = element_blank(),
-      axis.ticks =  element_blank(),
-      panel.background = element_blank(),
-      strip.background = element_blank(),
-      strip.text = element_text(size=rel(1.0))
-    )
+p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
+    geom_line(aes(color=Dataset),linewidth=2) +
+    labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
+    theme(legend.text=element_text(size=11), legend.position="top", legend.title=element_text(size=0));
+    
   
   Cairo(file=imgNm, width=10, height=8, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
@@ -354,7 +349,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   }
   reductionSet <- .get.rdt.set();
   
-  pclabels <- paste0("Factor ", 1:pc.num);
+  pclabels <- paste0("Component ", 1:pc.num);
   
   # draw plot
   Cairo::Cairo(file = imgNm, unit="in", dpi=dpi, width=10, height=10, type=format, bg="white");

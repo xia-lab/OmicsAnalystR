@@ -63,7 +63,6 @@ ReadOmicsData("preg_met.csv", "met_t");
 # Step 3. Process datasets individually
 SanityCheckData("preg_prot.csv");
 CheckDataType("preg_prot.csv", "true");
-SetOmicsType("preg_prot.csv", "prot");
 AnnotateGeneData("preg_prot.csv", "hsa", "symbol");
 RemoveMissingPercent("preg_prot.csv", 0.5)
 ImputeMissingVar("preg_prot.csv", "min")
@@ -73,7 +72,6 @@ DoStatComparison("preg_prot.csv", "ttest", "CLASS","NA","NA","none", 0.005);
 
 SanityCheckData("preg_met.csv");
 CheckDataType("preg_met.csv", "true");
-SetOmicsType("preg_met.csv", "met_t");
 AnnotateMetaboliteData("preg_met.csv", "name");
 RemoveMissingPercent("preg_met.csv", 0.5)
 ImputeMissingVar("preg_met.csv", "min")
