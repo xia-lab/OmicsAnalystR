@@ -230,7 +230,6 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
     if(grepl("pca_", omics, fixed=TRUE)){
         pca.scatter <- qs::qread("pca.scatter.qs");
         pos.xyz<-pca.scatter[[ omics ]]$score/1000
-        print(head(pos.xyz))
     }else{
         omics.inx = 1;
         sel.nms <- names(mdata.all)[mdata.all==1];

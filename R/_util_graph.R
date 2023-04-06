@@ -79,7 +79,6 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
     
   }
   
-  print(expr.vec);
   node.exp <- unname(expr.vec);
   
   current.net.nm <<- net.nm;
