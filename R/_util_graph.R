@@ -175,7 +175,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   
   node.cols <- topo.colsb;
   ntype <- names(freq);
-  color.vec <- gg_color_hue(length(ntype), "blue");
+  color.vec <- generate_colors(length(ntype));
   for(i in 1:length(ntype)){
     if(ntype[i] %in% c("Protein", "Seed", "Gene") ){
       color.vec[i] = "#BD0313";

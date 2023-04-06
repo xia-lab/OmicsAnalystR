@@ -48,7 +48,7 @@ my.json.scatter <- function(filenm){
   # can be selected meta as well if = reductionSet$sel.meta
   meta.vec = as.vector(metadf[,1])
   meta.vec.num = as.integer(as.factor(metadf[,1]))
-  col.s <- gg_color_hue(length(unique(meta.vec)), "green")
+  col.s <- generate_colors(length(unique(meta.vec)))
   for(i in 1:length(meta.vec.num)){
     col[i] = col.s[meta.vec.num[i]];
   }
@@ -202,7 +202,6 @@ my.json.scatter <- function(filenm){
       netData[[nm]] <- pca_loading;
     }
   reductionSet$misc$pct2 <- c(reductionSet$misc$pct2, pca.scatter$pct2);
-
   }
   
   netData[["misc"]] <- reductionSet$misc
