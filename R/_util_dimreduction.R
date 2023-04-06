@@ -143,7 +143,7 @@ reduce.dimension <- function(reductionOpt){
       loading.pos.xyz <- rbind(loading.pos.xyz, model[["loadings"]][[i]])
     }
     colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps));
-    
+    loading.pos.xyz$ids <- rownames(loading.pos.xyz);
     var.exp <- model$prop_expl_var;
     var.exp$Y <- NULL;
     var.exp <- as.matrix(as.data.frame(var.exp));

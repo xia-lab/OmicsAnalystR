@@ -138,7 +138,6 @@ my.json.scatter <- function(filenm){
         origX = loading.data.orig[i,1],
         origY = loading.data.orig[i,2],
         origZ = loading.data.orig[i,3],
-
         seedArr = seed_arr[i],
         colorb=colorb[i],
         colorw=colorb[i],
