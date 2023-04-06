@@ -156,6 +156,8 @@ my.json.scatter <- function(filenm){
     netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=reductionOptGlobal , objectsLoading=aLoading$objects, sigMat=sig.mats);
   
   # user can compare dimred results to single-omics PCA
+  # do not include PCA
+  if( 1 == 2){
   pca.scatter <- qs::qread("pca.scatter.qs");
     for(i in 1:length(omicstype.vec)){
       pos<-pca.scatter[[paste0("pca_", omicstype.vec[i])]]$score
@@ -199,8 +201,9 @@ my.json.scatter <- function(filenm){
       nm <- paste0("pca_", omicstype.vec[[i]], "_loading")
       netData[[nm]] <- pca_loading;
     }
-  
   reductionSet$misc$pct2 <- c(reductionSet$misc$pct2, pca.scatter$pct2);
+
+  }
   
   netData[["misc"]] <- reductionSet$misc
   jsonNms$scatter <<- filenm;
