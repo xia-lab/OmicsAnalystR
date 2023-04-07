@@ -315,7 +315,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i]);
-    df$Dataset <- gsub(dataSet$type,dataSet$name, df$Dataset);
+    df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
   }
   min_r2 = 0
   max_r2 = max(df$value)
@@ -323,10 +323,10 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
     geom_line(aes(color=Dataset),linewidth=2) +
     labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
-    theme(legend.text=element_text(size=11), legend.position="top", legend.title=element_text(size=0));
+    theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
     
   
-  Cairo(file=imgNm, width=10, height=8, type=format, bg="white", unit="in", dpi=dpi);
+  Cairo(file=imgNm, width=10, height=6, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
 }
