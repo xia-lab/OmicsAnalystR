@@ -361,11 +361,26 @@ CovariateScatter.Anal <- function(dataName,
   #reformat for comp.res
   colnames(both.mat)[1] <- c("ids");
 
+  rest$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rest$ids)];
   dataSet$comp.res <- rest;
+  sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
   dataSet$sig.mat <- sig.mat
 
   RegisterData(dataSet)
   return(sig.num);
+}
+
+# Define function to invert named vector
+invert_named_vector <- function(input_named_vec) {
+  # Get names and values of input named vector
+  input_names <- names(input_named_vec)
+  input_values <- unname(input_named_vec)
+  
+  # Invert the named vector
+  output_named_vec <- setNames(input_names, input_values)
+  
+  # Return output named vector
+  return(output_named_vec)
 }
 
 
