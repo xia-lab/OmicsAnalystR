@@ -184,24 +184,25 @@ CleanNames <- function(query, type){
   return(make.unique(query));
 }
 
-gg_color_hue <- function(grp.num, type="green", filenm=NULL) {
-  grp.num <- as.numeric(grp.num)
-    if(type == "green"){
-    pal18 <- c("#e6194B", "#3cb44b", "#4363d8", "#ffff00", "#f032e6", "#ffe119", "#911eb4", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#000075");
-    }else{
-    pal18 <- c( "#4363d8","#e6194B" , "#3cb44b", "#f032e6", "#ffe119", "#e6194B", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#42d4f4","#000075", "#ff4500");
+generate_colors <- function(n_colors, filenm=NULL) {
+    palette = c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+    if(n_colors <= 0) {
+        stop("Number of colors must be a positive integer")
     }
-if(grp.num <= 18){ # update color and respect default
-    colArr <- pal18[1:grp.num];
-  }else{
-    colArr <- colorRampPalette(pal18)(grp.num);
-  }
+    n_palette <- length(palette)
+    if(n_colors <= n_palette) {
+        colors <- palette[1:n_colors]
+    } else {
+        n_repeats <- ceiling(n_colors/n_palette)
+        colors <- rep(palette, n_repeats)[1:n_colors]
+    }
+    
   if(is.null(filenm)){
-    return(colArr);
+    return(colors);
   }else{
     library(RJSONIO)
     sink(filenm);
-    cat(toJSON(colArr));
+    cat(toJSON(colors));
     sink();
     return(filenm);
   }

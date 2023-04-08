@@ -249,7 +249,6 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec){
 
 
 .loadEnrichLib <- function(fun.type, data.org){
-  save.image("enrich.RData");
   folderNm <- data.org;
   my.path <- paste(lib.path, folderNm, "/", fun.type, ".rds", sep="");
   
@@ -269,13 +268,6 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec){
   my.lib$term <- my.lib$term[keep.inx]
   set.ids<- names(current.geneset); 
   names(set.ids) <- names(current.geneset) <- my.lib$term;
-  
-  #if(substr(fun.type, 0, 2)=="go"){
-  #  names(current.geneset) <- firstup(names(current.geneset))
-  #  names(current.geneset) <- gsub("-", "_", names(current.geneset))
-  #  names(set.ids) = firstup(names(set.ids));
-  #  names(set.ids) = gsub("-", "_", names(set.ids));
-  #}
 
   qs::qsave(current.geneset, "current_geneset.qs");
   res <- list();
