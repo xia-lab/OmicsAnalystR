@@ -48,7 +48,7 @@ my.json.scatter <- function(filenm){
   # can be selected meta as well if = reductionSet$sel.meta
   meta.vec = as.vector(metadf[,1])
   meta.vec.num = as.integer(as.factor(metadf[,1]))
-  col.s <- generate_colors(length(unique(meta.vec)))
+  col.s <- generate_colors(length(unique(meta.vec)), "default")
   for(i in 1:length(meta.vec.num)){
     col[i] = col.s[meta.vec.num[i]];
   }
