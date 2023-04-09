@@ -326,7 +326,7 @@ p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) +
     theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
     
   
-  Cairo(file=imgNm, width=10, height=6, type=format, bg="white", unit="in", dpi=dpi);
+  Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
 }
@@ -514,5 +514,44 @@ PlotMultiTsne <- function(imgNm, dpi=72, format="png",factor="1"){
   print(p1)
   dev.off();
   
+}
+
+GetLoadingFileName <-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  reductionSet$loading.file.nm;
+}
+
+GetLoadingMat<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  ids <- dataSet$comp.res$ids;
+  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
+  drops <- c("ids","label")
+
+  return(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)])));
+}
+
+GetLoadingRowNames<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  ids <- dataSet$comp.res$ids;
+  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
+  rownames(reductionSet$loading.pos.xyz);
+}
+
+GetLoadingSymbols<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  ids <- dataSet$comp.res$ids;
+  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
+  reductionSet$loading.pos.xyz$label;
+}
+
+GetLoadingColNames<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  drops <- c("ids","label")
+  rownames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
 }
 

@@ -159,6 +159,10 @@ reduce.dimension <- function(reductionOpt){
   reductionSet$loading.pos.xyz <- loading.pos.xyz;
   reductionSet$var.exp <- var.exp;
   
+  fileNm <- paste0("loading_result_", reductionOpt);
+  reductionSet$loading.file.nm <- fileNm;
+  fast.write.csv(loading.pos.xyz,file=fileNm);
+
   hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
   reductionSet$loading.enrich <- loadingSymbols

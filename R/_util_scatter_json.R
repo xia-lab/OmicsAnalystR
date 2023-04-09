@@ -86,7 +86,7 @@ my.json.scatter <- function(filenm){
 
   # save node table
   ellipse ="NA"
-  
+
   library(RJSONIO)
     
     loading.data.orig = reductionSet$loading.pos.xyz
@@ -212,10 +212,10 @@ my.json.scatter <- function(filenm){
   sink();
 
   reductionSet$pos.xyz <- pos.xyz;
-  loading.data.orig <- as.data.frame(loading.data.orig)
-  loading.data.orig$omicstype <- type.vec;
-  reductionSet$loading.pos.xyz.orig <- loading.data.orig;
-  reductionSet$loading.pos.xyz <- loading.data;
+  #loading.data.orig <- as.data.frame(loading.data.orig)
+  #loading.data.orig$omicstype <- type.vec;
+  #reductionSet$loading.pos.xyz.orig <- loading.data.orig;
+  #reductionSet$loading.pos.xyz <- loading.data;
 
   .set.rdt.set(reductionSet);
 
