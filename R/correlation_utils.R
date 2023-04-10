@@ -69,44 +69,52 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       
     }
   }else{
-    sel.dats <- list();
-    reductionSet$corr.axis.nms <- list();
-    for(i in 1:length(sel.nms)){
-      nm = sel.nms[i]
-      dataSet <- qs::qread(nm);
-      
-      inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
-      loading.df <- reductionSet$loading.pos.xyz[inx, ]
-      
-      if(retainedNumber > nrow(loading.df)){
-        numToKeep <- nrow(loading.df);
-      }else{
-        numToKeep <- retainedNumber
-      }
-      
-      #scores <- GetDist3D(loading.df, c(0,0,0))
-      #scores <- scores * dataSet$misc$pct;
-      for(j in 1:retainedComp){
-        if(j == 1){
-          loading <- loading.df[,1]
-          names(loading) <- rownames(loading.df)
-          loading <- loading[order(-abs(loading))]
-          reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
-          toKeep <- names(loading)[c(1:numToKeep)]
-        }else{
-          loading <- loading.df[,j]
-          names(loading) <- rownames(loading.df)
-          loading <- loading[order(-abs(loading))]
-          reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
-          toKeep <- c(toKeep, names(loading)[c(1:numToKeep)])
-        }
-      }
-      
-      dat <- dataSet$data.proc
-      dat <- dat[rownames(dat) %in% toKeep, ]
-      
-      sel.dats[[i]] <- dat
+sel.dats <- list();
+reductionSet$corr.axis.nms <- list();
+for(i in 1:length(sel.nms)){
+  nm = sel.nms[i]
+  dataSet <- qs::qread(nm);
+  
+  inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
+  loading.df <- reductionSet$loading.pos.xyz[inx, ]
+  
+  if(retainedNumber > nrow(loading.df)){
+    numToKeep <- nrow(loading.df);
+  }else{
+    numToKeep <- retainedNumber
+  }
+  
+  #scores <- GetDist3D(loading.df, c(0,0,0))
+  #scores <- scores * dataSet$misc$pct;
+  for(j in 1:retainedComp){
+    if(j == 1){
+      loading <- loading.df[,1]
+      names(loading) <- rownames(loading.df)
+      loading <- loading[order(-abs(loading))]
+      reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
+      toKeep <- names(loading)[c(1:numToKeep)]
+    }else{
+      loading <- loading.df[,j]
+      names(loading) <- rownames(loading.df)
+      loading <- loading[order(-abs(loading))]
+      reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
+      toKeep <- c(toKeep, names(loading)[c(1:numToKeep)])
     }
+  }
+  
+  library(stringr)
+
+  # Check if all elements start with "X"
+  all_start_with_x <- all(str_detect(toKeep, "^X"))
+  if(all_start_with_x){
+    toKeep <- substring(toKeep, 2, nchar(toKeep))
+  }
+  
+  dat <- dataSet$data.proc
+  dat <- dat[rownames(dat) %in% toKeep, ]
+  
+  sel.dats[[i]] <- dat
+}
   }
   reductionSet$selDatsCorr <- sel.dats
   .set.rdt.set(reductionSet);

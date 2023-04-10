@@ -2,9 +2,7 @@
 
 DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   require("igraph");
-  if(! method %in% dim.res.methods){
-    intRes <- DoDimensionReductionIntegrative("omics", method, 3);
-  }
+  intRes <- DoDimensionReductionIntegrative(method);
   
   threshold <- as.numeric(threshold)
   sel.inx <- mdata.all==1;
@@ -29,7 +27,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   }else if(sign == "positive"){
     cor.inx <- cor_edge_list$weight > threshold
   }else{
-    cor.inx <- cor_edge_list$weigt < -threshold
+    cor.inx <- cor_edge_list$weigth < -threshold
   }
   
   only_sig <- cor_edge_list[cor.inx, ];
@@ -528,7 +526,7 @@ GetLoadingMat<-function(dataName){
   ids <- dataSet$comp.res$ids;
   inx <- reductionSet$loading.pos.xyz$ids %in% ids;
   drops <- c("ids","label")
-
+print(head(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)]))))
   return(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)])));
 }
 
@@ -545,6 +543,7 @@ GetLoadingSymbols<-function(dataName){
   dataSet <- qs::qread(dataName);
   ids <- dataSet$comp.res$ids;
   inx <- reductionSet$loading.pos.xyz$ids %in% ids;
+  print(head(reductionSet$loading.pos.xyz$label));
   reductionSet$loading.pos.xyz$label;
 }
 
@@ -552,6 +551,6 @@ GetLoadingColNames<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- qs::qread(dataName);
   drops <- c("ids","label")
-  rownames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
+  colnames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
 }
 

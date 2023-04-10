@@ -199,7 +199,7 @@ generate_colors <- function(n_colors, coltype="default", filenm=NULL) {
             colors <- rep(palette, n_repeats)[1:n_colors]
         }
     }else{
-        pal18 <- c("#e6194B", "#3cb44b", "#4363d8", "#ffff00", "#f032e6", "#ffe119", "#911eb4", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#000075");
+        pal18 <- c("#e6194B", "#E69F00", "#4363d8", "#ffff00", "#f032e6", "#ffe119", "#911eb4", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#000075");
         if(n_colors <= 18){ # update color and respect default
           colors <- pal18[1:n_colors];
         }else{
