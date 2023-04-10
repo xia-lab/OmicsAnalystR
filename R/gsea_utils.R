@@ -28,7 +28,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
     rankedVec <- dataSet$comp.res[,"coefficient"];
     names(rankedVec) <- dataSet$comp.res$ids;
   }
-  
+
   if(mode == "simple"){
     fgseaRes <- fgsea(pathways = current.geneset, 
                       stats = rankedVec,
