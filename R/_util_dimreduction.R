@@ -62,7 +62,7 @@ reduce.dimension <- function(reductionOpt){
     var.exp <- t(mcoin$mcoa$cov2);
     rownames(var.exp) <- colnames(pos.xyz);
 
-    reductionSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100;
+    #reductionSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100;
   } else if (reductionOpt == "mofa") {
     tmp_dir <- tempdir();
     do.call(file.remove, list(list.files(tmp_dir, full.names = TRUE, recursive = TRUE)));
@@ -153,12 +153,17 @@ reduce.dimension <- function(reductionOpt){
   
   # preserve original order
   loading.pos.xyz <- loading.pos.xyz[match(featureNms, loading.pos.xyz$ids), ]
+  loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ]
   
   reductionSet$pos.xyz <- pos.xyz;
   reductionSet$loading.pos.xyz <- loading.pos.xyz;
   reductionSet$var.exp <- var.exp;
   
+  fileNm <- paste0("loading_result_", reductionOpt);
+  reductionSet$loading.file.nm <- fileNm;
+  fast.write.csv(loading.pos.xyz,file=fileNm);
+
   hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
   reductionSet$loading.enrich <- loadingSymbols

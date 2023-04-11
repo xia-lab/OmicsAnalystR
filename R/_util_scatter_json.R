@@ -48,7 +48,7 @@ my.json.scatter <- function(filenm){
   # can be selected meta as well if = reductionSet$sel.meta
   meta.vec = as.vector(metadf[,1])
   meta.vec.num = as.integer(as.factor(metadf[,1]))
-  col.s <- generate_colors(length(unique(meta.vec)))
+  col.s <- generate_colors(length(unique(meta.vec)), "default")
   for(i in 1:length(meta.vec.num)){
     col[i] = col.s[meta.vec.num[i]];
   }
@@ -86,7 +86,7 @@ my.json.scatter <- function(filenm){
 
   # save node table
   ellipse ="NA"
-  
+
   library(RJSONIO)
     
     loading.data.orig = reductionSet$loading.pos.xyz
@@ -215,7 +215,7 @@ my.json.scatter <- function(filenm){
   loading.data.orig <- as.data.frame(loading.data.orig)
   loading.data.orig$omicstype <- type.vec;
   reductionSet$loading.pos.xyz.orig <- loading.data.orig;
-  reductionSet$loading.pos.xyz <- loading.data;
+  #reductionSet$loading.pos.xyz <- loading.data;
 
   .set.rdt.set(reductionSet);
 

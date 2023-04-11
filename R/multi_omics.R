@@ -2,9 +2,7 @@
 
 DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   require("igraph");
-  if(! method %in% dim.res.methods){
-    intRes <- DoDimensionReductionIntegrative("omics", method, 3);
-  }
+  intRes <- DoDimensionReductionIntegrative(method);
   
   threshold <- as.numeric(threshold)
   sel.inx <- mdata.all==1;
@@ -29,7 +27,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   }else if(sign == "positive"){
     cor.inx <- cor_edge_list$weight > threshold
   }else{
-    cor.inx <- cor_edge_list$weigt < -threshold
+    cor.inx <- cor_edge_list$weigth < -threshold
   }
   
   only_sig <- cor_edge_list[cor.inx, ];
@@ -301,6 +299,7 @@ doIdMapping <- function(q.vec, type){
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   require("Cairo");
+  library(see)
   library(ggplot2)
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx]
@@ -315,18 +314,20 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i]);
-    df$Dataset <- gsub(dataSet$type,dataSet$name, df$Dataset);
+    df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
   }
   min_r2 = 0
   max_r2 = max(df$value)
   
 p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
     geom_line(aes(color=Dataset),linewidth=2) +
+    scale_fill_okabeito() +
+    scale_color_okabeito() +
     labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
-    theme(legend.text=element_text(size=11), legend.position="top", legend.title=element_text(size=0));
+    theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
     
   
-  Cairo(file=imgNm, width=10, height=8, type=format, bg="white", unit="in", dpi=dpi);
+  Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
 }
@@ -336,6 +337,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   require("Cairo");
   library(ggplot2)
   library(GGally)
+  library(see)
   library(grid)
   
   dpi<-as.numeric(dpi)
@@ -366,8 +368,6 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   
   if (cls.type == "disc"){ ## code to execute if metadata class is discrete
     
-    uniq.cols <- GetColorSchema(unique(cls))
-    
     # make plot
     p <- ggpairs(data, 
                  lower = list(continuous = wrap("points")), 
@@ -377,8 +377,12 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
     
     auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) + 
       theme_bw() + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
-      scale_color_manual(values = uniq.cols) + guides(col = guide_legend(nrow = 1))
-    p <- p + theme_bw() + scale_color_manual(values = uniq.cols) + scale_fill_manual(values = uniq.cols) + 
+      scale_fill_okabeito() + 
+      scale_color_okabeito() +
+      guides(col = guide_legend(nrow = 1))
+    p <- p + theme_bw() + 
+      scale_fill_okabeito() + 
+      scale_color_okabeito() +
       theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"))
     mylegend <- grab_legend(auxplot)
     
@@ -514,5 +518,45 @@ PlotMultiTsne <- function(imgNm, dpi=72, format="png",factor="1"){
   print(p1)
   dev.off();
   
+}
+
+GetLoadingFileName <-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  reductionSet$loading.file.nm;
+}
+
+GetLoadingMat<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  ids <- dataSet$comp.res$ids;
+  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
+  drops <- c("ids","label")
+print(head(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)]))))
+  return(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)])));
+}
+
+GetLoadingRowNames<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  ids <- dataSet$comp.res$ids;
+  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
+  rownames(reductionSet$loading.pos.xyz);
+}
+
+GetLoadingSymbols<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  ids <- dataSet$comp.res$ids;
+  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
+  print(head(reductionSet$loading.pos.xyz$label));
+  reductionSet$loading.pos.xyz$label;
+}
+
+GetLoadingColNames<-function(dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- qs::qread(dataName);
+  drops <- c("ids","label")
+  colnames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
 }
 

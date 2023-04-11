@@ -24,8 +24,6 @@ Init.Data <- function(){
   # to control parallel computing for some packages
   Sys.setenv("OMP_NUM_THREADS" = 2); 
   Sys.setenv("OPENBLAS_NUM_THREADS" = 2);
-
-  dim.res.methods <<- vector();
   jsonNms <<- list()
   reductionSet <- list()
   reductionSet$clustVec <- "NA";

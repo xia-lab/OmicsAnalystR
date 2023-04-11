@@ -60,8 +60,6 @@ PerformKeggEnrichment <- function(file.nm, fun.type, ids){
     subres2 = as.data.frame(res2[inx,])
     inx = which(rownames(res3) %in% rownames(subres2))
     subres3 = as.data.frame(res3[inx,])
-    
-    
     ord = order(rownames(subres1));
     subres1 = subres1[ord,]
     ord = order(rownames(subres2));

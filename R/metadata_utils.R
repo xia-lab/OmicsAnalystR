@@ -266,13 +266,13 @@ GetMetaCell <- function(ridx=1,cidx=1){
 }
 
 
-UpdateMetaStatus <- function(cidx=1){
+UpdateMetaStatus <- function(colNm){
   rdtSet <- .get.rdt.set();
+  cidx <- which(colnames(rdtSet$dataSet$meta.info)==colNm)
   old = rdtSet$dataSet$meta.types[cidx];
   if(old=="disc"){
     if(all(is.na( as.numeric(as.character(rdtSet$dataSet$meta.info[,cidx]))))){
       msg.vec <<- "Category metadata cannot be continuous data!"
-      saveSet(msgSet, "msgSet"); 
       return(0)
     }
     rdtSet$dataSet$meta.types[cidx] = "cont"
@@ -281,7 +281,6 @@ UpdateMetaStatus <- function(cidx=1){
   }else{
     if(all(!duplicated(as.character(rdtSet$dataSet$meta.info[,cidx])))){
       msg.vec <<- "No duplicates were detected! The metadata cannot be discrete!"
-      saveSet(msgSet, "msgSet"); 
       return(0)
     }
     rdtSet$dataSet$meta.types[cidx] = "disc"
@@ -302,7 +301,6 @@ GetSampleNm <- function(ridx=1){
 DeleteSample <- function(samplNm){
   rdtSet <- .get.rdt.set();
   rdtSet$dataSet$meta.info <- rdtSet$dataSet$meta.info[rownames(rdtSet$dataSet$meta.info)!=samplNm,]
-
   sel.nms <- names(mdata.all)
   for(nm in sel.nms){
     dataSet <- qs::qread(nm);
@@ -401,13 +399,11 @@ CheckEditRes <- function(){
   min.grp.size <- min(table(cls));
   cls.num <- length(levels(cls));
   if(min.grp.size<2){
-    msg.vec <- paste0( "No replicates were detected for group  ",as.character(cls[which( table(cls)<2)])," in  ",colnames(meta)[1])
+    msg.vec <<- paste0( "No replicates were detected for group  ",as.character(cls[which( table(cls)<2)])," in  ",colnames(meta)[1])
     return(0)
   }
-  
   sel.nms <- names(mdata.all)
   data.list = list();
-  
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i])
     dataSet$meta <- rdtSet$dataSet$meta.info;
@@ -424,25 +420,46 @@ CheckEditRes <- function(){
   return(1)
   }
 
-UpdateSampInfo <-  function(ridx=1,cidx=1,cell){
+
+UpdateSampInfo <-  function(rowNm,colNm,cell){
   rdtSet <- .get.rdt.set();
   meta <- rdtSet$dataSet$meta.info
-  if(cidx==0){
-   if(rownames(meta)[ridx]!=cell){
-   rownames(meta)[ridx]=cell
- }
+  ridx <- which(rownames(meta)==rowNm)
+  if(colNm==""){
+    if(rowNm !=cell){
+      rownames(meta)[ridx]=cell
+    }
   }else{  
-  if(cell!=(as.character(meta[ridx,cidx]))){
-  if(cell %in% levels(meta[,cidx])){
-    meta[ridx,cidx] = cell
-   }else{
-    levels(meta[,cidx]) <- c(levels(meta[,cidx]), cell)
-    meta[ridx,cidx] = cell
+    cidx<- which(colnames(meta)==colNm)
+    if(cell!= as.character(meta[ridx,cidx])){
+      if(cell %in% levels(meta[,cidx])){
+        meta[ridx,cidx] = cell
+      }else{
+        levels(meta[,cidx]) <- c(levels(meta[,cidx]), cell)
+        meta[ridx,cidx] = cell
+      }
+      meta[,cidx] <- droplevels(meta[,cidx])
+    }
   }
-meta[,cidx] <- droplevels(meta[,cidx])
-}
-}
   rdtSet$dataSet$meta.info = meta
   .set.rdt.set(rdtSet)
   return(1);
+}
+
+UpdatePrimaryMeta <- function(primaryMeta){
+print(primaryMeta)
+  rdtSet <- .get.rdt.set(); 
+  meta <- rdtSet$dataSet$meta.info
+  if(primaryMeta %in% colnames(meta)){
+    cidx <- which(colnames(meta)==primaryMeta)
+    rdtSet$dataSet$meta.info<-cbind(meta[,cidx,drop=F],meta[,-cidx,drop=F])
+    rdtSet$dataSet$meta.types = c(rdtSet$dataSet$meta.types[cidx],rdtSet$dataSet$meta.types[-cidx])
+    rdtSet$dataSet$disc.inx=c(rdtSet$dataSet$disc.inx[cidx],rdtSet$dataSet$disc.inx[-cidx])
+    rdtSet$dataSet$cont.inx=c(rdtSet$dataSet$cont.inx[cidx],rdtSet$dataSet$cont.inx[-cidx])
+  }else{
+    msg.vec <- "The metadata column is empty! Please check your selection!"
+    return(0)
+  }
+  .set.rdt.set(rdtSet);
+  return(1)
 }

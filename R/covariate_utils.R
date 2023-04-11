@@ -62,7 +62,8 @@ GetCovSigFileName <-function(dataName){
 
 GetCovSigMat<-function(dataName){
   dataSet <- qs::qread(dataName);
-  return(CleanNumber(as.matrix(dataSet$analSet$cov$sig.mat)));
+  drops <- c("ids","label")
+  return(CleanNumber(as.matrix(dataSet$analSet$cov$sig.mat[, !(names(dataSet$analSet$cov$sig.mat) %in% drops)])));
 }
 
 GetCovSigRowNames<-function(dataName){
@@ -70,9 +71,15 @@ GetCovSigRowNames<-function(dataName){
   rownames(dataSet$analSet$cov$sig.mat);
 }
 
+GetCovSigSymbols<-function(dataName){
+  dataSet <- qs::qread(dataName);
+  dataSet$analSet$cov$sig.mat$label
+}
+
 GetCovSigColNames<-function(dataName){
   dataSet <- qs::qread(dataName);
-  colnames(dataSet$analSet$cov$sig.mat);
+  drops <- c("ids","label");
+  colnames(dataSet$analSet$cov$sig.mat[,!(names(dataSet$analSet$cov$sig.mat) %in% drops)]);
 }
 
 GetPrimaryType <- function(analysis.var){
@@ -289,7 +296,8 @@ CovariateScatter.Anal <- function(dataName,
   both.mat$fdr.adj <- -log10(both.mat$fdr.adj)
   both.mat$pval.no <- -log10(both.mat$pval.no)
   both.mat$fdr.no <- -log10(both.mat$fdr.no)
-  
+  both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];  
+
   # make plot
   if( "F" %in% colnames(rest)){
     fstat <- rest[, "F"];
@@ -318,6 +326,12 @@ CovariateScatter.Anal <- function(dataName,
   AddMsg(paste(c("A total of", sum(inx.imp), "significant features were found."), collapse=" "));
   rownames(both.mat) = both.mat[,1]
   both.mat <- both.mat[rownames(rest),]
+
+  rest$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rest$ids)];
+  dataSet$comp.res <- rest;
+  sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
+  dataSet$sig.mat <- sig.mat
+
   if(sig.num> 0){
     res <- 1;
     fileName <- "covariate_result.csv"
@@ -359,13 +373,23 @@ CovariateScatter.Anal <- function(dataName,
   sink();
 
   #reformat for comp.res
-  colnames(both.mat)[1] <- c("ids");
-
-  dataSet$comp.res <- rest;
-  dataSet$sig.mat <- sig.mat
+  #colnames(both.mat)[1] <- c("ids");
 
   RegisterData(dataSet)
   return(sig.num);
+}
+
+# Define function to invert named vector
+invert_named_vector <- function(input_named_vec) {
+  # Get names and values of input named vector
+  input_names <- names(input_named_vec)
+  input_values <- unname(input_named_vec)
+  
+  # Invert the named vector
+  output_named_vec <- setNames(input_names, input_values)
+  
+  # Return output named vector
+  return(output_named_vec)
 }
 
 
@@ -455,10 +479,10 @@ AddMsg <- function(msg){
 #'License: GPL-3 License
 #'@export
 #'
-PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png", dpi=72, width=NA){
+PlotMultiFacCmpdSummary <- function(dataName,name, id, meta, version, format="png", dpi=72, width=NA){
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
-  print(c(cmpdNm,meta))
+  print(c(id,meta))
   if(.on.public.web){
     load_ggplot()
   }
@@ -473,10 +497,10 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   cls.type <- unname(rdtSet$dataSet$meta.types[meta])
   xlab = meta;
   h <- 6;
-  imgName <- rdtSet$dataSet$url.var.nms[cmpdNm];
-  imgName <- paste(cmpdNm, "_", meta, "_", version, "_summary_dpi", dpi, ".", format, sep="");
+  imgName <- rdtSet$dataSet$url.var.nms[id];
+  imgName <- paste(name, "_", meta, "_", version, "_summary_dpi", dpi, ".", format, sep="");
   
-  inx <- which(rownames(dataSet$data.proc) == cmpdNm)
+  inx <- which(rownames(dataSet$data.proc) == id)
 
   if(cls.type == "cont"){
     df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = as.numeric(as.character(sel.cls)))
@@ -489,14 +513,14 @@ PlotMultiFacCmpdSummary <- function(dataName, cmpdNm, meta, version, format="png
   if(cls.type == "disc"){
     p <- ggplot2::ggplot(df.norm, aes(x=name, y=value, fill=name)) + geom_boxplot(outlier.shape = NA, outlier.colour=NA) + theme_bw() + geom_jitter(size=1) 
     p <- p + scale_fill_manual(values=col) + theme(axis.text.x = element_text(angle=90, hjust=1))
-    p <- p + ggtitle(cmpdNm) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
+    p <- p + ggtitle(name) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
     p <- p + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
     p <- p + theme(plot.margin = margin(t=0.15, r=0.25, b=0.15, l=0.25, "cm"), axis.text = element_text(size=10)) 
   }else{
     p <- ggplot2::ggplot(df.norm, aes(x=name, y=value)) 
     p <- p + geom_point(size=2) + theme_bw()  + geom_smooth(method=lm,se=T)     
     p <- p + theme(axis.text.x = element_text(angle=90, hjust=1)) + guides(size="none")
-    p <- p + ggtitle(cmpdNm) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
+    p <- p + ggtitle(name) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
     p <- p + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
     p <- p + theme(plot.margin = margin(t=0.15, r=0.25, b=0.15, l=0.25, "cm"), axis.text = element_text(size=10)) 
   }
