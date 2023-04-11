@@ -159,7 +159,6 @@ reduce.dimension <- function(reductionOpt){
   reductionSet$pos.xyz <- pos.xyz;
   reductionSet$loading.pos.xyz <- loading.pos.xyz;
   reductionSet$var.exp <- var.exp;
-  
   fileNm <- paste0("loading_result_", reductionOpt);
   reductionSet$loading.file.nm <- fileNm;
   fast.write.csv(loading.pos.xyz,file=fileNm);

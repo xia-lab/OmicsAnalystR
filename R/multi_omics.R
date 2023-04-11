@@ -560,3 +560,10 @@ GetLoadingColNames<-function(dataName){
   colnames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
 }
 
+GetVarianceArr<-function(omicsType){
+  reductionSet <- .get.rdt.set();
+  df <- reductionSet$var.exp;
+  varArr <- df[,omicsType];
+  varArr <- signif(varArr,4)*100;
+  return(varArr);
+}
