@@ -299,6 +299,7 @@ doIdMapping <- function(q.vec, type){
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   require("Cairo");
+  library(see)
   library(ggplot2)
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx]
@@ -320,6 +321,8 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   
 p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
     geom_line(aes(color=Dataset),linewidth=2) +
+    scale_fill_okabeito() +
+    scale_color_okabeito() +
     labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
     theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
     
@@ -334,6 +337,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   require("Cairo");
   library(ggplot2)
   library(GGally)
+  library(see)
   library(grid)
   
   dpi<-as.numeric(dpi)
@@ -364,8 +368,6 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   
   if (cls.type == "disc"){ ## code to execute if metadata class is discrete
     
-    uniq.cols <- GetColorSchema(unique(cls))
-    
     # make plot
     p <- ggpairs(data, 
                  lower = list(continuous = wrap("points")), 
@@ -375,8 +377,12 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
     
     auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) + 
       theme_bw() + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
-      scale_color_manual(values = uniq.cols) + guides(col = guide_legend(nrow = 1))
-    p <- p + theme_bw() + scale_color_manual(values = uniq.cols) + scale_fill_manual(values = uniq.cols) + 
+      scale_fill_okabeito() + 
+      scale_color_okabeito() +
+      guides(col = guide_legend(nrow = 1))
+    p <- p + theme_bw() + 
+      scale_fill_okabeito() + 
+      scale_color_okabeito() +
       theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"))
     mylegend <- grab_legend(auxplot)
     

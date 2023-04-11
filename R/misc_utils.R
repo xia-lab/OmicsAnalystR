@@ -187,7 +187,7 @@ CleanNames <- function(query, type){
 generate_colors <- function(n_colors, coltype="default", filenm=NULL) {
     print(coltype)
     if(coltype == "colorblind"){
-        palette = c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+        palette = c("#9F2CB9", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
         if(n_colors <= 0) {
             stop("Number of colors must be a positive integer")
         }
@@ -199,7 +199,7 @@ generate_colors <- function(n_colors, coltype="default", filenm=NULL) {
             colors <- rep(palette, n_repeats)[1:n_colors]
         }
     }else{
-        pal18 <- c("#e6194B", "#E69F00", "#4363d8", "#ffff00", "#f032e6", "#ffe119", "#911eb4", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#000075");
+        pal18 <- c("#e6194B", "#9F2CB9", "#4363d8", "#ffff00", "#f032e6", "#ffe119", "#911eb4", "#f58231", "#bfef45", "#fabebe", "#469990", "#e6beff", "#9A6324", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#000075");
         if(n_colors <= 18){ # update color and respect default
           colors <- pal18[1:n_colors];
         }else{
