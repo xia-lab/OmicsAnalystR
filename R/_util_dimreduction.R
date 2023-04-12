@@ -96,7 +96,7 @@ reduce.dimension <- function(reductionOpt){
     loading.pos.xyz$ids <- loading.pos.xyz$feature
     loading.pos.xyz <- loading.pos.xyz[,-1]
 
-    var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]];
+    var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
 
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
