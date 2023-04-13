@@ -14,28 +14,31 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
   data.list = list()
   omics.type = vector();
   featureNms <- vector();
+  uniqFeats <- vector();
 
-  for(i in 1:length(sel.nms)){
-    
-    dataSet = qs::qread(sel.nms[i])
-    omics.type <- c(omics.type, dataSet$type)
-    data.list[[dataSet$type]] <- dataSet$data.proc
-    
-    if(i == 1){       
-      comp.res1 = dataSet$comp.res
-      enrich.nms1 = dataSet$enrich_ids
-      comp.res.inx1 = rep(1, nrow(comp.res1));
-      featureNms <- rownames(dataSet$data.proc);
-      omics.vec <- rep(dataSet$type, length(featureNms));
-    } else {
-      comp.res1 = rbind(comp.res1, dataSet$comp.res)
-      enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
-      comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
-      featureNms <- c(featureNms, rownames(dataSet$data.proc));
-      omics.vec <- c(omics.vec,rep(dataSet$type, length(featureNms)));
+    for(i in 1:length(sel.nms)){
 
+      dataSet = qs::qread(sel.nms[i])
+      omics.type <- c(omics.type, dataSet$type)
+      data.list[[dataSet$type]] <- dataSet$data.proc
+
+      if(i == 1){       
+        comp.res1 = dataSet$comp.res
+        enrich.nms1 = dataSet$enrich_ids
+        comp.res.inx1 = rep(1, nrow(comp.res1));
+        featureNms <- rownames(dataSet$data.proc);
+        omics.vec <- rep(dataSet$type, length(featureNms));
+        uniqFeats <- paste0(rownames(dataSet$data.proc),"_", dataSet$type)
+      } else {
+        comp.res1 = rbind(comp.res1, dataSet$comp.res)
+        enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
+        comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
+        featureNms <- c(featureNms, rownames(dataSet$data.proc));
+        omics.vec <- c(omics.vec,rep(dataSet$type, length(featureNms)));
+        uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
+
+      }
     }
-  }
   
   reductionSet <- .get.rdt.set();
   reductionSet$comp.res = comp.res1
@@ -69,6 +72,10 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
 
     # set up model
     data.list <- lapply(data.list, as.matrix)
+    for(i in c(1:length(omics.type))){
+      rownames(data.list[[i]]) <- paste0(rownames(data.list[[i]]), "_", omics.type[i])
+    }
+
     MOFAobject <- create_mofa(data.list);
     data_opts <- get_default_data_options(MOFAobject);
     model_opts <- get_default_model_options(MOFAobject);
@@ -91,8 +98,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
     
     weights <- get_weights(model, as.data.frame = T);
     loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
-    loading.pos.xyz$ids <- loading.pos.xyz$feature
+    loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
     loading.pos.xyz <- loading.pos.xyz[,-1]
+    loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
 
     var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
     var.exp <- round(var.exp, digits = 3);
