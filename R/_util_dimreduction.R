@@ -7,14 +7,13 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-reduce.dimension <- function(reductionOpt){  
+reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){  
   ncomps = 5;
   
   sel.nms <- names(mdata.all)[mdata.all==1];
   data.list = list()
   omics.type = vector();
   featureNms <- vector();
-  type.vec <- vector();
 
   for(i in 1:length(sel.nms)){
     
@@ -60,9 +59,8 @@ reduce.dimension <- function(reductionOpt){
     names = rownames(pos.xyz)
     
     var.exp <- t(mcoin$mcoa$cov2);
+    var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
-
-    #reductionSet$misc$pct = signif(mcoin$mcoa$pseudoeig,4)*100;
   } else if (reductionOpt == "mofa") {
     tmp_dir <- tempdir();
     do.call(file.remove, list(list.files(tmp_dir, full.names = TRUE, recursive = TRUE)));
@@ -97,12 +95,14 @@ reduce.dimension <- function(reductionOpt){
     loading.pos.xyz <- loading.pos.xyz[,-1]
 
     var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
+    var.exp <- round(var.exp, digits = 3);
 
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
-    Y <- reductionSet$meta[,1];
+    Y <- reductionSet$meta[,diabloMeta];
+    diabloPar <- as.numeric(diabloPar);
     
-    design = matrix(0.2, ncol = length(data.list), nrow = length(data.list), 
+    design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
                     dimnames = list(names(data.list), names(data.list)))
     diag(design) = 0;
     
@@ -147,6 +147,7 @@ reduce.dimension <- function(reductionOpt){
     var.exp <- model$prop_expl_var;
     var.exp$Y <- NULL;
     var.exp <- as.matrix(as.data.frame(var.exp));
+    var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
 
   }
