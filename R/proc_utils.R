@@ -424,7 +424,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
 }
 
 SanityCheckMeta <- function(){
-
+  save.image("meta.RData");
   rdtSet <- .get.rdt.set();
   sel.nms <- names(mdata.all)
   data.list = list();
@@ -438,7 +438,8 @@ SanityCheckMeta <- function(){
 
   samples_intersect <- intersect_rownames(data.list);
   meta.info <- rdtSet$dataSet$meta.info[samples_intersect,];
-
+  meta.info <- droplevels(meta.info);
+  print(meta.info);
   rdtSet$dataSet$meta.info <- meta.info;
   rdtSet$dataSet.origin <- rdtSet$dataSet;
   for(i in 1:length(sel.nms)){

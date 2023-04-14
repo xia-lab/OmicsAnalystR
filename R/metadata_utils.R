@@ -94,6 +94,7 @@ GetUniqueMetaNames <-function(metadata){
 }
 
 .readMetaData <- function(metafileName,datOrig,metaContain) {
+ save.image("metad.RData");
   msgSet <- readSet(msgSet, "msgSet");
   na.msg = ""
   if(is.null(msgSet$current.msg)){
@@ -177,8 +178,15 @@ GetUniqueMetaNames <-function(metadata){
   disc.inx <- GetDiscreteInx(meta.info);
 
   # make sure categorical metadata are valid names
-  meta.info[,disc.inx] <- apply(meta.info[,disc.inx], 2, function(x){x[x != "NA"] = make.names(x[x != "NA"]); return(x)});
-  meta.info[,disc.inx] <- lapply(meta.info[,disc.inx], factor);
+  if(class(meta.info[,disc.inx]) == "data.frame"){
+    meta.info[,disc.inx] <- apply(meta.info[,disc.inx], 2, function(x){x[x != "NA"] = make.names(x[x != "NA"]); return(x)});
+    meta.info[,disc.inx] <- lapply(meta.info[,disc.inx], factor);
+  }else{
+    x <- meta.info[,disc.inx];
+    x[x != "NA"] = make.names(x[x != "NA"])
+    x <- factor(x);
+    meta.info[,disc.inx] <- x;
+  }
 
   if(sum(disc.inx) == length(disc.inx)){
     na.msg <- c(na.msg,"All metadata columns are OK!")
