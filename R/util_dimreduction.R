@@ -7,38 +7,37 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){  
+reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){  
   ncomps = 5;
-  
   sel.nms <- names(mdata.all)[mdata.all==1];
   data.list = list()
   omics.type = vector();
   featureNms <- vector();
   uniqFeats <- vector();
-
-    for(i in 1:length(sel.nms)){
-
-      dataSet = qs::qread(sel.nms[i])
-      omics.type <- c(omics.type, dataSet$type)
-      data.list[[dataSet$type]] <- dataSet$data.proc
-
-      if(i == 1){       
-        comp.res1 = dataSet$comp.res
-        enrich.nms1 = dataSet$enrich_ids
-        comp.res.inx1 = rep(1, nrow(comp.res1));
-        featureNms <- rownames(dataSet$data.proc);
-        omics.vec <- rep(dataSet$type, length(featureNms));
-        uniqFeats <- paste0(rownames(dataSet$data.proc),"_", dataSet$type)
-      } else {
-        comp.res1 = rbind(comp.res1, dataSet$comp.res)
-        enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
-        comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
-        featureNms <- c(featureNms, rownames(dataSet$data.proc));
-        omics.vec <- c(omics.vec,rep(dataSet$type, length(featureNms)));
-        uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
-
-      }
+  
+  for(i in 1:length(sel.nms)){
+    
+    dataSet = qs::qread(sel.nms[i])
+    omics.type <- c(omics.type, dataSet$type)
+    data.list[[dataSet$type]] <- dataSet$data.proc
+    
+    if(i == 1){       
+      comp.res1 = dataSet$comp.res
+      enrich.nms1 = dataSet$enrich_ids
+      comp.res.inx1 = rep(1, nrow(comp.res1));
+      featureNms <- rownames(dataSet$data.proc);
+      omics.vec <- rep(dataSet$type, length(featureNms));
+      uniqFeats <- paste0(rownames(dataSet$data.proc),"_", dataSet$type)
+    } else {
+      comp.res1 = rbind(comp.res1, dataSet$comp.res)
+      enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
+      comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
+      featureNms <- c(featureNms, rownames(dataSet$data.proc));
+      omics.vec <- c(omics.vec,rep(dataSet$type, length(featureNms)));
+      uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
+      
     }
+  }
   
   reductionSet <- .get.rdt.set();
   reductionSet$comp.res = comp.res1
@@ -57,7 +56,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
     loading.pos.xyz = mcoin$mcoa$Tco;
     colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     loading.pos.xyz$ids = featureNms;
-
+    
     # get sample and weight names
     names = rownames(pos.xyz)
     
@@ -67,15 +66,15 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
   } else if (reductionOpt == "mofa") {
     tmp_dir <- tempdir();
     do.call(file.remove, list(list.files(tmp_dir, full.names = TRUE, recursive = TRUE)));
-
+    
     library(MOFA2)
-
+    
     # set up model
     data.list <- lapply(data.list, as.matrix)
     for(i in c(1:length(omics.type))){
       rownames(data.list[[i]]) <- paste0(rownames(data.list[[i]]), "_", omics.type[i])
     }
-
+    
     MOFAobject <- create_mofa(data.list);
     data_opts <- get_default_data_options(MOFAobject);
     model_opts <- get_default_model_options(MOFAobject);
@@ -101,18 +100,18 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
     loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
     loading.pos.xyz <- loading.pos.xyz[,-1]
     loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
-
+    
     var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
     var.exp <- round(var.exp, digits = 3);
-
+    
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
     diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta]
     diabloPar <- as.numeric(diabloPar);
-
+    
     if(diablo.meta.type == "disc"){
       Y <- reductionSet$meta[,diabloMeta];
-
+      
       design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
                       dimnames = list(names(data.list), names(data.list)))
       diag(design) = 0;
@@ -122,14 +121,14 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
       meta.var <- reductionSet$meta[,diabloMeta];
       Y <- matrix(c(as.numeric(as.character(meta.var))));
       rownames(Y) <- rownames(reductionSet$meta);
-
+      
       design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
                       dimnames = list(names(data.list), names(data.list)));
       diag(design) = 0;
       data.list <- lapply(data.list, t)
       model = block.spls(X = data.list, Y = Y, ncomp = ncomps, design = design, mode = "regression")
     }
-
+    
     # must calculate centroid factor scores
     variates <- model$variates
     variates$Y <- NULL
@@ -162,7 +161,10 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
     loading.pos.xyz <- data.frame()
     for(i in c(1:length(omics.type))){
       temp.mat <- as.data.frame(model[["loadings"]][[i]])
-      temp.mat$ids <- rownames(temp.mat)
+      rnms <- rownames(temp.mat);
+      temp.mat <-as.data.frame(unitAutoScale(temp.mat));
+      rownames(temp.mat) <- rnms;
+      temp.mat$ids <- rownames(temp.mat);
       temp.mat$type <- omics.type[i]
       loading.pos.xyz <- rbind(loading.pos.xyz, temp.mat)
     }
@@ -172,7 +174,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
     var.exp <- as.matrix(as.data.frame(var.exp));
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
-
+    
   }
   
   # preserve original order
@@ -186,7 +188,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
   fileNm <- paste0("loading_result_", reductionOpt);
   reductionSet$loading.file.nm <- fileNm;
   fast.write.csv(loading.pos.xyz,file=fileNm);
-
+  
   hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
   reductionSet$loading.enrich <- loadingSymbols
