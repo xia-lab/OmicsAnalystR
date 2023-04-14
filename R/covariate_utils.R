@@ -4,91 +4,6 @@
 ## Author: Guangyan Zhou, guangyan.zhou@mail.mcgill.ca
 ###################################################
 
-GetCovUpMat<-function(){
-  rdtSet <- .get.rdt.set();
-  lod <- rdtSet$analSet$cov$p.log;
-  pval.no <- rdtSet$analSet$cov$p.value.no;
-  red.inx<- which(rdtSet$analSet$cov$inx.imp);
-  if(sum(red.inx) > 0){
-    return(as.matrix(cbind(pval.no[red.inx], lod[red.inx])));
-  }else{
-    return(as.matrix(cbind(-1, -1)));
-  }
-}
-
-GetCovUpIDs <- function(){
-  rdtSet <- .get.rdt.set();
-  red.inx<- which(rdtSet$analSet$cov$inx.imp);
-  if(sum(red.inx) > 0){
-    return(names(rdtSet$analSet$cov$p.log)[red.inx]);
-  }else{
-    return("NA");
-  }
-}
-
-GetCovDnMat<-function(){
-  rdtSet <- .get.rdt.set();
-  lod <- rdtSet$analSet$cov$p.log;
-  pval.no <- rdtSet$analSet$cov$p.value.no;
-  blue.inx <- which(!rdtSet$analSet$cov$inx.imp);
-  if(sum(blue.inx) > 0){
-    return(as.matrix(cbind(pval.no[blue.inx], lod[blue.inx])));
-  }else{
-    return(as.matrix(cbind(-1, -1)));
-  }
-}
-
-GetCovDnIDs <- function(){
-  rdtSet <- .get.rdt.set();
-  blue.inx<- which(!rdtSet$analSet$cov$inx.imp);
-  if(sum(blue.inx) > 0){
-    return(names(rdtSet$analSet$cov$p.log)[blue.inx]);
-  }else{
-    return("NA");
-  }
-}
-
-
-##############################################
-##############################################
-########## Utilities for web-server ##########
-##############################################
-##############################################
-
-GetCovSigFileName <-function(dataName){
-  dataSet <- qs::qread(dataName);
-  dataSet$analSet$cov$sig.nm;
-}
-
-GetCovSigMat<-function(dataName){
-  dataSet <- qs::qread(dataName);
-  drops <- c("ids","label")
-  return(CleanNumber(as.matrix(dataSet$analSet$cov$sig.mat[, !(names(dataSet$analSet$cov$sig.mat) %in% drops)])));
-}
-
-GetCovSigRowNames<-function(dataName){
-  dataSet <- qs::qread(dataName);
-  rownames(dataSet$analSet$cov$sig.mat);
-}
-
-GetCovSigSymbols<-function(dataName){
-  dataSet <- qs::qread(dataName);
-  dataSet$analSet$cov$sig.mat$label
-}
-
-GetCovSigColNames<-function(dataName){
-  dataSet <- qs::qread(dataName);
-  drops <- c("ids","label");
-  colnames(dataSet$analSet$cov$sig.mat[,!(names(dataSet$analSet$cov$sig.mat) %in% drops)]);
-}
-
-GetPrimaryType <- function(analysis.var){
-    rdtSet <- .get.rdt.set();
-    primary.type <- unname(rdtSet$dataSet$meta.types[analysis.var]);
-    return(primary.type);
-}
-
-
 #' CovariateScatter.Anal
 #' @param imgName image name
 #' @param format image format
@@ -106,7 +21,7 @@ CovariateScatter.Anal <- function(dataName,
                                   block = "NA", 
                                   thresh=0.05,
                                   contrast.cls = "anova"){
-
+  save.image("cov.RData");
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   msg.lm <- ""
@@ -129,8 +44,11 @@ CovariateScatter.Anal <- function(dataName,
   }
   
   covariates <- rdtSet$dataSet$meta.info
+  covariates <- droplevels(covariates)
   var.types <- rdtSet$dataSet[["meta.types"]]
-  feature_table <- dataSet$data.proc
+  feature_table <- dataSet$data.proc;
+  covariates <- covariates[which(rownames(covariates) %in% colnames(feature_table)),]
+
   # process inputs
   thresh <- as.numeric(thresh)
   ref <- make.names(ref)
@@ -280,7 +198,7 @@ CovariateScatter.Anal <- function(dataName,
 
   if(msg.lm!=""){
   AddMsg(msg.lm)
-   return(-1)
+  return(c(-1,-1));
   }
   print("rest====");
   print(dim(rest));
@@ -374,9 +292,11 @@ CovariateScatter.Anal <- function(dataName,
 
   #reformat for comp.res
   #colnames(both.mat)[1] <- c("ids");
+    
+  nonSig <- nrow(dataSet$comp.res) - sig.num;
 
   RegisterData(dataSet)
-  return(sig.num);
+  return(c(sig.num, nonSig));
 }
 
 # Define function to invert named vector
@@ -482,7 +402,7 @@ AddMsg <- function(msg){
 PlotMultiFacCmpdSummary <- function(dataName,name, id, meta, version, format="png", dpi=72, width=NA){
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
-  print(c(id,meta))
+  print(name);
   if(.on.public.web){
     load_ggplot()
   }

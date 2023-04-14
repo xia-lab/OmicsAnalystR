@@ -259,7 +259,7 @@ ExtractModule<- function(nodeids){
 
 PerformLayOut <- function(net.nm, algo, focus=""){
     if(!exists("my.perform.layout")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_graph.Rc");    
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_graph.Rc");    
     }
     return(my.perform.layout(net.nm, algo, focus));
 }
@@ -432,7 +432,7 @@ community.significance.test <- function(graph, vs, ...) {
 convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
 
     if(!exists("my.convert.igraph")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/_util_graph.Rc");    
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_graph.Rc");    
     }
    
     return(my.convert.igraph(net.nm, filenm, idType));

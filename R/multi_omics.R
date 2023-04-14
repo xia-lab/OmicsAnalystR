@@ -565,5 +565,6 @@ GetVarianceArr<-function(omicsType){
   df <- reductionSet$var.exp;
   varArr <- df[,omicsType];
   varArr <- signif(varArr,4)*100;
+  print(varArr);
   return(varArr);
 }
