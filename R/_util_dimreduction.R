@@ -107,16 +107,29 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
 
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
-    Y <- reductionSet$meta[,diabloMeta];
+    diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta]
     diabloPar <- as.numeric(diabloPar);
-    
-    design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
-                    dimnames = list(names(data.list), names(data.list)))
-    diag(design) = 0;
-    
-    data.list <- lapply(data.list, t)
-    model = block.splsda(X = data.list, Y = Y, ncomp = ncomps, design = design)
-    
+
+    if(diablo.meta.type == "disc"){
+      Y <- reductionSet$meta[,diabloMeta];
+
+      design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
+                      dimnames = list(names(data.list), names(data.list)))
+      diag(design) = 0;
+      data.list <- lapply(data.list, t)
+      model = block.splsda(X = data.list, Y = Y, ncomp = ncomps, design = design)
+    } else {
+      meta.var <- reductionSet$meta[,diabloMeta];
+      Y <- matrix(c(as.numeric(as.character(meta.var))));
+      rownames(Y) <- rownames(reductionSet$meta);
+
+      design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
+                      dimnames = list(names(data.list), names(data.list)));
+      diag(design) = 0;
+      data.list <- lapply(data.list, t)
+      model = block.spls(X = data.list, Y = Y, ncomp = ncomps, design = design, mode = "regression")
+    }
+
     # must calculate centroid factor scores
     variates <- model$variates
     variates$Y <- NULL
@@ -147,11 +160,13 @@ reduce.dimension <- function(reductionOpt, diabloMeta, diabloPar){
     
     # concatenate feature weights
     loading.pos.xyz <- data.frame()
-    for(i in omics.type){
-      loading.pos.xyz <- rbind(loading.pos.xyz, model[["loadings"]][[i]])
+    for(i in c(1:length(omics.type))){
+      temp.mat <- as.data.frame(model[["loadings"]][[i]])
+      temp.mat$ids <- rownames(temp.mat)
+      temp.mat$type <- omics.type[i]
+      loading.pos.xyz <- rbind(loading.pos.xyz, temp.mat)
     }
-    colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps));
-    loading.pos.xyz$ids <- rownames(loading.pos.xyz);
+    colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps), "ids", "type");
     var.exp <- model$prop_expl_var;
     var.exp$Y <- NULL;
     var.exp <- as.matrix(as.data.frame(var.exp));
