@@ -6,7 +6,7 @@
 
 #' CovariateScatter.Anal
 #' @param imgName image name
-#' @param format image format
+#' @param imgFormat image format
 #' @param analysis.var variable of analysis
 #' @param ref reference group
 #' @param block block name
@@ -15,13 +15,13 @@
 #' @export
 CovariateScatter.Anal <- function(dataName, 
                                   imgName="NA", 
-                                  format="png", 
+                                  imgFormat="png", 
                                   analysis.var, 
                                   ref = NULL, 
                                   block = "NA", 
                                   thresh=0.05,
                                   contrast.cls = "anova"){
-  save.image("cov.RData");
+
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   msg.lm <- ""
@@ -284,7 +284,7 @@ CovariateScatter.Anal <- function(dataName,
   dataSet$analSet$cov.mat <- both.mat; 
   
 
-  jsonNm <- gsub(paste0(".", format), ".json", imgName);
+  jsonNm <- gsub(paste0(".", imgFormat), ".json", imgName);
   jsonObj <- RJSONIO::toJSON(both.mat);
   sink(jsonNm);
   cat(jsonObj);

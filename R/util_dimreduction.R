@@ -64,9 +64,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
   } else if (reductionOpt == "mofa") {
-    tmp_dir <- tempdir();
-    do.call(file.remove, list(list.files(tmp_dir, full.names = TRUE, recursive = TRUE)));
-    
+
     library(MOFA2)
     
     # set up model
