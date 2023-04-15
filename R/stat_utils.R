@@ -121,7 +121,7 @@ UpdateDE<-function(dataName, p.lvl = 0.05){
 
   res <- dataSet$comp.res
   
-  hit.inx <- as.numeric(res[, "p_adj"]) <= p.lvl #pval
+  hit.inx <- as.numeric(res[, "P.Value"]) <= p.lvl #pval
   
   if(sum(hit.inx) == 0){
     return (c(1, 0, nrow(res)));
