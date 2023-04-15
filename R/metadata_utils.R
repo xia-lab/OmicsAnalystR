@@ -94,7 +94,7 @@ GetUniqueMetaNames <-function(metadata){
 }
 
 .readMetaData <- function(metafileName,datOrig,metaContain) {
- save.image("metad.RData");
+  #save.image("metad.RData");
   msgSet <- readSet(msgSet, "msgSet");
   na.msg = ""
   if(is.null(msgSet$current.msg)){
