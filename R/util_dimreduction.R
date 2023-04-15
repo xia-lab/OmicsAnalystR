@@ -26,14 +26,14 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){
       enrich.nms1 = dataSet$enrich_ids
       comp.res.inx1 = rep(1, nrow(comp.res1));
       featureNms <- rownames(dataSet$data.proc);
-      omics.vec <- rep(dataSet$type, length(featureNms));
+      omics.vec <- rep(dataSet$type, nrow(dataSet$data.proc));
       uniqFeats <- paste0(rownames(dataSet$data.proc),"_", dataSet$type)
     } else {
       comp.res1 = rbind(comp.res1, dataSet$comp.res)
       enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
       comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
       featureNms <- c(featureNms, rownames(dataSet$data.proc));
-      omics.vec <- c(omics.vec,rep(dataSet$type, length(featureNms)));
+      omics.vec <- c(omics.vec,rep(dataSet$type, nrow(dataSet$data.proc)));
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
       
     }
@@ -56,7 +56,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){
     loading.pos.xyz = mcoin$mcoa$Tco;
     colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     loading.pos.xyz$ids = featureNms;
-    
+    loading.pos.xyz$type <- omics.vec;
     # get sample and weight names
     names = rownames(pos.xyz)
     
@@ -98,7 +98,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){
     loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
     loading.pos.xyz <- loading.pos.xyz[,-1]
     loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
-    
+    loading.pos.xyz$type <- omics.vec;
+
     var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
     var.exp <- round(var.exp, digits = 3);
     
@@ -172,7 +173,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){
     var.exp <- as.matrix(as.data.frame(var.exp));
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
-    
+    loading.pos.xyz$type <- omics.vec;
+
   }
   
   # preserve original order

@@ -529,34 +529,33 @@ GetLoadingFileName <-function(dataName){
 GetLoadingMat<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- qs::qread(dataName);
-  ids <- dataSet$comp.res$ids;
-  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
-  drops <- c("ids","label")
-print(head(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)]))))
+  omicstype <- dataSet$type
+  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
+  drops <- c("ids","label", "type")
   return(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)])));
 }
 
 GetLoadingRowNames<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- qs::qread(dataName);
-  ids <- dataSet$comp.res$ids;
-  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
-  rownames(reductionSet$loading.pos.xyz);
+  omicstype <- dataSet$type
+  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
+  print(head(reductionSet$loading.pos.xyz));
+  rownames(reductionSet$loading.pos.xyz)[inx];
 }
 
 GetLoadingSymbols<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- qs::qread(dataName);
-  ids <- dataSet$comp.res$ids;
-  inx <- reductionSet$loading.pos.xyz$ids %in% ids;
-  print(head(reductionSet$loading.pos.xyz$label));
-  reductionSet$loading.pos.xyz$label;
+  omicstype <- dataSet$type
+  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
+  reductionSet$loading.pos.xyz$label[inx];
 }
 
 GetLoadingColNames<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- qs::qread(dataName);
-  drops <- c("ids","label")
+  drops <- c("ids","label", "type")
   colnames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
 }
 
