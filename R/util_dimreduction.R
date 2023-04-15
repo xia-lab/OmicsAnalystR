@@ -7,7 +7,12 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){  
+reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){  
+reductionOpt <<- reductionOpt;
+diabloMeta <<- diabloMeta;
+diabloPar <<- diabloPar;
+save.image(file="test.RData");
+
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
   data.list = list()
@@ -176,7 +181,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){
   }
   
   # preserve original order
-  loading.pos.xyz <- loading.pos.xyz[match(featureNms, loading.pos.xyz$ids), ]
+  loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ]
   
