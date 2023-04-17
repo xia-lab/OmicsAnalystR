@@ -47,8 +47,9 @@ GetCovDENums <- function(dataName){
 
 
 # users can manually update sample names
-UpdateFeatureName<-function(dataName, old.nm, new.nm){
+UpdateFeatureName <-function(dataName, old.nm, new.nm){
   dataSet <- qs::qread(dataName);
-  print(dataSet$enrich_ids);
+  inx <- names(dataSet$enrich_ids) == old.nm;
+  names(dataSet$enrich_ids)[inx] <- new.nm;
   return(RegisterData(dataSet));
 }

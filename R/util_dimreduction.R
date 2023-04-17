@@ -8,10 +8,6 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){  
-reductionOpt <<- reductionOpt;
-diabloMeta <<- diabloMeta;
-diabloPar <<- diabloPar;
-save.image(file="test.RData");
 
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
