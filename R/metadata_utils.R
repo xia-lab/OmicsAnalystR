@@ -94,7 +94,6 @@ GetUniqueMetaNames <-function(metadata){
 }
 
 .readMetaData <- function(metafileName,datOrig,metaContain) {
-  #save.image("metad.RData");
   msgSet <- readSet(msgSet, "msgSet");
   na.msg = ""
   if(is.null(msgSet$current.msg)){
@@ -206,7 +205,9 @@ GetUniqueMetaNames <-function(metadata){
   }
   disc.inx <- disc.inx[colnames(meta.info)]
   cont.inx <- cont.inx[colnames(meta.info)]
-  
+
+  meta.info <- as.data.frame(meta.info);
+
   msgSet$na.msg <- na.msg
   saveSet(msgSet, "msgSet");  
   return(list(meta.info=meta.info,disc.inx=disc.inx,cont.inx=cont.inx))
@@ -460,7 +461,6 @@ UpdateSampInfo <-  function(rowNm,colNm,cell){
 }
 
 UpdatePrimaryMeta <- function(primaryMeta){
-print(primaryMeta)
   rdtSet <- .get.rdt.set(); 
   meta <- rdtSet$dataSet$meta.info
   if(primaryMeta %in% colnames(meta)){

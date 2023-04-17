@@ -417,14 +417,13 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$readableType <- readableType;
   dataSet$enrich_ids = rownames(dataSet$data.proc)
   names(dataSet$enrich_ids) = rownames(dataSet$data.proc)
-  dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), ];
+  dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), ,drop=F];
   # update current dataset
   RegisterData(dataSet);
   return(1)
 }
 
 SanityCheckMeta <- function(){
-    #save.image("meta.RData");
     rdtSet <- .get.rdt.set();
     sel.nms <- names(mdata.all)
     data.list = list();
@@ -436,9 +435,8 @@ SanityCheckMeta <- function(){
     }
 
     samples_intersect <- intersect_rownames(data.list);
-    meta.info <- rdtSet$dataSet$meta.info[samples_intersect,];
+    meta.info <- rdtSet$dataSet$meta.info[samples_intersect, , drop = FALSE];
     meta.info <- droplevels(meta.info);
-    #print(meta.info);
     rdtSet$dataSet$meta.info <- meta.info;
     rdtSet$dataSet.origin <- rdtSet$dataSet;
     for(i in 1:length(sel.nms)){

@@ -358,7 +358,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   
   data <- as.data.frame(reductionSet$pos.xyz[,1:pc.num]);
   meta.info <- reductionSet$meta;
-  meta.info <- meta.info[match(rownames(data), rownames(meta.info)),]
+  meta.info <- meta.info[match(rownames(data), rownames(meta.info)),,drop=F]
   
 
   inx <- which(colnames(meta.info) == meta)

@@ -245,7 +245,6 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   data <- as.data.frame(data)
   dataSet$data.annotated <- data
   RegisterData(dataSet);
-  
   msg.vec <<- msg
   
   return(resint)

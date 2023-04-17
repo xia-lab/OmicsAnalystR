@@ -222,7 +222,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec){
   fun.padj = resTable[,6]; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
   fun.pval = resTable[,5]; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
   hit.num = resTable[,4]; if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
-  fun.ids <- as.vector(current.setids[names(fun.anot)]);
+  fun.ids <- as.vector(current.setids[current.setids %in% names(fun.anot)]);
   if(length(fun.ids) ==1) { fun.ids <- matrix(fun.ids) };
   json.res <- list(
     fun.link = current.setlink[1],
@@ -259,19 +259,26 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec){
   }
   
   current.geneset <- my.lib$sets;
-
+  
   #remove empty pathways
   keep.inx <- lapply(current.geneset,length)>0
   current.geneset <- current.geneset[keep.inx]
   my.lib$term <- my.lib$term[keep.inx]
   set.ids<- names(current.geneset); 
   names(set.ids) <- names(current.geneset) <- my.lib$term;
-
+  
   qs::qsave(current.geneset, "current_geneset.qs");
   res <- list();
-  res$current.setlink <- my.lib$link;
-  res$current.setids <- set.ids;
-  res$current.geneset <- current.geneset;
+  
+  if(fun.type == "keggm"){
+    res$current.setlink <- "";
+    res$current.setids <- names(my.lib);
+    res$current.geneset <- my.lib
+  }else{
+    res$current.setlink <- my.lib$link;
+    res$current.setids <- set.ids;
+    res$current.geneset <- current.geneset;
+  }
   return(res);
 }
 

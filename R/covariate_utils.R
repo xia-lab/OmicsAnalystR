@@ -21,7 +21,6 @@ CovariateScatter.Anal <- function(dataName,
                                   block = "NA", 
                                   thresh=0.05,
                                   contrast.cls = "anova"){
-
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   msg.lm <- ""
@@ -47,7 +46,7 @@ CovariateScatter.Anal <- function(dataName,
   covariates <- droplevels(covariates)
   var.types <- rdtSet$dataSet[["meta.types"]]
   feature_table <- dataSet$data.proc;
-  covariates <- covariates[which(rownames(covariates) %in% colnames(feature_table)),]
+  covariates <- covariates[which(rownames(covariates) %in% colnames(feature_table)),,drop=F]
 
   # process inputs
   thresh <- as.numeric(thresh)
@@ -70,7 +69,7 @@ CovariateScatter.Anal <- function(dataName,
     }
   }
   #subset to samples contained in dataset
-  covariates <- covariates[match(colnames(feature_table), rownames(covariates)),]
+  covariates <- covariates[match(colnames(feature_table), rownames(covariates)),,drop=F]
   if (block != "NA"){    
     if(rdtSet$dataSet$meta.types[block] == "cont"){
       AddMsg("Blocking factor can not be continuous data type.")
@@ -232,16 +231,16 @@ CovariateScatter.Anal <- function(dataName,
   names(fstat) <- names(p.value) <- colnames(dataSet$data.proc);
   fdr.p <- rest[,"adj.P.Val"];
   inx.imp <- p.value <= thresh;
-  sig.num <- sum(inx.imp);
+  sig.num <- length(which(inx.imp == TRUE))
   
   if(sig.num > 0){ 
     sig.p <- p.value[inx.imp];
     sig.mat <- rest[inx.imp,];
     sig.mat[,-ncol(sig.mat)] <- sapply(sig.mat[,-ncol(sig.mat)], function(x) signif(x, 5));
-    rownames(sig.mat) <- rownames(rest)[inx.imp]
+    rownames(sig.mat) <- make.names(rownames(rest)[inx.imp])
     # order the result simultaneously
   }
-  AddMsg(paste(c("A total of", sum(inx.imp), "significant features were found."), collapse=" "));
+  AddMsg(paste(c("A total of", length(which(inx.imp == TRUE)), "significant features were found."), collapse=" "));
   rownames(both.mat) = both.mat[,1]
   both.mat <- both.mat[rownames(rest),]
 
