@@ -178,9 +178,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.1"){
   }
   
   # preserve original order
-  loading.pos.xyz <- loading.pos.xyz[match(featureNms, loading.pos.xyz$ids), ]
+  loading.pos.xyz <- loading.pos.xyz[match(featureNms, loading.pos.xyz$ids), ];
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
-  pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ]
+  pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
   
   reductionSet$pos.xyz <- pos.xyz;
   reductionSet$loading.pos.xyz <- loading.pos.xyz;

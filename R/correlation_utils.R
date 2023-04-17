@@ -6,7 +6,7 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
-
+  
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -30,6 +30,11 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
         sig.mat <- dataSet$sig.mat
       }else{
         sig.mat <- dataSet$custom.sig.mat
+      }
+
+      #if more than 2000 sig genes, then limit to top 2000 only
+      if(nrow(sig.mat) > 2000){
+        sig.mat <- sig.mat[c(1:2000),];
       }
       
       inxAll = which(rownames(all.mat) %in% rownames(sig.mat));
@@ -69,52 +74,52 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       
     }
   }else{
-sel.dats <- list();
-reductionSet$corr.axis.nms <- list();
-for(i in 1:length(sel.nms)){
-  nm = sel.nms[i]
-  dataSet <- qs::qread(nm);
-  
-  inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
-  loading.df <- reductionSet$loading.pos.xyz[inx, ]
-  
-  if(retainedNumber > nrow(loading.df)){
-    numToKeep <- nrow(loading.df);
-  }else{
-    numToKeep <- retainedNumber
-  }
-  
-  #scores <- GetDist3D(loading.df, c(0,0,0))
-  #scores <- scores * dataSet$misc$pct;
-  for(j in 1:retainedComp){
-    if(j == 1){
-      loading <- loading.df[,1]
-      names(loading) <- rownames(loading.df)
-      loading <- loading[order(-abs(loading))]
-      reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
-      toKeep <- names(loading)[c(1:numToKeep)]
-    }else{
-      loading <- loading.df[,j]
-      names(loading) <- rownames(loading.df)
-      loading <- loading[order(-abs(loading))]
-      reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
-      toKeep <- c(toKeep, names(loading)[c(1:numToKeep)])
+    sel.dats <- list();
+    reductionSet$corr.axis.nms <- list();
+    for(i in 1:length(sel.nms)){
+      nm = sel.nms[i]
+      dataSet <- qs::qread(nm);
+      
+      inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
+      loading.df <- reductionSet$loading.pos.xyz[inx, ]
+      
+      if(retainedNumber > nrow(loading.df)){
+        numToKeep <- nrow(loading.df);
+      }else{
+        numToKeep <- retainedNumber
+      }
+      
+      #scores <- GetDist3D(loading.df, c(0,0,0))
+      #scores <- scores * dataSet$misc$pct;
+      for(j in 1:retainedComp){
+        if(j == 1){
+          loading <- loading.df[,1]
+          names(loading) <- rownames(loading.df)
+          loading <- loading[order(-abs(loading))]
+          reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
+          toKeep <- names(loading)[c(1:numToKeep)]
+        }else{
+          loading <- loading.df[,j]
+          names(loading) <- rownames(loading.df)
+          loading <- loading[order(-abs(loading))]
+          reductionSet$corr.axis.nms[[j]] <-names(loading)[c(1:numToKeep)]
+          toKeep <- c(toKeep, names(loading)[c(1:numToKeep)])
+        }
+      }
+      
+      library(stringr)
+      
+      # Check if all elements start with "X"
+      all_start_with_x <- all(str_detect(toKeep, "^X"))
+      if(all_start_with_x){
+        toKeep <- substring(toKeep, 2, nchar(toKeep))
+      }
+      
+      dat <- dataSet$data.proc
+      dat <- dat[rownames(dat) %in% toKeep, ]
+      
+      sel.dats[[i]] <- dat
     }
-  }
-  
-  library(stringr)
-
-  # Check if all elements start with "X"
-  all_start_with_x <- all(str_detect(toKeep, "^X"))
-  if(all_start_with_x){
-    toKeep <- substring(toKeep, 2, nchar(toKeep))
-  }
-  
-  dat <- dataSet$data.proc
-  dat <- dat[rownames(dat) %in% toKeep, ]
-  
-  sel.dats[[i]] <- dat
-}
   }
   reductionSet$selDatsCorr <- sel.dats
   .set.rdt.set(reductionSet);
@@ -123,12 +128,12 @@ for(i in 1:length(sel.nms)){
 
 DoCorrelationFilter <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.9, 
                                 threshold.intra=0.5, numToKeep=2000, update="false"){
-                 DoCorrelationFilterTaxa(sign, crossOmicsOnly, networkInfer,threshold.inter,threshold.intra, numToKeep,"genus","agora","false");                 
+  DoCorrelationFilterTaxa(sign, crossOmicsOnly, networkInfer,threshold.inter,threshold.intra, numToKeep,"genus","agora","false");                 
 }
 
 DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.9, 
-                                threshold.intra=0.5, numToKeep=2000,taxlvl="genus",datagem="agora",update="false"){
-
+                                    threshold.intra=0.5, numToKeep=2000,taxlvl="genus",datagem="agora",update="false"){
+  
   reductionSet <- .get.rdt.set();
   
   if(update=="false" | !(exists("selDatsCorr.taxa",reductionSet))){
@@ -383,7 +388,6 @@ DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkI
     intres <- ProcessGraphFile(new_g, labels, type.list);
     
   }
-  
   
 }
 
