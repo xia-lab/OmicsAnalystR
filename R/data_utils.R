@@ -776,12 +776,9 @@ ImputeMissingVar <- function(dataName="", method="min"){
 }
 
 
-FilteringData <- function(nm, countOpt="pct",count, var){
+FilteringData <- function(nm, countOpt="pct",count="2", var="15"){
   dataSet <- qs::qread(nm);
-  return(FilteringDataOmics(dataSet,countOpt, count,  var))
-}
-
-FilteringDataOmics <- function(dataSet, countOpt="pct",count="2", var="15"){
+  
   data = dataSet$data.missed
   msg <- ""
   

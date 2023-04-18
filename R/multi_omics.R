@@ -77,7 +77,7 @@ NormalizeDataWrapper <-function (nm, opt, colNorm){
 }
 
 ScaleDataWrapper <-function (nm, scaleNorm){
-  
+ 
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
     for(i in 1:length(sel.nms)){
@@ -87,8 +87,7 @@ ScaleDataWrapper <-function (nm, scaleNorm){
       if(exists("m2m",dataSet)){
         data.norm.taxa <- lapply(dataSet$dataSet$data.proc.taxa, function(x) {
           NormalizingDataOmics(x, "NA", "NA", scaleNorm)
-        }
-        )
+        })
         dataSet$data.proc.taxa <- data.norm.taxa
       }
       RegisterData(dataSet)
@@ -101,26 +100,63 @@ ScaleDataWrapper <-function (nm, scaleNorm){
     data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
-      
       data.norm.taxa <- lapply(dataSet$data.proc.taxa, function(x) {
         NormalizingDataOmics(x, "NA", "NA", scaleNorm)
-      }
-      )
-      
-      
+      })
       dataSet$data.proc.taxa <- data.norm.taxa
-      
-      
     }
-    
     RegisterData(dataSet)
     return(1)
   }
 }
 
-FilterDataMultiOmicsHarmonization <- function(nm, filterPercent = 0){
-    print("filter function called")
+FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
+  filterPercent <- as.numeric(filterPercent);
+  if(dataName == "NA"){
+    sel.nms <- names(mdata.all)
+    for(i in 1:length(sel.nms)){
+      dataSet <- qs::qread(sel.nms[i])
+      data <- dataSet$data.annotatated;
+      data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
+      data <- FilterDataByVariance(data, filterPercent);
+      if(any(class(data) == "character")){print("Detected autoscale"); return(2)}
+      dataSet$data.proc <- data;
+      if(exists("m2m",dataSet)){
+        data.norm.taxa <- lapply(dataSet$dataSet$data.annotatated.taxa, function(x) {
+          FilterDataByVariance(x, filterPercent);
+        })
+        dataSet$data.proc.taxa <- data.norm.taxa
+      }
+      RegisterData(dataSet)
+    }
     return(1)
+  } else {
+    dataSet <- qs::qread(dataName);
+    data <- dataSet$data.annotated;
+    data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
+    data <- FilterDataByVariance(data, filterPercent);
+    if(any(class(data) == "character")){print("Detected autoscale"); return(2)}
+    dataSet$data.proc <- data;
+    if(exists("m2m",dataSet)){
+      data.norm.taxa <- lapply(dataSet$data.annotatated.taxa, function(x) {
+        FilterDataByVariance(x, filterPercent);
+      })
+      dataSet$data.proc.taxa <- data.norm.taxa
+    }
+    RegisterData(dataSet)
+    return(1)
+  }
+}
+
+FilterDataByVariance <- function(data, filterPercent){
+  featVar <- apply(data, 1, var)
+  if(var(featVar) < 0.001){
+    return("Already autoscaled")
+  }
+  varThresh <- quantile(featVar, (filterPercent/100))
+  featKeep <- which(featVar > varThresh)
+  data <- data[featKeep, ]
+  return(data)
 }
 
 #'Plot PCA plot for multi-omics samples
@@ -246,31 +282,33 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
 
 GetMultiSummary <- function(){
   sel.nms <- names(mdata.all);
-  featureNumOrig <- "";
+  featureNumAnn <- "";
   featureNumFilter <- "";
   dat.nms <- "";
   for(i in 1:length(sel.nms)){
     dataSet = qs::qread(sel.nms[i]);
-    datOrig <- dataSet$data.raw;
+    datAnn <- dataSet$data.annotated;
     datProc <- dataSet$data.proc;
     if(i == 1){
       cls.lbls <- dataSet$meta[,1]
-      featureNumOrig <- nrow(datOrig);
+      featureNumAnn <- nrow(datAnn);
       featureNumFilter <- nrow(datProc);
-      sampleNum <- ncol(datOrig);
+      sampleNum <- ncol(datProc);
       dat.nms <- sel.nms[i];
     }else{
-      featureNumOrig <- c(featureNumOrig, nrow(datOrig));
+      featureNumAnn <- c(featureNumAnn, nrow(datAnn));
       featureNumFilter <- c(featureNumFilter, nrow(datProc));
       dat.nms <- c(dat.nms, sel.nms[i]);
     }
   }
-  featureNumOrig <- paste(featureNumOrig, collapse="; ");
+  featureNumAnn <- paste(featureNumAnn, collapse="; ");
   featureNumFilter <- paste(featureNumFilter, collapse="; ");
   dat.nms <- paste(dat.nms, collapse="; ");
   cls.lbls <- unique(cls.lbls);
   cls.lbls <- paste(cls.lbls, collapse="; ");
-  return(c(sampleNum, featureNumOrig, dat.nms, cls.lbls, featureNumFilter))
+  res <- c(sampleNum, featureNumAnn, dat.nms, cls.lbls, featureNumFilter);
+  print(res);
+  return(res)
 }
 
 GetOmicsDataDims <- function(dataName){
