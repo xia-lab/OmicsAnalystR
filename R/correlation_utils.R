@@ -126,14 +126,14 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   return(1)
 }
 
-DoCorrelationFilter <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.9, 
+DoCorrelationFilter <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.8, 
                                 threshold.intra=0.5, numToKeep=2000, update="false"){
   DoCorrelationFilterTaxa(sign, crossOmicsOnly, networkInfer,threshold.inter,threshold.intra, numToKeep,"genus","agora","false");                 
 }
 
-DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.9, 
+DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.8, 
                                     threshold.intra=0.5, numToKeep=2000,taxlvl="genus",datagem="agora",update="false"){
-  
+  save.image("corr.RData");
   reductionSet <- .get.rdt.set();
   
   if(update=="false" | !(exists("selDatsCorr.taxa",reductionSet))){

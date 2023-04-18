@@ -247,6 +247,7 @@ CovariateScatter.Anal <- function(dataName,
   rest$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rest$ids)];
   dataSet$comp.res <- rest;
   sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
+  rownames(sig.mat) <- sig.mat$ids;
   dataSet$sig.mat <- sig.mat
 
   if(sig.num> 0){
