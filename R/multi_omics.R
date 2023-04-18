@@ -118,6 +118,11 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   }
 }
 
+FilterDataMultiOmicsHarmonization <- function(nm, filterPercent = 0){
+    print("filter function called")
+    return(1)
+}
+
 #'Plot PCA plot for multi-omics samples
 #'@description 
 #'@param imgNm name of the image to output
