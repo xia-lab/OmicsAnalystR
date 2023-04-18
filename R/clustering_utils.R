@@ -137,13 +137,13 @@ ComputePathHeatmapTable <- function(dataSet){
       ncls <- paste(grp.nm, as.numeric(cls)+99); # note, here to retain ordered factor
       disc.inx[c(nrow(meta)*(i-1)+1: nrow(meta)*i)] <- T;
       sample.cluster[[grps[i]]] <- order(cls)
-
+      
       
     }else{
-       ncls <- as.numeric(cut(order(cls), breaks=30)); # note, here to retain ordered factor
-       ord <- match(orig.smpl.nms, orig.smpl.nms[order(cls)]);
-       sample.cluster[[grps[i]]] <- ord
-
+      ncls <- as.numeric(cut(rank(as.numeric(as.character(cls))), breaks=30)); # note, here to retain ordered factor
+      ord <- match(orig.smpl.nms, orig.smpl.nms[order(cls)]);
+      sample.cluster[[grps[i]]] <- ord
+      
     }
     meta.grps <- c(meta.grps, paste(grp.nm, rownames(meta))); 
     nmeta <- c(nmeta, ncls);
@@ -156,7 +156,7 @@ ComputePathHeatmapTable <- function(dataSet){
   # get corresponding names
   #meta_anot <- meta.vec[unik.inx]; 
   #names(meta_anot) <- nmeta[unik.inx]; # name annotatation by their numbers
-
+  
   meta_anot <- meta.vec; 
   names(meta_anot) <- meta.grps;
   
