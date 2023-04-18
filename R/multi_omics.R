@@ -244,28 +244,33 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
   dev.off();
 } 
 
-GetMultiSummary<- function(){
+GetMultiSummary <- function(){
   sel.nms <- names(mdata.all);
-  featureNum <- "";
+  featureNumOrig <- "";
+  featureNumFilter <- "";
   dat.nms <- "";
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
-    dat <- dataSet$data.proc
+    dataSet = qs::qread(sel.nms[i]);
+    datOrig <- dataSet$data.raw;
+    datProc <- dataSet$data.proc;
     if(i == 1){
       cls.lbls <- dataSet$meta[,1]
-      featureNum <- nrow(dat)
-      sampleNum <- ncol(dat)
-      dat.nms <- sel.nms[i]
+      featureNumOrig <- nrow(datOrig);
+      featureNumFilter <- nrow(datProc);
+      sampleNum <- ncol(datOrig);
+      dat.nms <- sel.nms[i];
     }else{
-      featureNum <- c(featureNum, nrow(dat))
-      dat.nms <- c(dat.nms, sel.nms[i])
+      featureNumOrig <- c(featureNumOrig, nrow(datOrig));
+      featureNumFilter <- c(featureNumFilter, nrow(datProc));
+      dat.nms <- c(dat.nms, sel.nms[i]);
     }
   }
-  featureNum <- paste(featureNum, collapse="; ")
-  dat.nms <- paste(dat.nms, collapse="; ")
-  cls.lbls <- unique(cls.lbls)
-  cls.lbls <- paste(cls.lbls, collapse="; ")
-  return(c(sampleNum, featureNum, dat.nms, cls.lbls) )
+  featureNumOrig <- paste(featureNumOrig, collapse="; ");
+  featureNumFilter <- paste(featureNumFilter, collapse="; ");
+  dat.nms <- paste(dat.nms, collapse="; ");
+  cls.lbls <- unique(cls.lbls);
+  cls.lbls <- paste(cls.lbls, collapse="; ");
+  return(c(sampleNum, featureNumOrig, dat.nms, cls.lbls, featureNumFilter))
 }
 
 GetOmicsDataDims <- function(dataName){
