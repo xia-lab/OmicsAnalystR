@@ -121,7 +121,7 @@ ComputePathHeatmapTable <- function(dataSet){
   
   meta.types <- reductionSet$dataSet$meta.types;
   meta <- metadf;
-  meta <- meta[which(rownames(meta) %in% orig.smpl.nms), ];
+  meta <- meta[which(rownames(meta) %in% orig.smpl.nms), ,drop=F];
   grps <- colnames(metadf)
   nmeta <- meta.vec <- NULL;
   uniq.num <- 0;
