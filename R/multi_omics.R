@@ -583,13 +583,12 @@ GetLoadingMat<-function(dataName){
   return(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)])));
 }
 
-GetLoadingRowNames<-function(dataName){
+GetLoadingIds<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- qs::qread(dataName);
   omicstype <- dataSet$type
   inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
-  print(head(reductionSet$loading.pos.xyz));
-  rownames(reductionSet$loading.pos.xyz)[inx];
+  reductionSet$loading.pos.xyz$ids[inx];
 }
 
 GetLoadingSymbols<-function(dataName){
