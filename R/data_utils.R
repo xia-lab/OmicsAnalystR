@@ -668,8 +668,7 @@ SetParamsNormalizedData <- function(dataName){
 
     int.mat <- dataSet$data.annotated;
     msg.vec <- "";
-    int.mat <- int.mat[complete.cases(int.mat), ];
-    write.csv(int.mat, paste0(dataSet$name, "complete.csv"));
+
 
     if(sum(is.na(int.mat)) == 0){ # check if any missing values
       dataSet$data.proc <- int.mat;
@@ -679,6 +678,7 @@ SetParamsNormalizedData <- function(dataName){
       msg.vec <<- c(msg.vec, paste0("Missing values detected in ",dataSet$name,". Please upload normalized data with no missing values."));
       res <- 0;
     }
+    ImputeMissingVar(dataSet$name, "min")
     RegisterData(dataSet);
     return(res)
 }
@@ -770,7 +770,10 @@ ImputeMissingVar <- function(dataName="", method="min"){
   if(!is.null(new.mat)){
     dataSet$data.missed <- as.data.frame(new.mat);
   }
-  print("Impute Missing")
+  print(dataSet$data.missed);
+  dataSet$data.missed <- dataSet$data.missed[complete.cases(dataSet$data.missed), ];
+  write.csv(dataSet$data.missed, paste0(dataSet$name, "_complete.csv"));
+
   RegisterData(dataSet);
   return(1)
 }
@@ -856,6 +859,7 @@ ReplaceMissingByLoD <- function(int.mat){
     int.mat <- t(apply(int.mat, 1, .replace.by.lod));
     rownames(int.mat) <- rowNms;
     colnames(int.mat) <- colNms;
+    print(head(int.mat));
     return (int.mat);
 }
 

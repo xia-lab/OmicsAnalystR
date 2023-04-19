@@ -106,7 +106,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   
   if(idtype %in% c("mir_id", "mir_acc", "mirnet")){
     enMat <- doIdMapping(gene.vec, idtype);
-    if(enMat == 0){
+    if(nrow(enMat) == 0){
       msg.vec <<- "Please make sure the right ID type and organism are selected.";
       return(0)
     }
@@ -182,7 +182,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   if(idtype != "NA"){
 
     if(length(unique(enIDs))/length(gene.vec) < 0.3){
-      msg <- paste("Less than ", round( length(unique(enIDs))/length(gene.vec) * 100, 2), "% features were mapped");
+      msg <- paste("Less than ", round( length(unique(enIDs))/length(gene.vec) * 100, 2), "% features were mapped in ", dataSet$name);
       msg.vec <<- msg
       return(0)
     }else{
