@@ -22,6 +22,7 @@
 #'
 Init.Data <- function(){ 
   # to control parallel computing for some packages
+  require("ggplot2");
   Sys.setenv("OMP_NUM_THREADS" = 2); 
   Sys.setenv("OPENBLAS_NUM_THREADS" = 2);
   jsonNms <<- list()
@@ -280,7 +281,6 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
   }
   
   inx <- which(dataSet$enrich_ids == gene.id)
-  print(head(dataSet$enrich_ids));
   id <- unname(dataSet$enrich_ids[inx])
   vec = as.vector(dataSet$data.proc[rownames(dataSet$data.proc) == gene.id,])
   colors<- ComputeColorGradient(as.numeric(vec), "black", F, F);
@@ -770,9 +770,9 @@ ImputeMissingVar <- function(dataName="", method="min"){
   if(!is.null(new.mat)){
     dataSet$data.missed <- as.data.frame(new.mat);
   }
-  print(dataSet$data.missed);
-  dataSet$data.missed <- dataSet$data.missed[complete.cases(dataSet$data.missed), ];
-  write.csv(dataSet$data.missed, paste0(dataSet$name, "_complete.csv"));
+
+ #dataSet$data.missed <- dataSet$data.missed[complete.cases(dataSet$data.missed), ];
+ #write.csv(dataSet$data.missed, paste0(dataSet$name, "_complete.csv"));
 
   RegisterData(dataSet);
   return(1)

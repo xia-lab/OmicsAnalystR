@@ -222,7 +222,6 @@ GetPrimaryType <- function(analysis.var){
 GetMetaDataGroups <- function(){
   rdtSet <- .get.rdt.set();
   groups <- colnames(rdtSet$dataSet$meta.info);
-  print(rdtSet$dataSet$meta.info);
   return(groups);
 }
 

@@ -206,7 +206,9 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
       ylim(ylim) + 
       xlab(xlabel) + 
       ylab(ylabel) +
-      theme_bw()
+      theme_bw()+
+      theme(text=element_text(size=13));
+
     fig.list[[i]] <- pcafig
     
     pos.xyz = data.frame(x=pca$x[,1], y=pca$x[,2], z=pca$x[,3]);
@@ -275,7 +277,8 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
   g =ggplot(merged.df, aes(x=values)) + 
     geom_line(aes(color=Dataset, group=ind), stat="density", alpha=0.1) + 
     geom_line(aes(color=Dataset), stat="density", alpha=0.7, size=3) +
-    theme_bw()
+    theme_bw() +
+    theme(text=element_text(size=13))
   print(g)
   dev.off();
 } 
@@ -307,7 +310,6 @@ GetMultiSummary <- function(){
   cls.lbls <- unique(cls.lbls);
   cls.lbls <- paste(cls.lbls, collapse="; ");
   res <- c(sampleNum, featureNumAnn, dat.nms, cls.lbls, featureNumFilter);
-  print(res);
   return(res)
 }
 
