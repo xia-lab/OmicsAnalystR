@@ -199,8 +199,7 @@ CovariateScatter.Anal <- function(dataName,
   AddMsg(msg.lm)
   return(c(-1,-1));
   }
-  print("rest====");
-  print(dim(rest));
+
   # make visualization
   adj.mat <- rest[, c("P.Value", "adj.P.Val")]
   noadj.mat <- res.noadj[, c("P.Value", "adj.P.Val")]

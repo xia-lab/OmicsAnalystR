@@ -161,7 +161,6 @@ UnzipUploadedFile<-function(zip_file){
       }
       if(length(dataName) != 1){
         current.msg <<- "More than one data files found in the zip file.";
-        print(dataName);
         return("NA");
       }
     }
@@ -185,7 +184,6 @@ CleanNames <- function(query, type){
 }
 
 generate_colors <- function(n_colors, coltype="default", filenm=NULL) {
-    print(coltype)
     if(coltype == "colorblind"){
         palette = c("#9F2CB9", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
         if(n_colors <= 0) {

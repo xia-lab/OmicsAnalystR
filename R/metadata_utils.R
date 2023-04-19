@@ -222,6 +222,7 @@ GetPrimaryType <- function(analysis.var){
 GetMetaDataGroups <- function(){
   rdtSet <- .get.rdt.set();
   groups <- colnames(rdtSet$dataSet$meta.info);
+  print(rdtSet$dataSet$meta.info);
   return(groups);
 }
 
@@ -314,7 +315,7 @@ GetSampleNm <- function(ridx=1){
 
 DeleteSample <- function(samplNm){
   rdtSet <- .get.rdt.set();
-  rdtSet$dataSet$meta.info <- rdtSet$dataSet$meta.info[rownames(rdtSet$dataSet$meta.info)!=samplNm,]
+  rdtSet$dataSet$meta.info <- rdtSet$dataSet$meta.info[rownames(rdtSet$dataSet$meta.info)!=samplNm,,drop=F]
   sel.nms <- names(mdata.all)
   for(nm in sel.nms){
     dataSet <- qs::qread(nm);

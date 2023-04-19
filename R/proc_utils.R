@@ -159,7 +159,6 @@ MetaboliteMappingExact <- function(dataSet, qvec, q.type){
   nms[is.na(nms)]<- qvec[is.na(nms)]
   dataSet$enrich_ids <- ids;
   names(dataSet$enrich_ids) = nms;
-  print(head(dataSet$enrich_ids));
   dataSet$rawToEntrez <- ids
   names(dataSet$rawToEntrez) <- qvec;
   return(dataSet);

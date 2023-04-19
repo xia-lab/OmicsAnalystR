@@ -859,7 +859,6 @@ ReplaceMissingByLoD <- function(int.mat){
     int.mat <- t(apply(int.mat, 1, .replace.by.lod));
     rownames(int.mat) <- rowNms;
     colnames(int.mat) <- colNms;
-    print(head(int.mat));
     return (int.mat);
 }
 
@@ -878,7 +877,6 @@ SetCustomSig <- function(dataName, ids){
     hit.inx2 <- rownames(dataSet$comp.res) %in% id.vec;
     dataSet$custom.sig.mat <- dataSet$comp.res[hit.inx2,]
     #dataSet$custom.sig.vec <- id.vec;
-    print(nrow(dataSet$comp.res));
     sigNum <- nrow(dataSet$custom.sig.mat)
 
     if(sigNum > 0){
