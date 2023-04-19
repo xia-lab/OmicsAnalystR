@@ -41,10 +41,14 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   }
   
   reductionSet <- .get.rdt.set();
-  reductionSet$comp.res = comp.res1
-  reductionSet$enrich_ids = enrich.nms1
-  reductionSet$comp.res.inx = comp.res.inx1
-  reductionSet$meta = dataSet$meta
+  reductionSet$comp.res <- comp.res1;
+  reductionSet$enrich_ids <- enrich.nms1;
+  reductionSet$comp.res.inx <- comp.res.inx1;
+  reductionSet$meta <- dataSet$meta;
+  reductionSet$uniqFeats <- uniqFeats;
+  reductionSet$reductionOpt <- reductionOpt;
+  reductionSet$featureNms <- featureNms;
+  reductionSet$omics.vec <- omics.vec;
   
   if(reductionOpt == "mcia") {
     
@@ -65,45 +69,50 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
   } else if (reductionOpt == "mofa") {
-    print(tempdir())
-    print(list.files(tempdir()))
-    library(MOFA2)
     
     # set up model
     data.list <- lapply(data.list, as.matrix)
     for(i in c(1:length(omics.type))){
       rownames(data.list[[i]]) <- paste0(rownames(data.list[[i]]), "_", omics.type[i])
     }
-    
-    MOFAobject <- create_mofa(data.list);
-    data_opts <- get_default_data_options(MOFAobject);
-    model_opts <- get_default_model_options(MOFAobject);
-    model_opts$num_factors <- ncomps;
-    train_opts <- get_default_training_options(MOFAobject);
-    
-    MOFAobject <- prepare_mofa(
-      object = MOFAobject,
-      data_options = data_opts,
-      model_options = model_opts,
-      training_options = train_opts
-    );
-    
-    model <- run_mofa(MOFAobject, save_data = FALSE, use_basilisk = TRUE, outfile="mofa_model.hdf5");
-    
-    factors <- get_factors(model, as.data.frame = T);
-    pos.xyz <- reshape2::dcast(factors, sample ~ factor, value.var = "value")
-    rownames(pos.xyz) <- pos.xyz$sample
-    pos.xyz <- pos.xyz[,-1]
-    
-    weights <- get_weights(model, as.data.frame = T);
-    loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
-    loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
-    loading.pos.xyz <- loading.pos.xyz[,-1]
-    loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
-    loading.pos.xyz$type <- omics.vec;
 
-    var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
-    var.exp <- round(var.exp, digits = 3);
+    if(.on.public.web){
+        reductionOptGlobal <<- reductionOpt
+        .set.rdt.set(reductionSet);
+        saveRDS(data.list, file = "mofaInput.rds");
+        return(2);
+    } else {
+        library(MOFA2)
+        MOFAobject <- create_mofa(data.list);
+        data_opts <- get_default_data_options(MOFAobject);
+        model_opts <- get_default_model_options(MOFAobject);
+        model_opts$num_factors <- 5;
+        train_opts <- get_default_training_options(MOFAobject);
+
+        MOFAobject <- prepare_mofa(
+          object = MOFAobject,
+          data_options = data_opts,
+          model_options = model_opts,
+          training_options = train_opts
+        );
+
+        model <- run_mofa(MOFAobject, save_data = FALSE, use_basilisk = TRUE, outfile="mofa_model.hdf5");
+
+        factors <- get_factors(model, as.data.frame = T);
+        pos.xyz <- reshape2::dcast(factors, sample ~ factor, value.var = "value")
+        rownames(pos.xyz) <- pos.xyz$sample
+        pos.xyz <- pos.xyz[,-1]
+
+        weights <- get_weights(model, as.data.frame = T);
+        loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
+        loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
+        loading.pos.xyz <- loading.pos.xyz[,-1]
+        loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
+        loading.pos.xyz$type <- omics.vec;
+
+        var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
+        var.exp <- round(var.exp, digits = 3);
+    }
     
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
