@@ -207,6 +207,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   reductionSet$loading.enrich <- loadingSymbols
   reductionSet$loading.names <- featureNms
   reductionSet$omicstype <- names(data.list)
+
   reductionOptGlobal <<- reductionOpt
   .set.rdt.set(reductionSet);
   

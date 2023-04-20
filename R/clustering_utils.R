@@ -17,8 +17,9 @@ ComputeHeatmap <- function(fileNm, type){
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
   }
-  require(RJSONIO);
-  json.mat <- toJSON(res.list, .na='null');
+  require(rjson);
+  res.list
+  json.mat <- rjson::toJSON(res.list);
   sink(fileNm);
   cat(json.mat);
   sink();
@@ -174,7 +175,10 @@ ComputePathHeatmapTable <- function(dataSet){
   # re-order by p-value
   gene.id <- gene.id[rankPval];
   lbls <- lbls[rankPval];
+  rownames(rest) <- NULL;
+  list_of_lists <- apply(rest, 1, function(x) unname(as.list(x)))
   
+
   json.res <- list(
     data.name = dataSet$name,
     data.type = dataSet$type,
@@ -185,7 +189,7 @@ ComputePathHeatmapTable <- function(dataSet){
     sample.names = orig.smpl.nms,
     meta = data.frame(nmeta),
     meta.anot = meta_anot,
-    data = rest,
+    data = list_of_lists,
     org = data.org,
     pval = stat.pvals
   );
