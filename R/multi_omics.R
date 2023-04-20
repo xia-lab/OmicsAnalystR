@@ -116,13 +116,18 @@ FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
     sel.nms <- names(mdata.all)
     for(i in 1:length(sel.nms)){
       dataSet <- qs::qread(sel.nms[i])
-      data <- dataSet$data.annotatated;
+      data <- dataSet$data.annotated;
       data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
       data <- FilterDataByVariance(data, filterPercent);
-      if(any(class(data) == "character")){print("Detected autoscale"); return(2)}
+
+      if(any(class(data) == "character")){
+        msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
+        print("Detected autoscale");
+        return(2)
+      }
       dataSet$data.proc <- data;
       if(exists("m2m",dataSet)){
-        data.norm.taxa <- lapply(dataSet$dataSet$data.annotatated.taxa, function(x) {
+        data.norm.taxa <- lapply(dataSet$dataSet$data.annotated.taxa, function(x) {
           FilterDataByVariance(x, filterPercent);
         })
         dataSet$data.proc.taxa <- data.norm.taxa
@@ -135,10 +140,14 @@ FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
     data <- dataSet$data.annotated;
     data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
     data <- FilterDataByVariance(data, filterPercent);
-    if(any(class(data) == "character")){print("Detected autoscale"); return(2)}
+    if(any(class(data) == "character")){
+      msg.vec <<- paste0(dataSet$name, " appreas to be autoscaled. Filtering can not be performed on autoscaled dataset!");
+      print("Detected autoscale");
+      return(2)
+    }
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
-      data.norm.taxa <- lapply(dataSet$data.annotatated.taxa, function(x) {
+      data.norm.taxa <- lapply(dataSet$data.annotated.taxa, function(x) {
         FilterDataByVariance(x, filterPercent);
       })
       dataSet$data.proc.taxa <- data.norm.taxa
