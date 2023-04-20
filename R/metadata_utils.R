@@ -409,7 +409,6 @@ CheckEditRes <- function(){
   meta <- rdtSet$dataSet$meta.info
   # use first column by default
   cls <- droplevels(meta[meta[,1]!="NA",1])
-  
   # check class info
   min.grp.size <- min(table(cls));
   cls.num <- length(levels(cls));
@@ -442,8 +441,17 @@ UpdateSampInfo <-  function(rowNm,colNm,cell){
   ridx <- which(rownames(meta)==rowNm)
   if(colNm==""){
     if(rowNm !=cell){
-      rownames(meta)[ridx]=cell
+    rownames(meta)[ridx]=cell
+    sel.nms <- names(mdata.all)
+    data.list = list();
+    for(i in 1:length(sel.nms)){
+    dataSet <- qs::qread(sel.nms[i])
+    nmidx<-which(colnames(dataSet$data.proc)==rowNm)
+    colnames(dataSet$data.proc)[nmidx] <- cell
+    RegisterData(dataSet);
+  }
     }
+  
   }else{  
     cidx<- which(colnames(meta)==colNm)
     if(cell!= as.character(meta[ridx,cidx])){
