@@ -126,17 +126,12 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   return(1)
 }
 
-DoCorrelationFilter <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.8, 
-                                threshold.intra=0.5, numToKeep=2000, update="false"){
-  DoCorrelationFilterTaxa(sign, crossOmicsOnly, networkInfer,threshold.inter,threshold.intra, numToKeep,"genus","agora","false");                 
-}
-
-DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkInfer="NA", threshold.inter=0.8, 
-                                    threshold.intra=0.5, numToKeep=2000,taxlvl="genus",datagem="agora",update="false"){
-  save.image("corr.RData");
+DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.8, 
+         threshold.intra=0.5, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
+  
   reductionSet <- .get.rdt.set();
   
-  if(update=="false" | !(exists("selDatsCorr.taxa",reductionSet))){
+  if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
     
     sel.inx <- mdata.all==1;
     sel.nms <- names(mdata.all)[sel.inx];
@@ -190,61 +185,65 @@ DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkI
     reductionSet$corr.mat.inter <- cor_edge_list_inter[cor_edge_list_inter$correlation != 1, ]
     reductionSet$corr.mat.intra <- cor_edge_list_intra[cor_edge_list_intra$correlation != 1, ]
     
-    if(sign == "both"){
-      cor.inx.inter <- abs(cor_edge_list_inter$correlation) > threshold.inter
-      cor.inx.intra <- abs(cor_edge_list_intra$correlation) > threshold.intra
-    }else if(sign == "positive"){
-      cor.inx.inter <- cor_edge_list_inter$correlation > threshold.inter
-      cor.inx.intra <- cor_edge_list_intra$correlation > threshold.intra
+    # get inx of sig correlations - allow for no results without error
+    cor.inx.inter <- NULL;
+    cor.inx.intra <- NULL;
+    if(corSign == "both"){
+      if(length(cor_edge_list_inter) == 3){cor.inx.inter <- abs(cor_edge_list_inter$correlation) > threshold.inter}
+      if(length(cor_edge_list_intra) == 3){cor.inx.intra <- abs(cor_edge_list_intra$correlation) > threshold.intra}
+    }else if(corSign == "positive"){
+      if(length(cor_edge_list_inter) == 3){cor.inx.inter <- cor_edge_list_inter$correlation > threshold.inter}
+      if(length(cor_edge_list_intra) == 3){cor.inx.intra <- cor_edge_list_intra$correlation > threshold.intra}
     }else{
-      cor.inx.inter <- cor_edge_list_inter$correlation < -threshold.inter
-      cor.inx.intra <- cor_edge_list_intra$correlation < -threshold.intra
+      if(length(cor_edge_list_inter) == 3){cor.inx.inter <- cor_edge_list_inter$correlation < -threshold.inter}
+      if(length(cor_edge_list_intra) == 3){cor.inx.intra <- cor_edge_list_intra$correlation < -threshold.intra}
     }
-    
+  
     cor_edge_list_inter <- cor_edge_list_inter[cor.inx.inter, ];
     cor_edge_list_intra <- cor_edge_list_intra[cor.inx.intra, ];
     
-    cor_edge_list <- cor_edge_list_inter
-    
     if(crossOmicsOnly == "true"){
-      cor_edge_list <- cor_edge_list_intra
+      cor_edge_list <- cor_edge_list_intra;
     }else{
-      cor_edge_list <- rbind(cor_edge_list, cor_edge_list_intra)
+      cor_edge_list <- rbind(cor_edge_list_inter, cor_edge_list_intra);
     }
     
-    #filter interomics only
-    numToKeep <- as.numeric(numToKeep)
-    if(numToKeep > length(unique(cor_edge_list$correlation)) ){
-      numToKeep <-length(unique(cor_edge_list$correlation))
+    # filter interomics only
+    numToKeep <- as.numeric(numToKeep);
+    if(numToKeep > length(unique(cor_edge_list$correlation))){
+      numToKeep <- length(unique(cor_edge_list$correlation));
     }
     
-    #if(sort(abs(unique(cor_edge_list$correlation)))[1:numToKeep]) > 1000){
-    #top.edge <- sort(abs(unique(cor_edge_list$correlation)))[1:1000];
-    #}else{                                                    #default only show top 100 significant edges when #edges>1000   
-    top.edge <- sort(abs(unique(cor_edge_list$correlation)))[c(1:numToKeep)]; #default only show top 20% significant edges when #edges<1000
-    #}
-    top.inx <- match(abs(cor_edge_list$correlation), top.edge);
-    
-    cor_edge_list <- cor_edge_list[!is.na(top.inx), ,drop=F];
-    
-    new_g <- graph_from_data_frame(cor_edge_list, F);
-    new_g <-simplify(new_g, edge.attr.comb="mean")
-    
-    if(nrow(cor_edge_list)<3){
-      msg.vec <<- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, " and intra-omics correlation threshold of ", threshold.intra);
+    # default only show top 20% significant edges when #edges<1000
+    if(length(cor_edge_list) == 3){
+      top.edge <- sort(abs(unique(cor_edge_list$correlation)))[c(1:numToKeep)];
+      top.inx <- match(abs(cor_edge_list$correlation), top.edge);
+      cor_edge_list <- cor_edge_list[!is.na(top.inx), ,drop=F];
+      new_g <- graph_from_data_frame(cor_edge_list, F);
+      new_g <-simplify(new_g, edge.attr.comb="mean")
+      
+      if(nrow(cor_edge_list)<3){
+        msg.vec <<- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, 
+                           " and intra-omics correlation threshold of ", threshold.intra);
+      }
+      
+      new_g <- graph_from_data_frame(cor_edge_list, F);
+      new_g <-simplify(new_g, edge.attr.comb="mean")
+      type.list <- list();
+      for(i in 1:length(sel.nms)){
+        type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
+      }
+      reductionSet$taxlvl <-"Feature"
+      .set.rdt.set(reductionSet);
+      
+      intres <- ProcessGraphFile(new_g, labels, type.list);
+      return(intres)
+    } else {
+      msg.vec <<- "No correlations meet the default parameters"
+      return(0);
     }
     
-    new_g <- graph_from_data_frame(cor_edge_list, F);
-    new_g <-simplify(new_g, edge.attr.comb="mean")
-    type.list <- list();
-    for(i in 1:length(sel.nms)){
-      type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
-    }
-    reductionSet$taxlvl <-"Feature"
-    .set.rdt.set(reductionSet);
-    
-    intres <- ProcessGraphFile(new_g, labels, type.list);
-  }else  {
+  } else  {
     
     taxlvl <- gsub("(^[[:alpha:]])", "\\U\\1", taxlvl, perl=TRUE)
     
@@ -322,10 +321,10 @@ DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkI
     }
     
     
-    if(sign == "both"){
+    if(corSign == "both"){
       cor.inx.inter <- abs(cor_edge_list_inter$correlation) > threshold.inter
       cor.inx.intra <- abs(cor_edge_list_intra$correlation) > threshold.intra
-    }else if(sign == "positive"){
+    }else if(corSign == "positive"){
       cor.inx.inter <- cor_edge_list_inter$correlation > threshold.inter
       cor.inx.intra <- cor_edge_list_intra$correlation > threshold.intra
     }else{
@@ -361,7 +360,8 @@ DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkI
     new_g <-simplify(new_g, edge.attr.comb="mean")
     
     if(nrow(cor_edge_list)<3){
-      msg.vec <<- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, " and intra-omics correlation threshold of ", threshold.intra);
+      msg.vec <<- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, 
+                         " and intra-omics correlation threshold of ", threshold.intra);
     }
     
     new_g <- graph_from_data_frame(cor_edge_list, F);
@@ -386,9 +386,9 @@ DoCorrelationFilterTaxa <- function(sign="both", crossOmicsOnly="false",networkI
     
     
     intres <- ProcessGraphFile(new_g, labels, type.list);
+    return(intres)
     
-  }
-  
+  }              
 }
 
 ExportOmicsPairs <- function(fileName, type){
