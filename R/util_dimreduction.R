@@ -59,7 +59,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     
     loading.pos.xyz = mcoin$mcoa$Tco;
-    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
     loading.pos.xyz$ids = featureNms;
     loading.pos.xyz$type <- omics.vec;
     # get sample and weight names
@@ -193,6 +192,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
   
+  #update colnames to "Loading"
+  colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
+
   reductionSet$pos.xyz <- pos.xyz;
   reductionSet$loading.pos.xyz <- loading.pos.xyz;
   reductionSet$var.exp <- var.exp;
@@ -205,7 +207,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   reductionSet$loading.enrich <- loadingSymbols
   reductionSet$loading.names <- featureNms
   reductionSet$omicstype <- names(data.list)
-  
   reductionOptGlobal <<- reductionOpt
   .set.rdt.set(reductionSet);
   
