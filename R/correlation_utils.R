@@ -128,7 +128,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
 
 DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.8, 
          threshold.intra=0.5, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
-  
+
   reductionSet <- .get.rdt.set();
   
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){

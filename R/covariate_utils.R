@@ -399,7 +399,6 @@ AddMsg <- function(msg){
 #'@export
 #'
 PlotMultiFacCmpdSummary <- function(dataName,name, id, meta, version, format="png", dpi=72, width=NA){
-  save.image("multifac.RData");
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   print(name);
