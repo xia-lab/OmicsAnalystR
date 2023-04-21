@@ -146,17 +146,9 @@ AnnotateGeneData <- function(dataName, org, idtype){
     
     # now, deal with duplicated entrez id
     # first, average duplicate rows
-    
-    myave <- function (x, ...) {
-      n <- length(list(...))
-      if (n) {
-        g <- interaction(...)
-        split(x, g) <- lapply(split(x, g), mean, na.rm=T)
-      }
-      else x[] <- FUN(x, na.rm=T)
-      return(x);
-    }
-    ave.data <- apply(data.proc, 2, myave, matched.entrez); 
+
+    ave.data <- RemoveDuplicates(data.proc);
+
     # then removed duplicated entries
     dup.inx <- duplicated(matched.entrez);
     matched.entrez <- matched.entrez[!dup.inx]
