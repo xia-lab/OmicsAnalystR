@@ -36,7 +36,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
       featureNms <- c(featureNms, rownames(dataSet$data.proc));
       omics.vec <- c(omics.vec,rep(dataSet$type, nrow(dataSet$data.proc)));
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
-      
     }
   }
   
@@ -49,7 +48,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   reductionSet$reductionOpt <- reductionOpt;
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
-  
+
   if(reductionOpt == "mcia") {
     
     library(omicade4)

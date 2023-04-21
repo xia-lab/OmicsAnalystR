@@ -291,7 +291,7 @@ UpdateNetworkLayout <- function(algo, filenm, focus=""){
   require(rjson);
   netData <- list(nodes=nodes);
   sink(filenm);
-  cat(toJSON(netData));
+  cat(rjson::toJSON(netData));
   sink();
   return(filenm);
 }
