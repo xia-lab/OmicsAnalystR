@@ -147,7 +147,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
     # now, deal with duplicated entrez id
     # first, average duplicate rows
 
-    ave.data <- RemoveDuplicates(data.proc);
+    ave.data <- RemoveDuplicates(data.proc, "mean");
 
     # then removed duplicated entries
     dup.inx <- duplicated(matched.entrez);
