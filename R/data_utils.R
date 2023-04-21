@@ -635,29 +635,6 @@ CheckDataType <- function(dataName, type){
   }
 }
 
-CheckNormalizedData <- function(dataName, omicsType){
-  dataSet <- qs::qread(dataName);
-  dataSet$isValueNormalized <- "true";
-
-  dataSet$type <- omicsType
-  if(omicsType == "rna_b"){
-    readableType <- "Transcriptomics";
-  }else if (omicsType == "met_t"){
-    readableType <- "Metabolomics";
-  }else if (omicsType == "mic_m"){
-    readableType <- "Microbiome";
-  }else if (omicsType == "prot"){
-    readableType <- "Proteomics";
-  }else if (omicsType == "mirna"){
-    readableType <- "miRNA";
-  }else{
-    readableType <-  omicsType;
-  }
-  dataSet$readableType <- readableType;
-
-  RegisterData(dataSet);
-}
-
 SetParamsNormalizedData <- function(dataName){
     dataSet <- qs::qread(dataName);
 

@@ -3,7 +3,6 @@
 DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   require("igraph");
   intRes <- DoDimensionReductionIntegrative(method);
-  
   threshold <- as.numeric(threshold)
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx]
@@ -44,117 +43,75 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
 NormalizeDataWrapper <-function (nm, opt, colNorm){
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
-    for(i in 1:length(sel.nms)){
-      dataSet = qs::qread(sel.nms[i])
-      data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
-      dataSet$data.proc <- data;
-      if(exists("m2m",dataSet)){
-        data.norm.taxa <- lapply(dataSet$dataSet$data.filt.taxa, function(x) {
-          NormalizingDataOmics(x, opt, colNorm, "NA")
-        }
-        )
-        dataSet$data.proc.taxa <- data.norm.taxa
-      }
-      RegisterData(dataSet)
-    }
-    return(1)
   }else{
-    
-    dataSet <- qs::qread(nm);
+    sel.nms <- c(nm);
+  }
+  for(i in 1:length(sel.nms)){
+    dataSet = qs::qread(sel.nms[i])
     data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
     dataSet$data.proc <- data;
-
-    if(exists("m2m", dataSet)){
-      data.norm.taxa <- lapply(dataSet$data.filt.taxa, function(x) {
+    if(exists("m2m",dataSet)){
+      data.norm.taxa <- lapply(dataSet$dataSet$data.filt.taxa, function(x) {
         NormalizingDataOmics(x, opt, colNorm, "NA")
-      })
+      }
+      )
       dataSet$data.proc.taxa <- data.norm.taxa
     }
-
     RegisterData(dataSet)
-    return(1)
   }
+  return(1)
 }
 
 ScaleDataWrapper <-function (nm, scaleNorm){
- 
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
-    for(i in 1:length(sel.nms)){
-      dataSet = qs::qread(sel.nms[i])
-      data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
-      dataSet$data.proc <- data;
-      if(exists("m2m",dataSet)){
-        data.norm.taxa <- lapply(dataSet$dataSet$data.proc.taxa, function(x) {
-          NormalizingDataOmics(x, "NA", "NA", scaleNorm)
-        })
-        dataSet$data.proc.taxa <- data.norm.taxa
-      }
-      RegisterData(dataSet)
-    }
-    return(1)
   }else{
-    
-    dataSet <- qs::qread(nm);
-    
+    sel.nms <- c(nm);
+  }
+  for(i in 1:length(sel.nms)){
+    dataSet = qs::qread(sel.nms[i])
     data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
-      data.norm.taxa <- lapply(dataSet$data.proc.taxa, function(x) {
+      data.norm.taxa <- lapply(dataSet$dataSet$data.proc.taxa, function(x) {
         NormalizingDataOmics(x, "NA", "NA", scaleNorm)
       })
       dataSet$data.proc.taxa <- data.norm.taxa
     }
     RegisterData(dataSet)
-    return(1)
   }
+  return(1);
 }
 
 FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
   filterPercent <- as.numeric(filterPercent);
   if(dataName == "NA"){
     sel.nms <- names(mdata.all)
-    for(i in 1:length(sel.nms)){
-      dataSet <- qs::qread(sel.nms[i])
-      data <- dataSet$data.annotated;
-      data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
-      data <- FilterDataByVariance(data, filterPercent);
-
-      if(any(class(data) == "character")){
-        msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
-        print("Detected autoscale");
-        return(2)
-      }
-      dataSet$data.proc <- data;
-      if(exists("m2m",dataSet)){
-        data.norm.taxa <- lapply(dataSet$dataSet$data.annotated.taxa, function(x) {
-          FilterDataByVariance(x, filterPercent);
-        })
-        dataSet$data.proc.taxa <- data.norm.taxa
-      }
-      RegisterData(dataSet)
-    }
-    return(1)
   } else {
-    dataSet <- qs::qread(dataName);
+    sel.nms <- c(dataName);
+  }
+  
+  for(i in 1:length(sel.nms)){
+    dataSet <- qs::qread(sel.nms[i])
     data <- dataSet$data.annotated;
     data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
     data <- FilterDataByVariance(data, filterPercent);
+    
     if(any(class(data) == "character")){
-      msg.vec <<- paste0(dataSet$name, " appreas to be autoscaled. Filtering can not be performed on autoscaled dataset!");
+      msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
       print("Detected autoscale");
       return(2)
     }
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
-      data.norm.taxa <- lapply(dataSet$data.annotated.taxa, function(x) {
+      data.norm.taxa <- lapply(dataSet$dataSet$data.annotated.taxa, function(x) {
         FilterDataByVariance(x, filterPercent);
       })
       dataSet$data.proc.taxa <- data.norm.taxa
     }
     RegisterData(dataSet)
-    return(1)
   }
+  return(1)
 }
 
 FilterDataByVariance <- function(data, filterPercent){
@@ -217,7 +174,7 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
       ylab(ylabel) +
       theme_bw()+
       theme(text=element_text(size=13));
-
+    
     fig.list[[i]] <- pcafig
     
     pos.xyz = data.frame(x=pca$x[,1], y=pca$x[,2], z=pca$x[,3]);
@@ -378,13 +335,13 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   min_r2 = 0
   max_r2 = max(df$value)
   
-p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
+  p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
     geom_line(aes(color=Dataset),linewidth=2) +
     scale_fill_okabeito() +
     scale_color_okabeito() +
     labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
     theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
-    
+  
   
   Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
@@ -392,7 +349,7 @@ p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) +
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-
+  
   require("Cairo");
   library(ggplot2)
   library(GGally)
@@ -419,7 +376,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   meta.info <- reductionSet$meta;
   meta.info <- meta.info[match(rownames(data), rownames(meta.info)),,drop=F]
   
-
+  
   inx <- which(colnames(meta.info) == meta)
   cls <- meta.info[, inx];
   #cls.type <- mSetObj$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META

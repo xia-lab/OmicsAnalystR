@@ -417,6 +417,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$enrich_ids = rownames(dataSet$data.proc)
   names(dataSet$enrich_ids) = rownames(dataSet$data.proc)
   dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), ,drop=F];
+  dataSet$isValueNormalized <- "true";
   # update current dataset
   RegisterData(dataSet);
   return(1)

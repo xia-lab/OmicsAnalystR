@@ -288,7 +288,7 @@ UpdateNetworkLayout <- function(algo, filenm, focus=""){
     }
   }
   # now only save the node pos to json
-  require(RJSONIO);
+  require(rjson);
   netData <- list(nodes=nodes);
   sink(filenm);
   cat(toJSON(netData));
@@ -479,14 +479,6 @@ GetNetsNodeNum <- function(){
 
 GetNetsQueryNum <- function(){
   as.numeric(net.stats$Query);
-}
-
-CheckCor <- function(){
-  if(is.null(E(overall.graph)$correlation)){
-    return(0);
-  }else{
-    return(1);
-  }
 }
 
 ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list,ism2m=FALSE){  
