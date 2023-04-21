@@ -483,3 +483,87 @@ UpdatePrimaryMeta <- function(primaryMeta){
   .set.rdt.set(rdtSet);
   return(1)
 }
+
+#'Generate correlation heatmap for metadata
+#'@description Plot correlation coefficients between metadata
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param cor.opt Meethod for computing correlation coefficient
+#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: GNU GPL (>= 2)
+#'@export
+
+PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName, dpi=96, imgFormat="png"){
+  
+  cor.opt <<- cor.opt;
+  imgName <<- imgName;
+  dpi <<- dpi;
+  imgFormat <<- imgFormat;
+  save.image(file="test.RData");
+  
+  imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
+  dpi <- as.numeric(dpi);
+  rdtSet <- .get.rdt.set();
+  metaData <- rdtSet$dataSet$meta.info
+  meta.types <- rdtSet$dataSet$meta.types
+  disc.inx <- which(meta.types == "disc")
+  cont.inx <- which(meta.types == "cont")
+  meta.num <- ncol(metaData)
+  
+  textSize = 4;
+  if(meta.num > 25){
+    w <- 24
+    h <- 18
+    textSize = 3.5;
+  }else if(meta.num > 10){
+    w <- 16
+    h <- 12
+  } else {
+    w <- 10
+    h <- 7.5
+  }
+  
+  library(reshape2)
+  library(ggplot2)
+  library(scales);
+  
+  metaData[metaData == "NA"] <- NA;
+  for(i in c(1:length(disc.inx))){
+    metaData[,disc.inx[i]] <- as.integer(metaData[,disc.inx[i]], na.rm = TRUE);
+  }
+  for(i in c(1:length(cont.inx))){
+    metaData[,cont.inx[i]] <- as.numeric(as.character(metaData[,cont.inx[i]], na.rm = TRUE));
+  }
+  
+
+  cormat <- round(cor(metaData, method=cor.opt, use="pairwise.complete.obs"),3);
+  upper_tri <- get_upper_tri(cormat);
+  melted_cormat <- melt(upper_tri, na.rm = TRUE);
+  
+  ggheatmap <- ggplot2::ggplot(data = melted_cormat, aes(Var2, Var1, fill = value)) +
+    geom_tile(color = "white")+ scale_y_discrete("Var1", position="right") +
+    scale_fill_gradient2(low = muted("blue"), mid="white", high = muted("red"), midpoint = 0,
+                         limit = c(-1,1), space = "Lab", name="Correlation") + theme_minimal()+ 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+          axis.title.x = element_blank(), axis.title.y = element_blank(),axis.text.y = element_blank(), axis.text.y.right = element_text(),
+          legend.direction = "vertical", legend.position="left")+ coord_fixed();
+  
+  ggheatmap <- ggheatmap + geom_text(aes(Var2, Var1, label = value), color = "black", size = textSize);
+  
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=imgFormat, bg="white");
+  print(ggheatmap);
+  dev.off();
+  return(1);
+}
+
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
