@@ -495,12 +495,6 @@ UpdatePrimaryMeta <- function(primaryMeta){
 
 PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName, dpi=96, imgFormat="png"){
   
-  cor.opt <<- cor.opt;
-  imgName <<- imgName;
-  dpi <<- dpi;
-  imgFormat <<- imgFormat;
-  save.image(file="test.RData");
-  
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
