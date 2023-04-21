@@ -29,8 +29,6 @@ GetMetaDims <- function(){
   return(dm);
 } 
 
-
-
 GetUniqueMetaNames <-function(metadata){
   rdtSet <- .get.rdt.set();
   data.type <- rdtSet$dataSet[["meta.types"]][metadata];

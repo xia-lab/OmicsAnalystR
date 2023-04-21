@@ -13,7 +13,6 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
   
-  
   if(type %in% c("default","custom")){
     for(i in 1:length(sel.nms)){
       nm = sel.nms[i]

@@ -218,7 +218,6 @@ generate_colors <- function(n_colors, coltype="default", filenm=NULL) {
 
 generate_continuous_colors <- function(n, primary_color="green", filenm=NULL) {
   colors <- colorRampPalette(c("white", primary_color))(n)
-
   if(is.null(filenm)){
     return(colors);
   }else{

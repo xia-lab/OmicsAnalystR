@@ -86,15 +86,12 @@ AnnotateMicrobiomeData <- function(dataName,org){
 #'
 AnnotateGeneData <- function(dataName, org, idtype){
   
-  #if(dataSet$name != dataName){
-  dataSet <- qs::qread(dataName);
-  #}
-  
   if(org == "NA"){
     msg.vec <<- "Invalid organism!"
     return(1)
   }
   
+  dataSet <- qs::qread(dataName);
   data <- dataSet$data.raw;
   gene.vec <- rownames(data);
   
@@ -142,12 +139,11 @@ AnnotateGeneData <- function(dataName, org, idtype){
   if(matched.len > 1){
     data.proc <- dataSet$data.raw[hit.inx,];
     matched.entrez <- enIDs[hit.inx];
-    
-    
+
     # now, deal with duplicated entrez id
     # first, average duplicate rows
 
-    ave.data <- RemoveDuplicates(data.proc, "mean");
+    ave.data <- RemoveDuplicates(data.proc, "max");
 
     # then removed duplicated entries
     dup.inx <- duplicated(matched.entrez);
@@ -172,7 +168,6 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }
   
   if(idtype != "NA"){
-
     if(length(unique(enIDs))/length(gene.vec) < 0.3){
       msg <- paste("Less than ", round( length(unique(enIDs))/length(gene.vec) * 100, 2), "% features were mapped in ", dataSet$name);
       msg.vec <<- msg
