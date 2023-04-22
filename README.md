@@ -68,7 +68,6 @@ RemoveMissingPercent("preg_prot.csv", 0.5)
 ImputeMissingVar("preg_prot.csv", "min")
 FilteringData("preg_prot.csv","pct","2", "15");
 NormalizingData("preg_prot.csv", "log", "NA", "AutoNorm");
-DoStatComparison("preg_prot.csv", "ttest", "CLASS","NA","NA","none", 0.005);
 
 SanityCheckData("preg_met.csv");
 CheckDataType("preg_met.csv", "true");
@@ -77,7 +76,6 @@ RemoveMissingPercent("preg_met.csv", 0.5)
 ImputeMissingVar("preg_met.csv", "min")
 FilteringData("preg_met.csv","pct","2", "15");
 NormalizingData("preg_met.csv", "log", "NA", "AutoNorm");
-DoStatComparison("preg_met.csv", "ttest", "CLASS","NA","NA","none", 0.005, 1.0);
 
 # Step 4. Visual inspection of processed data
 PlotMultiTsne("qc_multi_tsne_0_","72", "png", "");

@@ -284,13 +284,10 @@ CovariateScatter.Anal <- function(dataName,
   
 
   jsonNm <- gsub(paste0(".", imgFormat), ".json", imgName);
-  jsonObj <- RJSONIO::toJSON(both.mat);
+  jsonObj <- rjson::toJSON(both.mat);
   sink(jsonNm);
   cat(jsonObj);
   sink();
-
-  #reformat for comp.res
-  #colnames(both.mat)[1] <- c("ids");
     
   nonSig <- nrow(dataSet$comp.res) - sig.num;
 

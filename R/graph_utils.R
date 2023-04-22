@@ -288,10 +288,10 @@ UpdateNetworkLayout <- function(algo, filenm, focus=""){
     }
   }
   # now only save the node pos to json
-  require(RJSONIO);
+  require(rjson);
   netData <- list(nodes=nodes);
   sink(filenm);
-  cat(toJSON(netData));
+  cat(rjson::toJSON(netData));
   sink();
   return(filenm);
 }
@@ -481,15 +481,7 @@ GetNetsQueryNum <- function(){
   as.numeric(net.stats$Query);
 }
 
-CheckCor <- function(){
-  if(is.null(E(overall.graph)$correlation)){
-    return(0);
-  }else{
-    return(1);
-  }
-}
-
-ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list,ism2m=FALSE){  
+ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJson = F){  
 
   overall.graph <<- graph
   nms <- V(graph)$name;
@@ -546,7 +538,8 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list,ism2m=FALSE
                    edge.data = edge.data
   );
   data.idType <<- "NA"; 
-
-  convertIgraph2JSON(current.net.nm , "omicsanalyst_net_0.json");
+  if(generateJson){
+    convertIgraph2JSON(current.net.nm , "omicsanalyst_net_0.json");
+  }
   return(1);
 }

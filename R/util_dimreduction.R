@@ -36,7 +36,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
       featureNms <- c(featureNms, rownames(dataSet$data.proc));
       omics.vec <- c(omics.vec,rep(dataSet$type, nrow(dataSet$data.proc)));
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
-      
     }
   }
   
@@ -49,7 +48,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   reductionSet$reductionOpt <- reductionOpt;
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
-  
+
   if(reductionOpt == "mcia") {
     
     library(omicade4)
@@ -77,6 +76,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
 
     if(.on.public.web){
         reductionOptGlobal <<- reductionOpt
+        reductionSet$enrich.nms1 <- enrich.nms1;
         .set.rdt.set(reductionSet);
         saveRDS(data.list, file = "mofaInput.rds");
         return(2);
@@ -191,7 +191,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
-  
+
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
 

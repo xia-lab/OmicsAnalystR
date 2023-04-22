@@ -21,12 +21,16 @@
 #'@export
 #'
 Init.Data <- function(){ 
+  #testing purposes
+  library(tictoc)
+
   # to control parallel computing for some packages
   require("ggplot2");
   Sys.setenv("OMP_NUM_THREADS" = 2); 
   Sys.setenv("OPENBLAS_NUM_THREADS" = 2);
   jsonNms <<- list()
   reductionSet <- list()
+  reductionSet$taxlvl <- "Feature"
   reductionSet$clustVec <- "NA";
   fileTypeu <<- "NA"
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")
@@ -87,9 +91,8 @@ SetOrganism <- function(org){
 #'
 SanityCheckData <- function(fileName){
   dataSet <- qs::qread(fileName);
-  
   # general sanity check then omics specific
-  
+
   # use first column by default
   cls <- dataSet$meta[,1]
   
@@ -311,28 +314,27 @@ PerformClustering <- function(init, nclust, type){
   if(type == "density"){
     library(ADPclust)
     if(init == "true"){
-      ans = ADPclust::adpclust(pos.xyz)
+      ans = ADPclust::adpclust(pos.xyz);
     }else{
-      nclust = as.numeric(nclust)
-      ans = ADPclust::adpclust(pos.xyz, nclust=nclust)
+      nclust = as.numeric(nclust);
+      ans = ADPclust::adpclust(pos.xyz, nclust=nclust);
     }
-    cluster = ans$clusters
-    dataSet$clusterObject = ans
+    cluster = ans$clusters;
+    dataSet$clusterObject = ans;
   }else if (type == "kmeans"){
-    ans = kmeans(pos.xyz, nclust)
-    cluster = ans$cluster
+    ans = kmeans(pos.xyz, nclust);
+    cluster = ans$cluster;
   }else{
-    distMat = dist(pos.xyz)
-    hc = hclust(distMat, "complete")
-    cluster <- cutree(hc, k = nclust)
+    distMat = dist(pos.xyz);
+    hc = hclust(distMat, "complete");
+    cluster <- cutree(hc, k = nclust);
   }
-  dataSet$newmeta$cluster=cluster
-  
-    loading.pos.xyz = dataSet$loading.pos.xyz
-    nclust = as.numeric(nclust)
-    ans = ADPclust::adpclust(pos.xyz, nclust=nclust)
-    cluster = ans$clusters
-    dataSet$loadingCluster=cluster
+    dataSet$newmeta$cluster=cluster;
+    loading.pos.xyz = dataSet$loading.pos.xyz;
+    nclust = as.numeric(nclust);
+    ans = ADPclust::adpclust(pos.xyz, nclust=nclust);
+    cluster = ans$clusters;
+    dataSet$loadingCluster=cluster;
   
   .set.rdt.set(dataSet);
   return(1)
@@ -500,9 +502,7 @@ GetCurrentDatasets <-function(type){
 }
 
 SetGroupContrast <- function(dataName, grps, meta="NA"){
-  #if(dataSet$name != dataName){
     dataSet <- qs::qread(dataName);
-  #}
 
     if(meta == "NA"){
         meta <- 1;
@@ -635,32 +635,8 @@ CheckDataType <- function(dataName, type){
     msg.vec <<- msg.vec
     return(0)
   }else{
-
     return(1)
   }
-}
-
-CheckNormalizedData <- function(dataName, omicsType){
-  dataSet <- qs::qread(dataName);
-  dataSet$isValueNormalized <- "true";
-
-  dataSet$type <- omicsType
-  if(omicsType == "rna_b"){
-    readableType <- "Transcriptomics";
-  }else if (omicsType == "met_t"){
-    readableType <- "Metabolomics";
-  }else if (omicsType == "mic_m"){
-    readableType <- "Microbiome";
-  }else if (omicsType == "prot"){
-    readableType <- "Proteomics";
-  }else if (omicsType == "mirna"){
-    readableType <- "miRNA";
-  }else{
-    readableType <-  omicsType;
-  }
-  dataSet$readableType <- readableType;
-
-  RegisterData(dataSet);
 }
 
 SetParamsNormalizedData <- function(dataName){
@@ -668,7 +644,6 @@ SetParamsNormalizedData <- function(dataName){
 
     int.mat <- dataSet$data.annotated;
     msg.vec <- "";
-
 
     if(sum(is.na(int.mat)) == 0){ # check if any missing values
       dataSet$data.proc <- int.mat;
@@ -678,7 +653,7 @@ SetParamsNormalizedData <- function(dataName){
       msg.vec <<- c(msg.vec, paste0("Missing values detected in ",dataSet$name,". Please upload normalized data with no missing values."));
       res <- 0;
     }
-    ImputeMissingVar(dataSet$name, "min")
+
     RegisterData(dataSet);
     return(res)
 }
@@ -771,9 +746,6 @@ ImputeMissingVar <- function(dataName="", method="min"){
     dataSet$data.missed <- as.data.frame(new.mat);
   }
 
- #dataSet$data.missed <- dataSet$data.missed[complete.cases(dataSet$data.missed), ];
- #write.csv(dataSet$data.missed, paste0(dataSet$name, "_complete.csv"));
-
   RegisterData(dataSet);
   return(1)
 }
@@ -788,32 +760,32 @@ FilteringData <- function(nm, countOpt="pct",count="2", var="15"){
   count.thresh = as.numeric(count);
   var.thresh = as.numeric(var);
   if((count.thresh + var.thresh) >0){
-  sum.counts <- apply(data, 1, sum, na.rm=TRUE);
-  if(countOpt == "pct"){
-  inx <- order(sum.counts)
-  data <- data[inx,]
-  rm.inx <- round(count.thresh/100 * nrow(data))
-  data <- data[-c(1:rm.inx),];
-  rmSum <- rm.inx
-}else{
-  rm.inx <- sum.counts < count.thresh;
-  data <- data[!rm.inx,];
-  rmSum <- sum(rm.inx)
-}
-  msg <- paste(msg, "Filtered ",rmSum, " genes with low counts.", collapse=" ");
-  filter.val <- apply(data, 1, IQR, na.rm=T);
-  nm <- "Interquantile Range";
-  rk <- rank(-filter.val, ties.method='random');
-  kp.pct <- (100 - var.thresh)/100;
-  remain <- rk < nrow(data)*kp.pct;
-  data <- data[remain,];
-  msg <- paste("Filtered ", sum(!remain), " low variance genes based on IQR");
-  
-  if((sum(!remain) + rmSum)/nrow(data) > 0.8){
-    msg <- paste("Over 80% of features are removed. Please readjust filtering thresholds." );
-    msg.vec <<- msg;
-    return(0);
+    sum.counts <- apply(data, 1, sum, na.rm=TRUE);
+    if(countOpt == "pct"){
+    inx <- order(sum.counts)
+    data <- data[inx,]
+    rm.inx <- round(count.thresh/100 * nrow(data))
+    data <- data[-c(1:rm.inx),];
+    rmSum <- rm.inx
+  }else{
+    rm.inx <- sum.counts < count.thresh;
+    data <- data[!rm.inx,];
+    rmSum <- sum(rm.inx)
   }
+    msg <- paste(msg, "Filtered ",rmSum, " genes with low counts.", collapse=" ");
+    filter.val <- apply(data, 1, IQR, na.rm=T);
+    nm <- "Interquantile Range";
+    rk <- rank(-filter.val, ties.method='random');
+    kp.pct <- (100 - var.thresh)/100;
+    remain <- rk < nrow(data)*kp.pct;
+    data <- data[remain,];
+    msg <- paste("Filtered ", sum(!remain), " low variance genes based on IQR");
+
+    if((sum(!remain) + rmSum)/nrow(data) > 0.8){
+      msg <- paste("Over 80% of features are removed. Please readjust filtering thresholds." );
+      msg.vec <<- msg;
+      return(0);
+    }
 }
 
   dataSet$data.filtered = data
