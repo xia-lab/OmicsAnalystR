@@ -131,7 +131,6 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
   library(igraph)
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
     print("filter");
-    tic("correlation filter");
     sel.nms <- names(mdata.all)[mdata.all == 1];
     dataSetList <- lapply(sel.nms, qs::qread);
     labels <- unlist(lapply(dataSetList, function(x) x$enrich_ids))
@@ -155,7 +154,6 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     corr.mat <- reductionSet$corr.mat
     sel.dats <- reductionSet$selDatsCorr;
     rowlen <- nrow(corr.mat);
-    tic("net")
     g <- igraph::graph_from_adjacency_matrix(corr.mat,mode = "undirected", diag = FALSE, weighted = 'correlation')
     
     # Assign types to nodes using the lookup table
@@ -195,16 +193,13 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     
     edge_list_inter <- get.edgelist(inter_g_sub)
     edge_list_intra <- get.edgelist(intra_g_sub)
-    toc()
     
     # add correlation weights
-    tic("df")
     cor.list$inter <- data.frame(edge_list_inter,  as.numeric(E(inter_g_sub)$correlation))
     cor.list$intra <- data.frame(edge_list_intra,  as.numeric(E(intra_g_sub)$correlation))
     colnames(cor.list$inter) <- c("source", "target","correlation");
     colnames(cor.list$intra) <- c("source", "target","correlation");
     cor.list$all  <- rbind(cor.list$inter, cor.list$intra)
-    toc()
     
     qs::qsave(cor.list, file="cor.list.qs");
     
@@ -241,10 +236,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       reductionSet$taxlvl <-"Feature"
       .set.rdt.set(reductionSet);
 
-      tic("graph")
       intres <- ProcessGraphFile(new_g, labels, type.list);
-      toc()
-      toc()
       return(intres);
     } else {
       msg.vec <- "No correlations meet the default parameters"
@@ -497,7 +489,6 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   }
   reductionSet$corr.mat <- corr.mat
   .set.rdt.set(reductionSet);
-  toc();
   
   return(1);
 }

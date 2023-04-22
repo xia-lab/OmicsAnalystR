@@ -22,7 +22,6 @@
 #'
 Init.Data <- function(){ 
   #testing purposes
-  library(tictoc)
 
   # to control parallel computing for some packages
   require("ggplot2");
