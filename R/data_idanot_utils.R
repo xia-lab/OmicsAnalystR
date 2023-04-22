@@ -86,15 +86,13 @@ AnnotateMicrobiomeData <- function(dataName,org){
 #'
 AnnotateGeneData <- function(dataName, org, idtype){
   
-  #if(dataSet$name != dataName){
-  dataSet <- qs::qread(dataName);
-  #}
-  
   if(org == "NA"){
     msg.vec <<- "Invalid organism!"
-    return(1)
+    return(0)
   }
   
+  dataSet <- qs::qread(dataName);
+
   data <- dataSet$data.raw;
   gene.vec <- rownames(data);
   
