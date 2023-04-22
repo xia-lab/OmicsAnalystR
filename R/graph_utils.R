@@ -481,7 +481,7 @@ GetNetsQueryNum <- function(){
   as.numeric(net.stats$Query);
 }
 
-ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list,ism2m=FALSE){  
+ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJson = F){  
 
   overall.graph <<- graph
   nms <- V(graph)$name;
@@ -538,7 +538,8 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list,ism2m=FALSE
                    edge.data = edge.data
   );
   data.idType <<- "NA"; 
-
-  convertIgraph2JSON(current.net.nm , "omicsanalyst_net_0.json");
+  if(generateJson){
+    convertIgraph2JSON(current.net.nm , "omicsanalyst_net_0.json");
+  }
   return(1);
 }

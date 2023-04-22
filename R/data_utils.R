@@ -21,12 +21,16 @@
 #'@export
 #'
 Init.Data <- function(){ 
+  #testing purposes
+  library(tictoc)
+
   # to control parallel computing for some packages
   require("ggplot2");
   Sys.setenv("OMP_NUM_THREADS" = 2); 
   Sys.setenv("OPENBLAS_NUM_THREADS" = 2);
   jsonNms <<- list()
   reductionSet <- list()
+  reductionSet$taxlvl <- "Feature"
   reductionSet$clustVec <- "NA";
   fileTypeu <<- "NA"
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")

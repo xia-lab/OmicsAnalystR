@@ -12,11 +12,9 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   reductionSet <- .get.rdt.set()
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
-  
   if(type %in% c("default","custom")){
     for(i in 1:length(sel.nms)){
-      nm = sel.nms[i]
-      
+      nm = sel.nms[i];
       dataSet <- qs::qread(nm);
       
       if(i==1){
@@ -30,7 +28,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       }else{
         sig.mat <- dataSet$custom.sig.mat
       }
-
+      
       #if more than 2000 sig genes, then limit to top 2000 only
       if(nrow(sig.mat) > 2000){
         sig.mat <- sig.mat[c(1:2000),];
@@ -88,8 +86,6 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
         numToKeep <- retainedNumber
       }
       
-      #scores <- GetDist3D(loading.df, c(0,0,0))
-      #scores <- scores * dataSet$misc$pct;
       for(j in 1:retainedComp){
         if(j == 1){
           loading <- loading.df[,1]
@@ -125,121 +121,134 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   return(1)
 }
 
-DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.8, 
-         threshold.intra=0.5, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
-
-  reductionSet <- .get.rdt.set();
+DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.5, 
+                                threshold.intra=0.9, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
   
+  reductionSet <- .get.rdt.set();
+  reductionSet$threshold.inter <- threshold.inter
+  reductionSet$threshold.intra <- threshold.intra
+
+  library(igraph)
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
+    print("filter");
+    tic("correlation filter");
+    sel.nms <- names(mdata.all)[mdata.all == 1];
+    dataSetList <- lapply(sel.nms, qs::qread);
+    labels <- unlist(lapply(dataSetList, function(x) x$enrich_ids))
+    types <- unlist(lapply(dataSetList, function(x) rep(x$type, length(x$enrich_ids))))
+    type_df <- data.frame(name=c(labels),
+                          type=c(types))
     
-    sel.inx <- mdata.all==1;
-    sel.nms <- names(mdata.all)[sel.inx];
-    for(i in 1:length(sel.nms)){
-      nm = sel.nms[i]
-      dataSet <- qs::qread(nm);
-      labels <- c(labels, dataSet$enrich_ids);
-    } 
+    # Create a lookup table
+    type_lookup <- setNames(type_df$type, type_df$name)
+    
+    
+    if(networkInfer != "NA"){
+      library(parmigene);
+      switch(networkInfer,
+             "aracne" = reductionSet$corr.mat <- aracne.m(reductionSet$corr.mat),
+             "clr" = reductionSet$corr.mat <- clr(reductionSet$corr.mat),
+             "mrnet" = reductionSet$corr.mat <- mrnet(reductionSet$corr.mat)
+      )
+    }
     
     corr.mat <- reductionSet$corr.mat
     sel.dats <- reductionSet$selDatsCorr;
-    if(networkInfer != "NA"){
-      library(parmigene);
-      if(networkInfer == "aracne"){
-        corr.mat = aracne.m(corr.mat);
-      }else if (networkInfer == "clr"){
-        corr.mat = clr(corr.mat);
-      }else if (networkInfer == "mrnet"){
-        corr.mat = mrnet(corr.mat);
-      }
+    rowlen <- nrow(corr.mat);
+    tic("net")
+    g <- igraph::graph_from_adjacency_matrix(corr.mat,mode = "undirected", diag = FALSE, weighted = 'correlation')
+    
+    # Assign types to nodes using the lookup table
+    V(g)$type <- type_lookup[V(g)$name]
+    
+    edge_list <- igraph::as_data_frame(simplify(g, remove.loops = TRUE,edge.attr.comb="max"), "edges")
+    v1 <- V(g)$name[V(g)$type == unique(types)[1]]
+    v2 <- V(g)$name[V(g)$type == unique(types)[2]]
+    # Get the edges that connect nodes of different types
+    inter_inx <- V(g)[ends(g, E(g))[, 1]]$type != V(g)[ends(g, E(g))[, 2]]$type;
+    intra_inx <- V(g)[ends(g, E(g))[, 1]]$type == V(g)[ends(g, E(g))[, 2]]$type;
+    inter_g <- delete_edges(g, E(g)[intra_inx])
+    intra_g <- delete_edges(g, E(g)[inter_inx])
+    
+
+    # for histogram
+    reductionSet$corr.graph.inter <- inter_g
+    reductionSet$corr.graph.intra <- intra_g
+
+    cor.list <- list(all = NULL, inter = NULL, intra = NULL)
+    
+
+    
+    if (corSign == "both") {
+      toRm.inter <- E(inter_g)[!abs(correlation) >  threshold.inter]
+      toRm.intra <- E(intra_g)[!abs(correlation) >  threshold.intra]
+    } else if (corSign == "positive") {
+      toRm.inter <- E(inter_g)[!correlation >  threshold.inter]
+      toRm.intra <- E(intra_g)[!correlation >  threshold.intra]
+    } else {
+      toRm.inter <- E(inter_g)[!correlation <  -threshold.inter]
+      toRm.intra <- E(intra_g)[!correlation <  -threshold.intra]
     }
     
+    inter_g_sub <- delete_edges(inter_g, E(inter_g)[toRm.inter])
+    intra_g_sub <- delete_edges(intra_g, E(intra_g)[toRm.intra])
     
-    rowlen <- nrow(corr.mat);
-    corr.mat.intra <- corr.mat[-c(which(rownames(corr.mat) %in% rownames(sel.dats[[2]]))),-c(which(colnames(corr.mat) %in% rownames(sel.dats[[1]])))]; #between-omics
-    corr.mat.inter1 <- corr.mat[c(which(rownames(corr.mat) %in% rownames(sel.dats[[1]]))),c(which(colnames(corr.mat) %in% rownames(sel.dats[[1]])))]; #within-omics
-    corr.mat.inter2 <- corr.mat[c(which(rownames(corr.mat) %in% rownames(sel.dats[[2]]))),c(which(colnames(corr.mat) %in% rownames(sel.dats[[2]])))]; #within-omics
+    edge_list_inter <- get.edgelist(inter_g_sub)
+    edge_list_intra <- get.edgelist(intra_g_sub)
+    toc()
     
-    cor_g_inter1 <- graph_from_incidence_matrix(corr.mat.inter1 , directed="false", weighted = 'correlation');
-    cor_g_inter2 <- graph_from_incidence_matrix(corr.mat.inter2 , directed="false", weighted = 'correlation');
+    # add correlation weights
+    tic("df")
+    cor.list$inter <- data.frame(edge_list_inter,  as.numeric(E(inter_g_sub)$correlation))
+    cor.list$intra <- data.frame(edge_list_intra,  as.numeric(E(intra_g_sub)$correlation))
+    colnames(cor.list$inter) <- c("source", "target","correlation");
+    colnames(cor.list$intra) <- c("source", "target","correlation");
+    cor.list$all  <- rbind(cor.list$inter, cor.list$intra)
+    toc()
     
-    cor_g_intra <- graph_from_incidence_matrix(corr.mat.intra , directed="false", weighted = 'correlation');  
-    cor_edge_list_inter1 <- igraph:::as_data_frame(cor_g_inter1, 'edges');
-    cor_edge_list_inter1 <- cor_edge_list_inter1[!is.na(cor_edge_list_inter1$correlation), ]  
-    cor_edge_list_inter2 <- igraph:::as_data_frame(cor_g_inter2, 'edges');
-    cor_edge_list_inter2 <- cor_edge_list_inter2[!is.na(cor_edge_list_inter2$correlation), ]     
-    cor_edge_list_inter <- rbind(cor_edge_list_inter1, cor_edge_list_inter2)
-    
-    cor_edge_list_intra <- igraph:::as_data_frame(cor_g_intra, 'edges');
-    cor_edge_list_intra <- cor_edge_list_intra[!is.na(cor_edge_list_intra$correlation), ]  
-    
-    # filter self loops
-    cor_edge_list_inter <- cor_edge_list_inter[cor_edge_list_inter$correlation != 1, ]
-    cor_edge_list_intra <- cor_edge_list_intra[cor_edge_list_intra$correlation != 1, ]
-    cor.list <- list();
-    cor.list[["all"]] <- rbind(cor_edge_list_inter, cor_edge_list_intra)
-    cor.list[["inter"]] <- cor_edge_list_inter
-    cor.list[["intra"]] <- cor_edge_list_intra
     qs::qsave(cor.list, file="cor.list.qs");
     
-    reductionSet$corr.mat.inter <- cor_edge_list_inter[cor_edge_list_inter$correlation != 1, ]
-    reductionSet$corr.mat.intra <- cor_edge_list_intra[cor_edge_list_intra$correlation != 1, ]
-    
-    # get inx of sig correlations - allow for no results without error
-    cor.inx.inter <- NULL;
-    cor.inx.intra <- NULL;
-    if(corSign == "both"){
-      if(length(cor_edge_list_inter) == 3){cor.inx.inter <- abs(cor_edge_list_inter$correlation) > threshold.inter}
-      if(length(cor_edge_list_intra) == 3){cor.inx.intra <- abs(cor_edge_list_intra$correlation) > threshold.intra}
-    }else if(corSign == "positive"){
-      if(length(cor_edge_list_inter) == 3){cor.inx.inter <- cor_edge_list_inter$correlation > threshold.inter}
-      if(length(cor_edge_list_intra) == 3){cor.inx.intra <- cor_edge_list_intra$correlation > threshold.intra}
-    }else{
-      if(length(cor_edge_list_inter) == 3){cor.inx.inter <- cor_edge_list_inter$correlation < -threshold.inter}
-      if(length(cor_edge_list_intra) == 3){cor.inx.intra <- cor_edge_list_intra$correlation < -threshold.intra}
+    if (crossOmicsOnly == "true") {
+      cor_edge_list <- cor.list$inter
+    } else {
+      cor_edge_list <- dplyr::bind_rows(cor.list$inter, cor.list$intra)
     }
-  
-    cor_edge_list_inter <- cor_edge_list_inter[cor.inx.inter, ];
-    cor_edge_list_intra <- cor_edge_list_intra[cor.inx.intra, ];
+
     
-    if(crossOmicsOnly == "true"){
-      cor_edge_list <- cor_edge_list_intra;
-    }else{
-      cor_edge_list <- rbind(cor_edge_list_inter, cor_edge_list_intra);
-    }
     
     # filter interomics only
-    numToKeep <- as.numeric(numToKeep);
-    if(numToKeep > length(unique(cor_edge_list$correlation))){
-      numToKeep <- length(unique(cor_edge_list$correlation));
+    numToKeep <- as.numeric(numToKeep)
+    if (numToKeep > length(unique(cor_edge_list$correlation))) {
+      numToKeep <- length(unique(cor_edge_list$correlation))
     }
-    
-    # default only show top 20% significant edges when #edges<1000
-    if(length(cor_edge_list) == 3){
+
+    if (nrow(cor_edge_list) >= 3) {
       top.edge <- sort(abs(unique(cor_edge_list$correlation)))[c(1:numToKeep)];
       top.inx <- match(abs(cor_edge_list$correlation), top.edge);
       cor_edge_list <- cor_edge_list[!is.na(top.inx), ,drop=F];
-      new_g <- graph_from_data_frame(cor_edge_list, F);
-      new_g <-simplify(new_g, edge.attr.comb="mean")
+      new_g <- igraph::graph_from_data_frame(cor_edge_list, directed = FALSE)
+      new_g <- igraph::simplify(new_g, edge.attr.comb = "mean")
       
-      if(nrow(cor_edge_list)<3){
-        msg.vec <<- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, 
-                           " and intra-omics correlation threshold of ", threshold.intra);
+      if (nrow(cor_edge_list) < 3) {
+        msg.vec <- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, 
+                          " and intra-omics correlation threshold of ", threshold.intra)
       }
       
-      new_g <- graph_from_data_frame(cor_edge_list, F);
-      new_g <-simplify(new_g, edge.attr.comb="mean")
       type.list <- list();
       for(i in 1:length(sel.nms)){
         type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
       }
       reductionSet$taxlvl <-"Feature"
       .set.rdt.set(reductionSet);
-      
+
+      tic("graph")
       intres <- ProcessGraphFile(new_g, labels, type.list);
-      return(intres)
+      toc()
+      toc()
+      return(intres);
     } else {
-      msg.vec <<- "No correlations meet the default parameters"
-      return(0);
+      msg.vec <- "No correlations meet the default parameters"
+      return(0)
     }
     
   } else  {
@@ -387,7 +396,11 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     intres <- ProcessGraphFile(new_g, labels, type.list);
     return(intres)
     
-  }              
+  }  
+}
+GenerateNetworkJson <- function(fileName="omicsanalyst_net_0.json"){
+    intres <- convertIgraph2JSON(current.net.nm , fileName);
+    return(intres);
 }
 
 ExportOmicsPairs <- function(fileName, type){
@@ -403,21 +416,22 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   labels <- vector();
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
+  
+  if(length(sel.nms) != 2){
+    return(0)
+  }
+  
   m2midx<-0
   for(i in 1:length(sel.nms)){
     nm = sel.nms[i]
     dataSet <- qs::qread(nm);
     labels <- c(labels, dataSet$enrich_ids);
-    
     if(exists("m2m",dataSet)){
-      
       labels.taxa <- lapply(dataSet$data.taxa, function(x) rownames(x))
       labels.taxa <-  lapply(labels.taxa, function(x) setNames(x,x))
     }else if(exists("labels.taxa")){
       labels.taxa <- lapply(labels.taxa, function(x) c(x,dataSet$enrich_ids))
     }
-    
-    
   }
   
   reductionSet <- .get.rdt.set();
@@ -428,15 +442,11 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
   
-  if(length(sel.nms) != 2){
-    return(0)
-  }
   residx <- reductionSet$residx
   
   if(cor.method == "univariate"){
     corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
     if(exists("selDatsCorr.taxa",reductionSet)){
-      
       corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
         cor(cbind(t(x), t(sel.dats[[residx]])), method=cor.stat)
       })
@@ -487,6 +497,8 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   }
   reductionSet$corr.mat <- corr.mat
   .set.rdt.set(reductionSet);
+  toc();
+  
   return(1);
 }
 
@@ -501,23 +513,22 @@ PlotCorrHistogram <- function(imgNm, dpi=72, format="png"){
   fig.list <- list();
   for( i in 1:2){
     if(i == 1){
-      cors <- reductionSet$corr.mat.inter
+      g <- reductionSet$corr.graph.inter 
       titleText <- "Between-omics correlation"
+      thresh <- reductionSet$threshold.inter
     }else{
-      cors <- reductionSet$corr.mat.intra
+      g <- reductionSet$corr.graph.intra
       titleText <- "Intra-omics correlation"
+      thresh <- reductionSet$threshold.intra
+
     }
-    cor.data <- cors[upper.tri(cors, diag = FALSE)]  # we're only interested in one of the off-diagonals, otherwise there'd be duplicates
-    cor.data <- as.data.frame(cor.data)  # that's how ggplot likes it
-    summary(cor.data)
-    colnames(cor.data) <- "coefficient"
-    coefficient.p <- function(r, n) {
-      pofr <- ((1-r^2)^((n-4)/2))/beta(a = 1/2, b = (n-2)/2)
-      return(pofr)
-    }
+
+    df_res <- data.frame(get.edgelist(g),  as.numeric(E(g)$correlation))
+    colnames(df_res) <- c("source", "target","correlation");
     
-    fig.list[[i]] <- ggplot(cors, aes(x=correlation)) + geom_histogram() +
-      xlim(-1,1) +
+    fig.list[[i]] <- ggplot(df_res, aes(x=correlation)) + geom_histogram() +
+      xlim(-1,1) + 
+      geom_vline(xintercept = c(-thresh, thresh), linetype = "dashed", color = "red")
       theme_bw()
   }
   library(Cairo)
@@ -594,4 +605,11 @@ GetNetworkTopology <- function(netnm){
   return(propertiesVector)
 }
 
-
+#expand non-square adjancy matrix to square
+expand.matrix <- function(A){
+  m <- nrow(A)
+  n <- ncol(A)
+  B <- matrix(0,nrow = m, ncol = m)
+  C <- matrix(0,nrow = n, ncol = n)
+  cbind(rbind(B,t(A)),rbind(A,C))
+}

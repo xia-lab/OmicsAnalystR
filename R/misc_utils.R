@@ -4,13 +4,6 @@
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
-# compute the distance to the centroid of the given data
-# note each col is a x,y,z
-# since this is centered, the centroid is origin
-GetDist3D <-function(mat, target=c(0,0,0)){
-    dist.vec <- apply(mat, 2, function(x) dist(rbind(x, target)));
-    return(dist.vec);
-}
 
 # fast readder for csv and txt
 .readDataTable <- function(fileName){

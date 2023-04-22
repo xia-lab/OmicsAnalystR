@@ -36,8 +36,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   for(i in 1:length(sel.nms)){
     type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
   }
-  
-  ProcessGraphFile(new_g, labels, type.list);
+  ProcessGraphFile(new_g, labels, type.list, T);
 }
 
 NormalizeDataWrapper <-function (nm, opt, colNorm){
