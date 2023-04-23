@@ -88,7 +88,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   
   if(org == "NA"){
     msg.vec <<- "Invalid organism!"
-    return(1)
+    return(0)
   }
   
   dataSet <- qs::qread(dataName);
