@@ -29,9 +29,9 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
         sig.mat <- dataSet$custom.sig.mat
       }
       
-      #if more than 2000 sig genes, then limit to top 2000 only
-      if(nrow(sig.mat) > 2000){
-        sig.mat <- sig.mat[c(1:2000),];
+      #if more than 1000 sig features, then limit to top 1000 only
+      if(nrow(sig.mat) > 1000){
+        sig.mat <- sig.mat[c(1:1000),];
       }
       
       inxAll = which(rownames(all.mat) %in% rownames(sig.mat));
