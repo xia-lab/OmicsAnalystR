@@ -20,7 +20,7 @@ AnnotateMicrobiomeData <- function(dataName,org){
   library("tidyverse")
   dataSet <- qs::qread(dataName);
   
-  data <- dataSet$data.raw;
+  data <- qs::qread(dataSet$data.raw.path);
   #  mic.vec <- rownames(data);
   
   data.org <<- org
@@ -66,7 +66,7 @@ AnnotateMicrobiomeData <- function(dataName,org){
     dataSet$data.taxa[[i]] <- as.data.frame(dataSet$data.taxa[[i]])
   }
 
-  dataSet$data.annotated <- data
+  qs::qsave(data, dataSet$data.annotated.path);
   dataSet$enrich_ids <- rownames(data);
   names(dataSet$enrich_ids) = rownames(data);
   dataSet$m2m <- 1
@@ -92,8 +92,8 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }
   
   dataSet <- qs::qread(dataName);
-  data <- dataSet$data.raw;
-  gene.vec <- rownames(data);
+  data.raw <- qs::qread(dataSet$data.raw.path);
+  gene.vec <- rownames(data.raw);
   
   #record the info
   data.org <<- org
@@ -137,33 +137,33 @@ AnnotateGeneData <- function(dataName, org, idtype){
   hit.inx <- which(!is.na(enIDs));
   matched.len <- length(hit.inx);
   if(matched.len > 1){
-    data.proc <- dataSet$data.raw[hit.inx,];
+    data.raw <- data.raw[hit.inx,];
     matched.entrez <- enIDs[hit.inx];
 
     # now, deal with duplicated entrez id
     # first, average duplicate rows
 
-    ave.data <- RemoveDuplicates(data.proc, "max");
+    ave.data <- RemoveDuplicates(data.raw, "max");
 
     # then removed duplicated entries
     dup.inx <- duplicated(matched.entrez);
     matched.entrez <- matched.entrez[!dup.inx]
     int.mat <- ave.data[!dup.inx,];
     # update
-    dataSet$data.annotated <-int.mat;
+    data.annotated <-int.mat;
     rownames(int.mat) <- matched.entrez
     if(idtype %in% c("mir_id", "mir_acc", "mirnet")){
-      rownames(dataSet$data.annotated) <- rownames(int.mat);
+      rownames(data.annotated) <- rownames(int.mat);
     }else{
-      rownames(dataSet$data.annotated) <- matched.entrez
+      rownames(data.annotated) <- matched.entrez
     }
-    dataSet$enrich_ids = rownames(int.mat);
-    names(dataSet$enrich_ids) = doEntrez2SymbolMapping(rownames(int.mat))
+    dataSet$enrich_ids <- rownames(int.mat);
+    names(dataSet$enrich_ids) <- doEntrez2SymbolMapping(rownames(int.mat))
     
     dataSet$id.type <- "entrez";
   }else{
-    dataSet$data.annotated <- dataSet$data.raw;
-    dataSet$enrich_ids = rownames(dataSet$data.annotated)
+    data.annotated <- data.raw;
+    dataSet$enrich_ids = rownames(data.annotated)
     dataSet$id.type <- "none";
   }
   
@@ -178,8 +178,8 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }else{
     msg <- paste("There is a total of ", length(unique(gene.vec)), "unique features.");
   }
-  msg.vec <<- msg
-  
+  msg.vec <<- msg;
+  qs::qsave(data.annotated, dataSet$data.annotated.path);
   RegisterData(dataSet);
   return(1)
 }
@@ -197,7 +197,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   dataSet <- qs::qread(dataName);
   dataSet$name <- dataName
   
-  data <- dataSet$data.raw;
+  data <- qs::qread(dataSet$data.raw.path);
   qvec <- rownames(data);
   
   # record all the data
@@ -226,11 +226,11 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   
   msg <- c(msg, paste0("A total of ", length(na.omit(dataSet$name.map$hit.inx)), " are mapped."))
 
-  data <- as.matrix(dataSet$data.raw);
+  data <- as.matrix(data);
   rownames(data) <- unname(dataSet$enrich_ids);
   data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
   data <- as.data.frame(data)
-  dataSet$data.annotated <- data
+  qs::qsave(data, dataSet$data.annotated.path);
   RegisterData(dataSet);
   msg.vec <<- msg
   
@@ -249,12 +249,12 @@ SkippingAnnotation <- function(dataName, idtype){
   
   dataSet <- qs::qread(dataName);
   
-  data <- dataSet$data.raw;
+  data <- qs::qread(dataSet$data.raw.path);
   qvec <- rownames(data);
   
-  dataSet$enrich_ids <- rownames(dataSet$data.raw)
-  names(dataSet$enrich_ids) <- rownames(dataSet$data.raw)
-  dataSet$data.annotated <- dataSet$data.raw
+  dataSet$enrich_ids <- rownames(data)
+  names(dataSet$enrich_ids) <- rownames(data)
+  qs::qsave(data, dataSet$data.annotated.path);
   
   RegisterData(dataSet);
   

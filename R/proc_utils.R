@@ -393,7 +393,6 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   colnames(data) <- smpl.nms;
   rownames(data) <- var.nms;
   dataSet$data.proc <- data
-  dataSet$data.raw <- data
   dataSet$data.annotated <- ""
   dataSet$data.missed <- ""
   dataSet$data.filtered <- ""
@@ -418,6 +417,15 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   names(dataSet$enrich_ids) = rownames(dataSet$data.proc)
   dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), ,drop=F];
   dataSet$isValueNormalized <- "true";
+
+  #create folder to store larger objects;
+  dataSet$folderName <- paste0(dataSet$name,"_data");
+  dir.create(dataSet$folderName);
+
+  dataSet$data.annotated.path <- paste0(dataSet$folderName, "/data.annotated.qs");
+  dataSet$data.raw.path <- paste0(dataSet$folderName, "/data.raw.qs");
+
+  qs::qsave(data, dataSet$data.raw.path);
   # update current dataset
   RegisterData(dataSet);
   return(1)

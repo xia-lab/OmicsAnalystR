@@ -142,16 +142,16 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     type_lookup <- setNames(type_df$type, type_df$name)
     
     
-    if(networkInfer != "NA"){
-      library(parmigene);
-      switch(networkInfer,
-             "aracne" = reductionSet$corr.mat <- aracne.m(reductionSet$corr.mat),
-             "clr" = reductionSet$corr.mat <- clr(reductionSet$corr.mat),
-             "mrnet" = reductionSet$corr.mat <- mrnet(reductionSet$corr.mat)
-      )
-    }
+    #if(networkInfer != "NA"){
+    #  library(parmigene);
+    #  switch(networkInfer,
+    #         "aracne" = reductionSet$corr.mat <- aracne.m(reductionSet$corr.mat),
+    #         "clr" = reductionSet$corr.mat <- clr(reductionSet$corr.mat),
+    #         "mrnet" = reductionSet$corr.mat <- mrnet(reductionSet$corr.mat)
+    #  )
+    #}
     
-    corr.mat <- reductionSet$corr.mat
+    corr.mat <- qs::qread(reductionSet$corr.mat.path);
     sel.dats <- reductionSet$selDatsCorr;
     rowlen <- nrow(corr.mat);
     g <- igraph::graph_from_adjacency_matrix(corr.mat,mode = "undirected", diag = FALSE, weighted = 'correlation')
@@ -169,13 +169,11 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     intra_g <- delete_edges(g, E(g)[inter_inx])
     
 
-    # for histogram
-    reductionSet$corr.graph.inter <- inter_g
-    reductionSet$corr.graph.intra <- intra_g
+    # for histogram only
+    reductionSet$corr.graph.path <- "corr.graph.qs";
+    qs::qsave(list(corr.graph.inter=inter_g, corr.graph.intra=intra_g), "corr.graph.qs")
 
     cor.list <- list(all = NULL, inter = NULL, intra = NULL)
-    
-
     
     if (corSign == "both") {
       toRm.inter <- E(inter_g)[!abs(correlation) >  threshold.inter]
@@ -201,6 +199,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     colnames(cor.list$intra) <- c("source", "target","correlation");
     cor.list$all  <- rbind(cor.list$inter, cor.list$intra)
     
+    reductionSet$cor.list.path <- "cor.list.qs";
     qs::qsave(cor.list, file="cor.list.qs");
     
     if (crossOmicsOnly == "true") {
@@ -209,8 +208,6 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       cor_edge_list <- dplyr::bind_rows(cor.list$inter, cor.list$intra)
     }
 
-    
-    
     # filter interomics only
     numToKeep <- as.numeric(numToKeep)
     if (numToKeep > length(unique(cor_edge_list$correlation))) {
@@ -487,7 +484,8 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
   }
-  reductionSet$corr.mat <- corr.mat
+  reductionSet$corr.mat.path <- "corr.mat.qs"
+  qs::qsave(corr.mat, "corr.mat.qs");
   .set.rdt.set(reductionSet);
   
   return(1);
@@ -500,15 +498,15 @@ PlotCorrHistogram <- function(imgNm, dpi=72, format="png"){
   
   library(ggplot2)
   reductionSet <- .get.rdt.set();
-  
+  graphs <- qs::qread(reductionSet$corr.graph.path);
   fig.list <- list();
   for( i in 1:2){
     if(i == 1){
-      g <- reductionSet$corr.graph.inter 
+      g <- graphs$corr.graph.inter 
       titleText <- "Between-omics correlation"
       thresh <- reductionSet$threshold.inter
     }else{
-      g <- reductionSet$corr.graph.intra
+      g <- graphs$corr.graph.intra
       titleText <- "Intra-omics correlation"
       thresh <- reductionSet$threshold.intra
 

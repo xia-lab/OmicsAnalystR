@@ -347,13 +347,14 @@ doScatterJson <- function(filenm){
 }
 
 PlotDataProfile<-function(dataName,type, boxplotName, pcaName){
-  dataSet <- qs::qread(dataName);
   if(type=="normalize"){
+    dataSet <- qs::qread(dataName);
     qc.boxplot2(as.matrix(dataSet$data.proc), boxplotName);
     qc.pcaplot2(as.matrix(dataSet$data.proc), pcaName);
   }else{
-    qc.boxplot2(as.matrix(dataSet$data.raw), boxplotName);
-    qc.pcaplot2(as.matrix(dataSet$data.raw), pcaName);
+    data.raw <- qs::qread(dataSet$data.raw.path);
+    qc.boxplot2(as.matrix(data.raw), boxplotName);
+    qc.pcaplot2(as.matrix(data.raw), pcaName);
   }
 }
 
@@ -586,7 +587,7 @@ ReadMetaData <- function(metafilename){
 CheckDataType <- function(dataName, type){
   dataSet <- qs::qread(dataName);
   isOk <- T;
-  data <- dataSet$data.raw
+  data <- qs::qread(dataSet$data.raw.path);
   containsNeg <- "TRUE" %in% names(table(data < 0)) 
   msg.vec <- ""
   negativeBool <- F
@@ -641,7 +642,7 @@ CheckDataType <- function(dataName, type){
 SetParamsNormalizedData <- function(dataName){
     dataSet <- qs::qread(dataName);
 
-    int.mat <- dataSet$data.annotated;
+    int.mat <- qs::qread(dataSet$data.annotated.path);
     msg.vec <- "";
 
     if(sum(is.na(int.mat)) == 0){ # check if any missing values

@@ -92,7 +92,7 @@ FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
   
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i])
-    data <- dataSet$data.annotated;
+    data <- qs::qread(dataSet$data.annotated.path);
     data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
     data <- FilterDataByVariance(data, filterPercent);
     
