@@ -110,6 +110,7 @@ ComputePathHeatmapTable <- function(dataSet){
     complete = smpl.complete.rk
   );
   
+  meta.types <- reductionSet$dataSet$meta.types;
   
   # prepare meta info    
   # 1) convert meta.data info numbers
@@ -117,28 +118,29 @@ ComputePathHeatmapTable <- function(dataSet){
   if(length(reductionSet$clustVec) > 1){
     metadf$Cluster <- reductionSet$clustVec;
     sample.cluster[[reductionSet$clustType]] <- smpl.int.rk;
-    metadf <- metadf[smpl.int.rk,]
+    metadf <- metadf[smpl.int.rk,];
+    meta.types <- c(meta.types, "disc");
+    names(meta.types)[length(names(meta.types))] <- "Cluster";
   }
-  
-  meta.types <- reductionSet$dataSet$meta.types;
+  print(meta.types);
   meta <- metadf;
   meta <- meta[which(rownames(meta) %in% orig.smpl.nms), ,drop=F];
   grps <- colnames(metadf)
   nmeta <- meta.vec <- NULL;
   uniq.num <- 0;
   meta.grps <- vector();
-  disc.inx <- rep(F, ncol(meta)*nrow(meta));
+  disc.inx <- rep(F, ncol(meta)*nrow(meta));  
   
   for (i in 1:ncol(meta)){
     cls <- meta[,i];
     grp.nm <- grps[i];
     meta.vec <- c(meta.vec, as.character(cls))
     # make sure each label are unqiue across multiple meta data
-    if(meta.types[grp.nm] == "disc"){
+    print(grp.nm);
+    if( meta.types[grp.nm] == "disc"){
       ncls <- paste(grp.nm, as.numeric(cls)+99); # note, here to retain ordered factor
-      disc.inx[c(nrow(meta)*(i-1)+1: nrow(meta)*i)] <- T;
+      disc.inx[c((nrow(meta)*(i-1)+1): (nrow(meta)*i))] <- T;
       sample.cluster[[grps[i]]] <- order(cls)
-      
       
     }else{
       ncls <- as.numeric(cut(rank(as.numeric(as.character(cls))), breaks=30)); # note, here to retain ordered factor
@@ -178,7 +180,7 @@ ComputePathHeatmapTable <- function(dataSet){
   rownames(rest) <- NULL;
   list_of_lists <- apply(rest, 1, function(x) unname(as.list(x)))
   
-
+  
   json.res <- list(
     data.name = dataSet$name,
     data.type = dataSet$type,
@@ -196,72 +198,6 @@ ComputePathHeatmapTable <- function(dataSet){
   
   return(json.res);
 }
-
-PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"){
-  require("Cairo");
-  library(ggplot2)
-  dpi<-as.numeric(dpi)
-  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  sel.nms <- names(mdata.all)
-  data.list <- list()
-  for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
-  }
-  reductionSet <- .get.rdt.set();
-  
-  fig.list <- list();
-  result <- reductionSet$clustRes
-  clust <- reductionSet$clustVec
-  
-  fig.list <- list()
-  for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
-    x <- dataSet$data.proc
-    pca <- prcomp(t(na.omit(x)));
-    imp.pca<-summary(pca)$importance;
-    xlabel <- paste0("PC1"," (", 100*round(imp.pca[2,][1], 3), "%)")
-    ylabel <- paste0("PC2"," (", 100*round(imp.pca[2,][2], 3), "%)")
-    names <- colnames(x);
-    pca.res <- as.data.frame(pca$x);
-    pca.res <- pca.res[,c(1,2)]
-    
-    xlim <- GetExtendRange(pca.res$PC1);
-    ylim <- GetExtendRange(pca.res$PC2);
-    
-    Factor <- as.factor(clust)
-    pca.rest <- pca.res
-    pca.rest$Cluster <- Factor
-    pca.rest$names <- rownames(pca.res)
-    Conditions = as.factor(dataSet$cls)
-    pca.rest$Conditions <- Conditions
-    
-    pcafig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Cluster, shape=Conditions)) +
-      geom_point(size=3, alpha=0.5) + 
-      xlim(xlim) + ylim(ylim) + xlab(xlabel) + ylab(ylabel) +
-      theme_bw()
-    fig.list[[i]] <- pcafig
-    
-    pcafigcls <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
-      geom_point(size=3, alpha=0.5) + 
-      xlim(xlim) + ylim(ylim) + xlab(xlabel) + ylab(ylabel) +
-      theme_bw()
-    if(i == 1){
-      
-      #fig.list[[3]] <- pcafigcls
-    }else if( i == 2){
-      #fig.list[[4]] <- pcafigcls
-    }
-  }
-  h <- 6*round(length(fig.list)/2)
-  Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
-  library("ggpubr")
-  p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
-  print(p1)
-  dev.off();
-}
-
 
 ComputeSpectrum <- function(method="1", clusterNum="-1"){
   sel.inx <- mdata.all==1;
@@ -614,4 +550,70 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   dev.off();
   
   return(1);
+}
+
+
+PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"){
+  require("Cairo");
+  library(ggplot2)
+  dpi<-as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  
+  sel.nms <- names(mdata.all)
+  data.list <- list()
+  for(i in 1:length(sel.nms)){
+    dat = qs::qread(sel.nms[i])
+    data.list[[i]] <- dat$data.proc
+  }
+  reductionSet <- .get.rdt.set();
+  
+  fig.list <- list();
+  result <- reductionSet$clustRes
+  clust <- reductionSet$clustVec
+  
+  fig.list <- list()
+  for(i in 1:length(sel.nms)){
+    dataSet = qs::qread(sel.nms[i])
+    x <- dataSet$data.proc
+    pca <- prcomp(t(na.omit(x)));
+    imp.pca<-summary(pca)$importance;
+    xlabel <- paste0("PC1"," (", 100*round(imp.pca[2,][1], 3), "%)")
+    ylabel <- paste0("PC2"," (", 100*round(imp.pca[2,][2], 3), "%)")
+    names <- colnames(x);
+    pca.res <- as.data.frame(pca$x);
+    pca.res <- pca.res[,c(1,2)]
+    
+    xlim <- GetExtendRange(pca.res$PC1);
+    ylim <- GetExtendRange(pca.res$PC2);
+    
+    Factor <- as.factor(clust)
+    pca.rest <- pca.res
+    pca.rest$Cluster <- Factor
+    pca.rest$names <- rownames(pca.res)
+    Conditions = as.factor(dataSet$cls)
+    pca.rest$Conditions <- Conditions
+    
+    pcafig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Cluster, shape=Conditions)) +
+      geom_point(size=3, alpha=0.5) + 
+      xlim(xlim) + ylim(ylim) + xlab(xlabel) + ylab(ylabel) +
+      theme_bw()
+    fig.list[[i]] <- pcafig
+    
+    pcafigcls <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
+      geom_point(size=3, alpha=0.5) + 
+      xlim(xlim) + ylim(ylim) + xlab(xlabel) + ylab(ylabel) +
+      theme_bw()
+    if(i == 1){
+      
+      #fig.list[[3]] <- pcafigcls
+    }else if( i == 2){
+      #fig.list[[4]] <- pcafigcls
+    }
+  }
+  h <- 6*round(length(fig.list)/2)
+  Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
+  library("ggpubr")
+  p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
+  print(p1)
+  dev.off();
 }
