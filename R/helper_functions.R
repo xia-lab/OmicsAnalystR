@@ -103,3 +103,39 @@ GetVarianceArr<-function(omicsType){
   return(varArr);
 }
 
+GetOmicsDataDims <- function(dataName){
+  dataSet <- qs::qread(dataName);
+  dm <- dim(dataSet$data.proc);
+  naNum <- sum(is.na(dataSet$data.proc));
+  return(c(dm, naNum));
+} 
+
+GetMultiSummary <- function(){
+  sel.nms <- names(mdata.all);
+  featureNumAnn <- "";
+  featureNumFilter <- "";
+  dat.nms <- "";
+  for(i in 1:length(sel.nms)){
+    dataSet = qs::qread(sel.nms[i]);
+    datAnn <- qs::qread(dataSet$data.annotated.path);
+    datProc <- dataSet$data.proc;
+    if(i == 1){
+      cls.lbls <- dataSet$meta[,1]
+      featureNumAnn <- nrow(datAnn);
+      featureNumFilter <- nrow(datProc);
+      sampleNum <- ncol(datProc);
+      dat.nms <- sel.nms[i];
+    }else{
+      featureNumAnn <- c(featureNumAnn, nrow(datAnn));
+      featureNumFilter <- c(featureNumFilter, nrow(datProc));
+      dat.nms <- c(dat.nms, sel.nms[i]);
+    }
+  }
+  featureNumAnn <- paste(featureNumAnn, collapse="; ");
+  featureNumFilter <- paste(featureNumFilter, collapse="; ");
+  dat.nms <- paste(dat.nms, collapse="; ");
+  cls.lbls <- unique(cls.lbls);
+  cls.lbls <- paste(cls.lbls, collapse="; ");
+  res <- c(sampleNum, featureNumAnn, dat.nms, cls.lbls, featureNumFilter);
+  return(res)
+}

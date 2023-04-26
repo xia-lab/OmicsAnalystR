@@ -232,8 +232,12 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$clustRes <- res
   reductionSet$clustDistMat <- res$similarity_matrix
   reductionSet$clustNmi <- SNFNMI
+
+  #save results
+  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
+  write.csv(res.table, "spectrum_clustering_results.csv");
+
   .set.rdt.set(reductionSet);
-  
   return(1)
 }
 
@@ -263,8 +267,25 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   reductionSet$clustRes <- result
   reductionSet$clustNmi <- SNFNMI
   
+  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
+  write.csv(res.table, "perturbation_clustering_results.csv");
+
   .set.rdt.set(reductionSet);
   return(1)
+}
+
+# return gene and compounds highlighted in the pathway
+GetClusterMembers<-function(clust){
+
+    reductionSet <- .get.rdt.set();
+    clustVec <- reductionSet$clustVec;
+    sampleNames <- rownames(reductionSet$dataSet$meta.info);
+    print(sampleNames);
+    print(colnames(dataSet$proc));
+    match.inx <- clustVec == clust;
+    members <- sampleNames[match.inx];
+    print(members);
+    return(cbind(paste0("Cluster ", clust), paste(unique(members), collapse="; ")));
 }
 
 GetDiagnosticSummary<- function(type){
@@ -433,12 +454,15 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   group = spectralClustering(W, C); 
   SNFNMI = .calNMI(group, truelabel)
   
-  reductionSet$clustType <- "Spectrum"
+  reductionSet$clustType <- "SNF"
   reductionSet$clustVec <- group
   reductionSet$clustRes <- res
   reductionSet$clustDistMat <- W
   reductionSet$clustNmi <- SNFNMI
   
+  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=group);
+  write.csv(res.table, "snf_clustering_results.csv");
+
   .set.rdt.set(reductionSet);
   return(1)
 }

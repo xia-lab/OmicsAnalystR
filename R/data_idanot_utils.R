@@ -261,3 +261,32 @@ SkippingAnnotation <- function(dataName, idtype){
   
   return(1)
 }
+
+
+
+doIdMapping <- function(q.vec, type){
+  if(type %in% c("mir_acc", "mir_id", "mirnet")){
+    require('RSQLite');
+    path <- paste0(sqlite.path, "mir2gene.sqlite")
+    mir.db <- dbConnect(SQLite(), path);
+    if(type == "mir_id"){
+      q.vec <- tolower(q.vec)
+    }
+    query <- paste (shQuote(q.vec),collapse=",");
+    table.n <- data.org
+    statement <- paste("SELECT * FROM ", data.org, " WHERE ((",type," IN (",query,")) OR (mir_id IN (", query, ")))", sep="");
+    
+    mir.dic <- .query.sqlite(mir.db, statement);       
+    
+    entrezs <- mir.dic[c("mir_acc", type)];
+    if(nrow(entrezs) == 0){
+      return(0)
+    }
+    entrezs <- entrezs[!duplicated(entrezs[,"mir_acc"]),]
+    rownames(entrezs) = seq.int(nrow(entrezs));
+    entrezs <- data.frame(lapply(entrezs, as.character), stringsAsFactors=FALSE)
+    colnames(entrezs) = c("gene_id", "accession");
+    
+    return(entrezs);
+  }
+}
