@@ -82,7 +82,7 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   return(1);
 }
 
-FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
+FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
   filterPercent <- as.numeric(filterPercent);
   if(dataName == "NA"){
     sel.nms <- names(mdata.all)
@@ -92,10 +92,21 @@ FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
   
   for(i in 1:length(sel.nms)){
     dataSet <- qs::qread(sel.nms[i])
-    data <- qs::qread(dataSet$data.annotated.path);
-    data <- data[,colnames(data) %in% colnames(dataSet$data.proc)]
-    data <- FilterDataByVariance(data, filterPercent);
-    
+    int.mat <- qs::qread(dataSet$data.annotated.path);
+    int.mat <- int.mat[,colnames(int.mat) %in% colnames(dataSet$data.proc)];
+
+    if(filterMethod == "variance"){
+      data <- FilterDataByVariance(int.mat, filterPercent);
+    }else{
+      featVar <- apply(data, 1, var);
+      if(var(featVar) < 0.001){
+        print("Detected autoscale");
+        msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
+        return("2");
+      }
+      res <- PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T);
+      data <- t(res$data);
+    }
     if(any(class(data) == "character")){
       msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
       print("Detected autoscale");
@@ -104,24 +115,32 @@ FilterDataMultiOmicsHarmonization <- function(dataName, filterPercent = 0){
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
       data.norm.taxa <- lapply(dataSet$dataSet$data.annotated.taxa, function(x) {
-        FilterDataByVariance(x, filterPercent);
+        if(filterMethod == "variance"){
+          data <- FilterDataByVariance(x, filterPercent);
+        }else{
+          filterPercent <- filterPercent/100;
+          res <- PerformFeatureFilter(t(x), filterMethod, filterPercent, "", T);
+          data <- t(res$data);
+        }
+        return(data);
       })
       dataSet$data.proc.taxa <- data.norm.taxa
     }
+
     RegisterData(dataSet)
   }
   return(1)
 }
 
 FilterDataByVariance <- function(data, filterPercent){
-  featVar <- apply(data, 1, var)
+  featVar <- apply(data, 1, var);
   if(var(featVar) < 0.001){
-    return("Already autoscaled")
+    return("Already autoscaled");
   }
-  varThresh <- quantile(featVar, (filterPercent/100))
-  featKeep <- which(featVar > varThresh)
-  data <- data[featKeep, ]
-  return(data)
+  varThresh <- quantile(featVar, (filterPercent/100));
+  featKeep <- which(featVar > varThresh);
+  data <- data[featKeep, ];
+  return(data);
 }
 
 #'Plot PCA plot for multi-omics samples
@@ -255,7 +274,7 @@ GetMultiSummary <- function(){
   dat.nms <- "";
   for(i in 1:length(sel.nms)){
     dataSet = qs::qread(sel.nms[i]);
-    datAnn <- dataSet$data.annotated;
+    datAnn <- qs::qread(dataSet$data.annotated.path);
     datProc <- dataSet$data.proc;
     if(i == 1){
       cls.lbls <- dataSet$meta[,1]
@@ -533,52 +552,4 @@ PlotMultiTsne <- function(imgNm, dpi=72, format="png",factor="1"){
   print(p1)
   dev.off();
   
-}
-
-GetLoadingFileName <-function(dataName){
-  reductionSet<-.get.rdt.set();
-  dataSet <- qs::qread(dataName);
-  reductionSet$loading.file.nm;
-}
-
-GetLoadingMat<-function(dataName){
-  reductionSet<-.get.rdt.set();
-  dataSet <- qs::qread(dataName);
-  omicstype <- dataSet$type
-  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
-  drops <- c("ids","label", "type")
-  return(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)])));
-}
-
-GetLoadingIds<-function(dataName){
-  reductionSet<-.get.rdt.set();
-  dataSet <- qs::qread(dataName);
-  omicstype <- dataSet$type;
-  print(head(reductionSet$loading.pos.xyz));
-  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
-  reductionSet$loading.pos.xyz$ids[inx];
-}
-
-GetLoadingSymbols<-function(dataName){
-  reductionSet<-.get.rdt.set();
-  dataSet <- qs::qread(dataName);
-  omicstype <- dataSet$type
-  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
-  reductionSet$loading.pos.xyz$label[inx];
-}
-
-GetLoadingColNames<-function(dataName){
-  reductionSet<-.get.rdt.set();
-  dataSet <- qs::qread(dataName);
-  drops <- c("ids","label", "type")
-  colnames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
-}
-
-GetVarianceArr<-function(omicsType){
-  reductionSet <- .get.rdt.set();
-  df <- reductionSet$var.exp;
-  varArr <- df[,omicsType];
-  varArr <- signif(varArr,4)*100;
-  print(varArr);
-  return(varArr);
 }

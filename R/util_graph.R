@@ -317,7 +317,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   }
   
   # covert to json
-  require(RJSONIO);
+  require(rjson);
   netData <- list(nodes=nodes, edges=edge.mat, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm=table.nmu, nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
   
   if(!is.null(E(g)$correlation)){
@@ -328,7 +328,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   jsonNms$network <<- filenm
   
   sink(filenm);
-  cat(toJSON(netData));
+  cat(rjson::toJSON(netData));
   sink();
 }
 

@@ -122,7 +122,6 @@ ComputePathHeatmapTable <- function(dataSet){
     meta.types <- c(meta.types, "disc");
     names(meta.types)[length(names(meta.types))] <- "Cluster";
   }
-  print(meta.types);
   meta <- metadf;
   meta <- meta[which(rownames(meta) %in% orig.smpl.nms), ,drop=F];
   grps <- colnames(metadf)
@@ -195,7 +194,7 @@ ComputePathHeatmapTable <- function(dataSet){
     org = data.org,
     pval = stat.pvals
   );
-  
+
   return(json.res);
 }
 

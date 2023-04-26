@@ -87,7 +87,7 @@ my.json.scatter <- function(filenm){
   # save node table
   ellipse ="NA"
 
-  library(RJSONIO)
+  library(rjson)
     
     loading.data.orig = reductionSet$loading.pos.xyz
     loading.data <- unitAutoScale(loading.data.orig[,c(1,2,3)]);
@@ -271,9 +271,9 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
     sc = scene3d();
     mesh = sc$objects;
   }
-  library(RJSONIO);
+  library(rjson);
   sink(filenm);
-  cat(toJSON(mesh));
+  cat(rjson::toJSON(mesh));
   sink();
   return(filenm);
 }

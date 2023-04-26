@@ -577,3 +577,60 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   return(data)
 }
 
+
+##
+## perform unsupervised data filter based on common measures
+##
+PerformFeatureFilter <- function(int.mat, filter, filter.cutoff, anal.type, privilidged){
+
+    nm <- NULL;
+    msg <- "";
+
+    # first compute rank based on filter selected
+    if (filter == "rsd"){
+      sds <- apply(int.mat, 2, sd, na.rm=T);
+      mns <- apply(int.mat, 2, mean, na.rm=T);
+      filter.val <- abs(sds/mns);
+      nm <- "Relative standard deviation";
+    }else if (filter == "nrsd" ){
+      mads <- apply(int.mat, 2, mad, na.rm=T);
+      meds <- apply(int.mat, 2, median, na.rm=T);
+      filter.val <- abs(mads/meds);
+      nm <- "Non-paramatric relative standard deviation";
+    }else if (filter == "mean"){
+      filter.val <- apply(int.mat, 2, mean, na.rm=T);
+      nm <- "mean";
+    }else if (filter == "sd"){
+      filter.val <- apply(int.mat, 2, sd, na.rm=T);
+      nm <- "standard deviation";
+    }else if (filter == "mad"){
+      filter.val <- apply(int.mat, 2, mad, na.rm=T);
+      nm <- "Median absolute deviation";
+    }else if (filter == "median"){
+      filter.val <- apply(int.mat, 2, median, na.rm=T);
+      nm <- "median";
+    }else{ # iqr
+      filter.val <- apply(int.mat, 2, IQR, na.rm=T);
+      nm <- "Interquantile Range";
+    }
+    
+    # get the rank of the filtered variables
+    rk <- rank(-filter.val, ties.method='random');
+
+    remain.num <- ncol(int.mat)*(1-(filter.cutoff/100));
+    remain <- rk <= remain.num;
+    msg <- paste(msg, "Feature filtering based on", nm);
+
+    if(!privilidged){
+        max.allow <- .get.max.allow(anal.type);  
+        if(sum(remain) > max.allow){
+            remain <- rk <= max.allow;
+            msg <- paste(msg, paste("Further reduced to", max.allow, "features based on", nm));   
+        }
+    }
+    # save a copy for user 
+    fast.write.csv(cbind(filter=filter.val, t(int.mat)), file=paste0("data_prefilter_", filter, ".csv"));
+
+    #print(msg);
+    return(list(data=int.mat[, remain], msg=msg));
+}
