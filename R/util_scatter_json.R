@@ -273,7 +273,7 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
   }
   library(rjson);
   sink(filenm);
-  cat(rjson::toJSON(mesh));
+  cat(RJSONIO::toJSON(mesh));
   sink();
   return(filenm);
 }
