@@ -318,7 +318,9 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   
   # covert to json
   require(rjson);
-  netData <- list(nodes=nodes, edges=edge.mat, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm=table.nmu, nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
+  #formattin json file because of rjson
+  edges.list <- apply(edge.mat, 1, as.list)
+  netData <- list(nodes=nodes, edges=edges.list, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm=table.nmu, nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
   
   if(!is.null(E(g)$correlation)){
     netData[["maxCorrelation"]] <- max(E(g)$correlation)

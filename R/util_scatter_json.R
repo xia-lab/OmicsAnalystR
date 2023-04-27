@@ -271,7 +271,9 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
     sc = scene3d();
     mesh = sc$objects;
   }
-  library(rjson);
+
+  #unnamed list not supported in rjson
+  library(RJSONIO);
   sink(filenm);
   cat(RJSONIO::toJSON(mesh));
   sink();
