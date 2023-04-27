@@ -518,7 +518,7 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName, dpi=96, imgFormat="p
   }
   
   library(reshape2)
-  library(ggplot2)
+  load_ggplot();
   library(scales);
   
   metaData[metaData == "NA"] <- NA;

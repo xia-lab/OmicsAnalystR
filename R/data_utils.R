@@ -24,7 +24,7 @@ Init.Data <- function(){
   #testing purposes
 
   # to control parallel computing for some packages
-  require("ggplot2");
+  load_ggplot();
   Sys.setenv("OMP_NUM_THREADS" = 2); 
   Sys.setenv("OPENBLAS_NUM_THREADS" = 2);
   jsonNms <<- list()
@@ -250,7 +250,7 @@ GetAllDataNames <- function(){
 
 # given a gene id, plot its expression profile as box plot
 PlotSelectedGene<-function(filenm, gene.id, meta, selected_meta){
-  library(Cairo)
+  load_cairo();
   selected_meta <- strsplit(selected_meta, "; ")
   selected_meta = selected_meta[[1]]  
   require(lattice);
@@ -361,7 +361,7 @@ PlotDataProfile<-function(dataName,type, boxplotName, pcaName){
 
 qc.boxplot2 <- function(dat, imgNm){
   require('lattice');
-  require('Cairo');
+  load_cairo();
   imgNm = paste(imgNm, "dpi", "72", ".png", sep="");
   subgene=10000;
   if (nrow(dat)>subgene) {
@@ -435,39 +435,6 @@ ScalingData <-function (nm,opt){
 
 ScalingDataOmics <-function (dataSet, norm.opt){
   return(1) 
-}
-
-PlotCluster <-function(opt, name, filenm, dpi, type){
-  library(purrr)
-  library(cluster)
-  pos.xyz = dataSet$pos.xyz
-  dpi = as.numeric(dpi)
-  jsonnm = paste0(filenm, ".json");
-  imgNm = paste(filenm, "dpi", dpi, ".", type, sep="");
-  
-  #if(opt == "kmeans"){
-  mss <- (nrow(pos.xyz)-1)*sum(apply(pos.xyz,2,var))
-  for (i in 2:16) mss[i] <- sum(kmeans(pos.xyz,centers=i)$withinss)
-  
-  
-  # function to compute average silhouette for k clusters
-  avg_sil <- function(k) {
-    km.res <- kmeans(pos.xyz, centers = k, nstart = 25)
-    ss <- silhouette(km.res$cluster, dist(pos.xyz))
-    mean(ss[, 3])
-  }
-  
-  # Compute and plot wss for k = 2 to k = 15
-  k.values <- 2:10;
-  # extract avg silhouette for 2-15 clusters
-  avg_sil_values <- map_dbl(k.values, avg_sil);
-
-  library(Cairo)
-  Cairo(file=imgNm, width=800, height=600, type=type, bg="white", dpi=dpi, unit="px");
-  
-  g = plot(1:16, mss, type="b", xlab="Number of Clusters", ylab="Within groups sum of squares", main="Elbow plot")
-  print(g)
-  dev.off();
 }
 
 ###

@@ -1,7 +1,7 @@
 
 
 DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
-  require("igraph");
+  load_igraph();
   intRes <- DoDimensionReductionIntegrative(method);
   threshold <- as.numeric(threshold)
   sel.inx <- mdata.all==1;
@@ -102,7 +102,7 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
       if(var(featVar) < 0.001){
         print("Detected autoscale");
         msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
-        return("2");
+        return(2);
       }
       res <- PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T);
       data <- t(res$data);
@@ -154,8 +154,8 @@ FilterDataByVariance <- function(data, filterPercent){
 
 PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   
-  require("Cairo");
-  library(ggplot2)
+  load_cairo();
+  load_ggplot();
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
@@ -229,8 +229,8 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
 
 
 PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
-  require("Cairo");
-  library(ggplot2)
+  load_cairo();
+  load_ggplot();
   dpi <- as.numeric(dpi)
   factor <- as.numeric(factor)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
@@ -268,9 +268,9 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
 } 
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-  require("Cairo");
+  load_cairo();
   library(see)
-  library(ggplot2)
+  load_ggplot();
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx]
   dpi<-as.numeric(dpi)
@@ -304,8 +304,8 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   
-  require("Cairo");
-  library(ggplot2)
+  load_cairo();
+  load_ggplot();
   library(GGally)
   library(see)
   library(grid)
@@ -436,8 +436,8 @@ SameElements <- function(a, b) return(identical(sort(a), sort(b)));
 #'
 
 PlotMultiTsne <- function(imgNm, dpi=72, format="png",factor="1"){
-  require("Cairo");
-  library(ggplot2)
+  load_cairo();
+  load_ggplot();
   library(Rtsne)
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");

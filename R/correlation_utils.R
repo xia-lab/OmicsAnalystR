@@ -128,7 +128,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
   reductionSet$threshold.inter <- threshold.inter
   reductionSet$threshold.intra <- threshold.intra
 
-  library(igraph)
+  load_igraph();
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
     print("filter");
     sel.nms <- names(mdata.all)[mdata.all == 1];
@@ -427,7 +427,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   
   sel.dats <- reductionSet$selDatsCorr;
   
-  require("igraph");
+  load_igraph();
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
   
@@ -491,12 +491,13 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   return(1);
 }
 
-
-PlotCorrHistogram <- function(imgNm, dpi=72, format="png"){
+PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
-  library(ggplot2)
+  load_ggplot();
+  library(scales)
+  
   reductionSet <- .get.rdt.set();
   graphs <- qs::qread(reductionSet$corr.graph.path);
   fig.list <- list();
@@ -504,26 +505,42 @@ PlotCorrHistogram <- function(imgNm, dpi=72, format="png"){
     if(i == 1){
       g <- graphs$corr.graph.inter 
       titleText <- "Between-omics correlation"
-      thresh <- reductionSet$threshold.inter
+      threshold <- reductionSet$threshold.inter
     }else{
       g <- graphs$corr.graph.intra
       titleText <- "Intra-omics correlation"
-      thresh <- reductionSet$threshold.intra
-
+      threshold <- reductionSet$threshold.intra
+      
     }
-
+    
     df_res <- data.frame(get.edgelist(g),  as.numeric(E(g)$correlation))
     colnames(df_res) <- c("source", "target","correlation");
+    df_res$type <- titleText;
     
-    fig.list[[i]] <- ggplot(df_res, aes(x=correlation)) + geom_histogram() +
-      xlim(-1,1) + 
-      geom_vline(xintercept = c(-thresh, thresh), linetype = "dashed", color = "red")
-      theme_bw()
+    sig.pos <- oob_censor(df_res$correlation, c(threshold, 1))
+    sig.neg <- oob_censor(df_res$correlation, c(-1, -threshold))
+    sig.pos.num <- length(na.omit(sig.pos))
+    sig.neg.num <- length(na.omit(sig.neg))
+    
+    fig.list[[i]] <- ggplot2::ggplot(df_res, aes(x = type, y = correlation, fill = type)) +
+      geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) + 
+      labs(x = titleText) +
+      geom_jitter(height = 0, width = 0.05, alpha=0,show.legend = FALSE) +
+      theme(legend.position = "none") +  #xlab(dataSet$analysisVar) +
+      #stat_summary(fun=mean, colour="yellow", geom="point", shape=18, size=3, show.legend = FALSE) +
+      scale_x_discrete(labels = NULL) +
+      scale_y_continuous(limits = c(-1, 1)) +
+      geom_hline(yintercept = threshold, linetype = "dashed", color = "red", size = 0.5) +
+      annotate("text", x =0.5, y = threshold, label = sig.pos.num, vjust = -1) +
+      geom_hline(yintercept = -threshold, linetype = "dashed", color = "red", size = 0.5) +
+      annotate("text", x =0.5, y = -threshold, label = sig.neg.num, vjust = 1.5) +
+      theme_bw()+
+      theme(text=element_text(size=13), plot.title = element_text(size = 11, hjust=0.5), panel.grid.minor = element_blank(), panel.grid.major = element_blank())
   }
-  library(Cairo)
+  load_cairo();
   library(ggpubr)
   Cairo(file=imgNm, width=10, height=8, unit="in", type="png", bg="white", dpi=dpi);
-  p1 <- ggarrange(plotlist=fig.list, ncol = 1, labels=c("Between-omics correlation", "Intra-omics correlation"))
+  p1 <- ggarrange(plotlist=fig.list, ncol = 2)
   print(p1)
   dev.off();
   
@@ -534,7 +551,7 @@ PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   Cairo(file=imgNm, width=400, height=400, type="png", bg="white");
-  library(ggplot2)
+  load_ggplot();
   G.degrees <- degree(overall.graph)
   
   G.degree.histogram <- as.data.frame(table(G.degrees))
@@ -559,7 +576,7 @@ PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   Cairo(file=imgNm, width=400, height=400, type="png", bg="white");
-  library(ggplot2)
+  load_ggplot();
   if(netNm != "NA"){
     overall.graph <- ppi.comps[[netNm]];
   }

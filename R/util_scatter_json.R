@@ -29,8 +29,8 @@ my.json.scatter <- function(filenm){
   reductionSet <- .get.rdt.set();
   Sys.setenv(RGL_USE_NULL = TRUE)
   library(rgl)
-  library(igraph)
-  pos.xyz <-  reductionSet$pos.xyz
+  load_igraph();
+  pos.xyz <- reductionSet$pos.xyz
   pos.xyz <- unitAutoScale(pos.xyz);
   nodes <- vector(mode="list");
   names <- c(rownames(pos.xyz))
@@ -271,7 +271,6 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
     sc = scene3d();
     mesh = sc$objects;
   }
-
   #unnamed list not supported in rjson
   library(RJSONIO);
   sink(filenm);

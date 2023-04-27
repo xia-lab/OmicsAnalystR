@@ -507,7 +507,7 @@ ComputeSilhouette <-function(type){
 PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   dpi <- as.numeric(dpi);
   imgNm <- paste(imgName, "dpi", dpi, ".", format, sep="");
-  require("Cairo");
+  load_cairo();
   if(alg %in% c("snf", "spectrum") ){
     h=8
     fig.list <- list()
@@ -530,7 +530,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     
     res <- reductionSet$clustRes
     library(ggpubr)
-    library(ggplot2)
+    load_ggplot();
     xlabel="Number of clusters"
     ylabel="AUC"
     auc1 <- res$dataTypeResult[[1]]$Discrepancy$AUC[-1]
@@ -577,8 +577,8 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
 
 
 PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"){
-  require("Cairo");
-  library(ggplot2)
+  load_cairo();
+  load_ggplot();
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
