@@ -190,8 +190,9 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
       ylim(ylim) + 
       xlab(xlabel) + 
       ylab(ylabel) +
+      ggtitle(dataSet$name)+
       theme_bw()+
-      theme(text=element_text(size=13));
+      theme(text=element_text(size=13), plot.title = element_text(hjust = 0.5));
     
     fig.list[[i]] <- pcafig
     
@@ -221,7 +222,7 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   h<-6*round(length(fig.list)/2)
   Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
   library("ggpubr")
-  p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
+  p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2))
   print(p1)
   dev.off();
   
