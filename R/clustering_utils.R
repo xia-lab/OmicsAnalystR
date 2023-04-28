@@ -233,6 +233,8 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$clustDistMat <- res$similarity_matrix
   reductionSet$clustNmi <- SNFNMI
 
+  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
+  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   #save results
   res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
   write.csv(res.table, "spectrum_clustering_results.csv");
@@ -267,6 +269,9 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   reductionSet$clustRes <- result
   reductionSet$clustNmi <- SNFNMI
   
+  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
+  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+
   res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
   write.csv(res.table, "perturbation_clustering_results.csv");
 
@@ -459,7 +464,9 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   reductionSet$clustRes <- res
   reductionSet$clustDistMat <- W
   reductionSet$clustNmi <- SNFNMI
-  
+  reductionSet$dataSet$meta.info$Cluster <- group;
+  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
+  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=group);
   write.csv(res.table, "snf_clustering_results.csv");
 
@@ -639,4 +646,84 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
   print(p1)
   dev.off();
+}
+
+
+#'Generate heatmaps for metadata table
+#'@description Plot a heatmap showing clustering patterns among the metadata
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param viewOpt high-level summary or plotting the names inside cell
+#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: MIT License
+#'@export
+
+PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F,includeRowNames=T, imgName, format="png", dpi=96, width=NA){
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  reductionSet <- .get.rdt.set();
+  metaData <- reductionSet$dataSet$meta.info;
+  smp.nms <- rownames(metaData);
+  meta.num <- ncol(metaData)
+
+  var.nms <- rownames(metaData);
+
+  met <- sapply(metaData, function(x) as.integer(x))
+  rownames(met) <- smp.nms;
+
+  plot_dims <- get_pheatmap_dims(met, NA, viewOpt, width);
+  h <- plot_dims$height;
+  w <- plot_dims$width;
+
+  # set up parameter for heatmap
+  if(colorGradient=="gbr"){
+    colors <- colorRampPalette(c("green", "black", "red"), space="rgb")(256);
+  }else if(colorGradient == "heat"){
+    colors <- heat.colors(256);
+  }else if(colorGradient == "topo"){
+    colors <- topo.colors(256);
+  }else if(colorGradient == "gray"){
+    colors <- colorRampPalette(c("grey90", "grey10"), space="rgb")(256);
+  }else{
+    colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+  }
+  
+  if(drawBorder){
+    border.col<-"grey60";
+  }else{
+    border.col <- NA;
+  }
+  
+  if(clustSelOpt == "both"){
+    rowBool = T;
+    colBool = T;
+  }else if(clustSelOpt == "row"){
+    rowBool = T;
+    colBool = F;
+  }else if(clustSelOpt == "col"){
+    rowBool = F;
+    colBool = T;
+  }else{
+    rowBool = F;
+    colBool = F;
+  }
+
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+       displayText = metaData;
+    if(viewOpt == "overview"){
+       displayText = F;
+    }
+    pheatmap::pheatmap(met, 
+                       fontsize=12, fontsize_row=8, 
+                       clustering_distance_rows = smplDist,
+                       clustering_distance_cols = smplDist,
+                       clustering_method = clstDist, 
+                       border_color = border.col,
+                       cluster_rows = rowBool, 
+                       cluster_cols = colBool,
+                       scale = "column",
+                       show_rownames= includeRowNames,
+                       color = colors,
+                       display_numbers=displayText);
+  dev.off();
+  return(.set.mSet(mSetObj));
 }

@@ -923,3 +923,44 @@ GetBashFullPath<-function(){
   }
   return(path);
 }
+
+
+# a utility function to get pheatmap image size (before saving to PNG)
+# https://stackoverflow.com/questions/61874876/get-size-of-plot-in-pixels-in-r
+get_pheatmap_dims <- function(dat, annotation, view.type, width, cellheight = 15, cellwidth = 15){
+  png("NUL"); # trick to avoid open device in server 
+  heat_map <- pheatmap::pheatmap(dat, annotation=annotation, cellheight = cellheight, cellwidth = cellwidth);
+  h <- sum(sapply(heat_map$gtable$heights, grid::convertHeight, "in"));
+  w  <- sum(sapply(heat_map$gtable$widths, grid::convertWidth, "in"));
+  dev.off();
+
+  # further refine 
+  myW <- ncol(dat)*20 + 200;  
+  if(myW < 650){
+      myW <- 650;
+  }   
+  myW <- round(myW/72,2);
+  if(w < myW){
+    w <- myW;
+  }
+
+  if(view.type == "overview"){
+    if(is.na(width)){
+      if(w > 9){
+        w <- 9;
+      }
+    }else if(width == 0){
+      if(w > 7.2){
+        w <- 7.2;
+      }
+      
+    }else{
+      w <- 7.2;
+    }
+    if(h > w){
+      h <- w;
+    }
+  }
+
+  return(list(height = h, width = w));
+}
