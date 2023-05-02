@@ -115,6 +115,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
+    print(diabloMeta);
+    print("===diablo");
     diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta]
     diabloPar <- as.numeric(diabloPar);
     

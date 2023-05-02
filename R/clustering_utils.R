@@ -29,6 +29,7 @@ ComputeHeatmap <- function(fileNm, type){
 }
 
 ComputePathHeatmapTable <- function(dataSet){
+  library(fastcluster);
   data <- dataSet$data.proc;
   rdtSet <- .get.rdt.set();
   
@@ -36,9 +37,6 @@ ComputePathHeatmapTable <- function(dataSet){
   enrich.nms1 <- dataSet$enrich_ids;
   
   metadf <- rdtSet$dataSet$meta.info;
-  #meta.nms <- colnames(metadf)[-ncol(metadf)];
-  #metadf <- as.data.frame(metadf[,-which(colnames(metadf) == "newcolumn")]);
-  #colnames(metadf) = meta.nms;
   
   res <- dataSet$comp.res[rownames(data),c(1:2)];
   colnames(res) <- c("statistic", "p.value");
@@ -69,25 +67,28 @@ ComputePathHeatmapTable <- function(dataSet){
   # do clustering and save cluster info
   # convert order to rank (score that can used to sort)
   if(nrow(dat)> 1){
-    dat.dist <- dist(dat);
-    gene.ward.ord <- hclust(dat.dist, "ward.D")$order;
-    gene.ward.rk <- match(orig.gene.nms, orig.gene.nms[gene.ward.ord]);
-    gene.ave.ord <- hclust(dat.dist, "ave")$order;
-    gene.ave.rk <- match(orig.gene.nms, orig.gene.nms[gene.ave.ord]);
-    gene.single.ord <- hclust(dat.dist, "single")$order;
-    gene.single.rk <- match(orig.gene.nms, orig.gene.nms[gene.single.ord]);
-    gene.complete.ord <- hclust(dat.dist, "complete")$order;
-    gene.complete.rk <- match(orig.gene.nms, orig.gene.nms[gene.complete.ord]);
+    methods <- c("ward.D", "ave", "single", "complete")
+    ranks <- list()
     
-    dat.dist <- dist(t(dat));
-    smpl.ward.ord <- hclust(dat.dist, "ward.D")$order;
-    smpl.ward.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.ward.ord]);
-    smpl.ave.ord <- hclust(dat.dist, "ave")$order;
-    smpl.ave.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.ave.ord]);
-    smpl.single.ord <- hclust(dat.dist, "single")$order;
-    smpl.single.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.single.ord]);
-    smpl.complete.ord <- hclust(dat.dist, "complete")$order;
-    smpl.complete.rk <- match(orig.smpl.nms, orig.smpl.nms[smpl.complete.ord]);
+    t.dat.dist <- dist(t(dat))
+    
+    for (method in methods) {
+      gene.ord <- fastcluster::hclust(dat.dist, method)$order
+      ranks[[paste0("gene.", method, ".rk")]] <- match(orig.gene.nms, orig.gene.nms[gene.ord])
+      
+      smpl.ord <-  fastcluster::hclust(t.dat.dist, method)$order
+      ranks[[paste0("smpl.", method, ".rk")]] <- match(orig.smpl.nms, orig.smpl.nms[smpl.ord])
+    }
+    
+    gene.ward.rk <- ranks$gene.ward.D.rk
+    gene.ave.rk <- ranks$gene.ave.rk
+    gene.single.rk <- ranks$gene.single.rk
+    gene.complete.rk <- ranks$gene.complete.rk
+    
+    smpl.ward.rk <- ranks$smpl.ward.D.rk
+    smpl.ave.rk <- ranks$smpl.ave.rk
+    smpl.single.rk <- ranks$smpl.single.rk
+    smpl.complete.rk <- ranks$smpl.complete.rk
   }else{
     # force not to be single element vector which will be scaler
     #stat.pvals <- matrix(stat.pvals);

@@ -334,8 +334,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   
   inx <- which(colnames(meta.info) == meta)
   cls <- meta.info[, inx];
-  #cls.type <- mSetObj$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
-  cls.type <- "disc";
+  cls.type <- reductionSet$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
   
   if (cls.type == "disc"){ ## code to execute if metadata class is discrete
     

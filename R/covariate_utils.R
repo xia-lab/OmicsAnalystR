@@ -281,10 +281,11 @@ CovariateScatter.Anal <- function(dataName,
   dataSet$analSet$cov <- cov; 
   # for plotting adjp vs p
   dataSet$analSet$cov.mat <- both.mat; 
-  
+  both.list <- apply(both.mat, 2, function(x){unname(as.list(x))})
 
+  both.list$thresh <- thresh;
   jsonNm <- gsub(paste0(".", imgFormat), ".json", imgName);
-  jsonObj <- rjson::toJSON(both.mat);
+  jsonObj <- rjson::toJSON(both.list);
   sink(jsonNm);
   cat(jsonObj);
   sink();
