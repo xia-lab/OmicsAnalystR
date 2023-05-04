@@ -130,7 +130,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
 
   load_igraph();
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
-    print("filter");
+    #print("filter");
     sel.nms <- names(mdata.all)[mdata.all == 1];
     dataSetList <- lapply(sel.nms, qs::qread);
     labels <- unlist(lapply(dataSetList, function(x) x$enrich_ids))
@@ -221,10 +221,10 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       new_g <- igraph::graph_from_data_frame(cor_edge_list, directed = FALSE)
       new_g <- igraph::simplify(new_g, edge.attr.comb = "mean")
       
-      if (nrow(cor_edge_list) < 3) {
-        msg.vec <- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, 
-                          " and intra-omics correlation threshold of ", threshold.intra)
-      }
+      #if (nrow(cor_edge_list) < 3) {
+      #  msg.vec <<- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, 
+      #                    " and intra-omics correlation threshold of ", threshold.intra)
+      #}
       
       type.list <- list();
       for(i in 1:length(sel.nms)){
@@ -236,7 +236,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       intres <- ProcessGraphFile(new_g, labels, type.list);
       return(intres);
     } else {
-      msg.vec <- "No correlations meet the default parameters"
+      msg.vec <<- "Less than 3 correlations have been identified using current parameters. Failed to create correlation network";
       return(0)
     }
     

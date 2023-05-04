@@ -362,16 +362,18 @@ GetMetaDataCol <- function(colnm){
 DeleteMetaCol <- function(metaCol){
   rdtSet <- .get.rdt.set();
   meta <- rdtSet$dataSet$meta.info
-  idx = which(colnames(meta)==metaCol)
-  rdtSet$dataSet$meta.info <- meta[,-idx,drop=F]
-  rdtSet$dataSet$meta.types <- rdtSet$dataSet$meta.types[-idx]
-  rdtSet$dataSet$meta.status <- rdtSet$dataSet$meta.status[-idx]
-  rdtSet$dataSet$disc.inx <- rdtSet$dataSet$disc.inx[-idx]
-  rdtSet$dataSet$cont.inx <- rdtSet$dataSet$cont.inx[-idx]
-  if(!exists("rmMetaCol",dataSet)){
+  if(metaCol %in% colnames(meta)){
+    idx = which(colnames(meta)==metaCol)
+    rdtSet$dataSet$meta.info <- meta[,-idx,drop=F]
+    rdtSet$dataSet$meta.types <- rdtSet$dataSet$meta.types[-idx]
+    rdtSet$dataSet$meta.status <- rdtSet$dataSet$meta.status[-idx]
+    rdtSet$dataSet$disc.inx <- rdtSet$dataSet$disc.inx[-idx]
+    rdtSet$dataSet$cont.inx <- rdtSet$dataSet$cont.inx[-idx]
+    if(!exists("rmMetaCol",dataSet)){
       dataSet$rmMetaCol <- vector()
     }
-  dataSet$rmMetaCol <- unique(c(dataSet$rmMetaCol,metaCol))
+    dataSet$rmMetaCol <- unique(c(dataSet$rmMetaCol,metaCol))
+  }
   .set.rdt.set(rdtSet);
   return(1);
 }
