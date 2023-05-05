@@ -58,7 +58,7 @@ GetUniqueMetaNames <-function(metadata){
       }
       dat.inx <- grep(".[Tt][Xx][Tt]$", fileName);
       if(length(dat.inx) != 1){
-        msgSet$current.msg <- "More than one text files (.txt) found in the zip file.";
+        msg.vec <<- "More than one text files (.txt) found in the zip file.";
         return(NULL);
       }
     }
@@ -81,8 +81,7 @@ GetUniqueMetaNames <-function(metadata){
     }
   }
   if(class(dat) == "try-error"){
-    msgSet$current.msg <- "Failed to read the data table! Please check your data format.";
-    saveSet(msgSet, "msgSet");
+    msg.vec <<- "Failed to read the data table! Please check your data format.";
     return(NULL);
   }
   
@@ -94,10 +93,10 @@ GetUniqueMetaNames <-function(metadata){
 .readMetaData <- function(metafileName,datOrig,metaContain) {
   msgSet <- readSet(msgSet, "msgSet");
   na.msg = ""
-  if(is.null(msgSet$current.msg)){
+  if(is.null(msg.vec)){
     msg <-""
   }else{
-    msg <- msgSet$current.msg
+    msg <- msg.vec;
   }
   
   if(metaContain=="true"){
@@ -123,8 +122,7 @@ GetUniqueMetaNames <-function(metadata){
         meta.info[[cls.nm]] <- cls.lbls;
       }
     }else{
-      msgSet$current.msg <- "No metadata labels #CLASS found in your data!";
-      saveSet(msgSet, "msgSet");
+      msg.vec <<-"No metadata labels #CLASS found in your data!";
       return(NULL);
     }
     
@@ -133,8 +131,7 @@ GetUniqueMetaNames <-function(metadata){
   }else{ # metadata input as an individual table
     mydata <- try(data.table::fread(metafileName, header=TRUE, check.names=FALSE, data.table=FALSE));
     if(class(mydata) == "try-error"){
-      msgSet$current.msg <- "Failed to read the metadata table! Please check your data format.";
-      saveSet(msgSet, "msgSet");
+      msg.vec <<- "Failed to read the metadata table! Please check your data format.";
       return(NULL);
     }
     mydata[is.na(mydata)] <- "NA";
@@ -144,8 +141,7 @@ GetUniqueMetaNames <-function(metadata){
       smpl_nm<-mydata[,1];
       smpl_var<-colnames(mydata[-1]);
     }else{
-      msgSet$current.msg <- "Please make sure you have the label #NAME in your sample data file!";
-      saveSet(msgSet, "msgSet");
+      msg.vec <<- "Please make sure you have the label #NAME in your sample data file!";
       return(NULL);
     }
     
@@ -156,8 +152,8 @@ GetUniqueMetaNames <-function(metadata){
     
     mydata <- mydata[,-1,drop=F]; # converting to character matrix as duplicate row names not allowed in data frame.
     if(nrow(mydata)==1){
-      msgSet$current.msg <- "Only one sample in the dataset or the metadata file must be transposed!";
-      saveSet(msgSet, "msgSet");
+      msg.vec <<- "Only one sample in the dataset or the metadata file must be transposed!";
+
       return(NULL);
     }
     rownames(mydata) <- smpl_nm;
@@ -206,8 +202,7 @@ GetUniqueMetaNames <-function(metadata){
 
   meta.info <- as.data.frame(meta.info);
 
-  msgSet$na.msg <- na.msg
-  saveSet(msgSet, "msgSet");  
+  msg.vec <<- na.msg
   return(list(meta.info=meta.info,disc.inx=disc.inx,cont.inx=cont.inx))
 }
 
