@@ -64,7 +64,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
   } else if (reductionOpt == "mofa") {
-    
     # set up model
     data.list <- lapply(data.list, as.matrix)
     for(i in c(1:length(omics.type))){
@@ -74,7 +73,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     if(.on.public.web){
         reductionOptGlobal <<- reductionOpt
         reductionSet$enrich.nms1 <- enrich.nms1;
-        .set.rdt.set(reductionSet);
+        qs::qsave(reductionSet, "rdt.set.qs");
         saveRDS(data.list, file = "mofaInput.rds");
         return(2);
     } else {
@@ -211,4 +210,11 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   .set.rdt.set(reductionSet);
   
   return(1)
+}
+
+#used to get MOFA results
+GetRdtQs <- function(){
+    res <- qs::qread("rdt.set.qs");
+    reductionSet <<- res;
+    return(1);
 }
