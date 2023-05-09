@@ -611,7 +611,6 @@ CheckDataType <- function(dataName, type){
 
 SetParamsNormalizedData <- function(dataName){
     dataSet <- qs::qread(dataName);
-
     int.mat <- qs::qread(dataSet$data.annotated.path);
     msg.vec <- "";
 
