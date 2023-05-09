@@ -231,6 +231,7 @@ CovariateScatter.Anal <- function(dataName,
   names(fstat) <- names(p.value) <- rownames(dataSet$data.proc);
   fdr.p <- rest[,"adj.P.Val"];
   inx.imp <- p.value <= thresh;
+  inx.imp <- ifelse(is.na(inx.imp), FALSE, inx.imp);
   sig.num <- length(which(inx.imp == TRUE))
   
   if(sig.num > 0){ 
