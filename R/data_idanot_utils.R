@@ -16,32 +16,39 @@
 #'License: MIT
 #'@export
 #'
-AnnotateMicrobiomeData <- function(dataName,org){
+AnnotateMicrobiomeData <- function(dataName,org,feattype){
   library("tidyverse")
   dataSet <- qs::qread(dataName);
-  
   data <- qs::qread(dataSet$data.raw.path);
   #  mic.vec <- rownames(data);
   
   data.org <<- org
   
+  if(feattype=="taxa"){
   mic.vec <- data.frame(dataSet$orig.var.nms,check.names=FALSE);
   rownames(mic.vec) <- NULL
   mic.vec <- data.frame(apply(mic.vec, 1, function(x) gsub(";\\s;", ";", x)),check.names=FALSE) # remove empty taxa
-  
   names(mic.vec) <- "Rank"
-  if(all(grepl("Bacteria",mic.vec$Rank))){
-    
-    mic.vec <- separate(mic.vec,Rank,into=c("Kingdom","Phylum", "Class", "Order", "Family", "Genus", "Species") , sep = ";")
-    mic.vec <- mic.vec[,-1]
-  }else if(all(!(grepl("Bacteria",mic.vec$Rank)))){
-    mic.vec <- separate(mic.vec,Rank,into=c("Phylum", "Class", "Order", "Family", "Genus", "Species") , sep = ";")
-    
-  }else{
+  mic.vec <- separate(mic.vec,Rank,into=c("R1","R2", "R3", "R4", "R5", "R6", "R7") , sep = ";")
+
+  if(any(grepl("Bacteria",mic.vec$R1))|any(grepl("Archaea",mic.vec$R1))){
+   if("Firmicutes" %in% mic.vec$R1 | "Bacteroidota" %in% mic.vec$R1){
     msg.vec <<- "Please check the taxonomy labels!"
     return(0)
-    
+   }
+   if(length(unique(mic.vec$R1))==1){
+     mic.vec = mic.vec[,-1]
+     colnames(mic.vec) <- c("Phylum", "Class", "Order", "Family", "Genus", "Species") 
+      }else{
+     colnames(mic.vec) <- c("Kingdom","Phylum", "Class", "Order", "Family", "Genus", "Species") 
+     }
+  }else if(all(mic.vec$R1!="Bacteria"  & mic.vec$R1!="Archaea" & mic.vec$R1!="Firmicutes" & mic.vec$R1!="Bacteroidota" )){
+    msg.vec <<- "Please check the taxonomy labels!"
+   return(0)
+  }else{
+   colnames(mic.vec) <- c("Phylum", "Class", "Order", "Family", "Genus", "Species") 
   }
+
   
   idx <- names(which(apply(mic.vec, 2, function(x) length(which(is.na(x))))==nrow(mic.vec)))
   mic.vec[,idx] <- NULL
@@ -64,6 +71,7 @@ AnnotateMicrobiomeData <- function(dataName,org){
     rownames(dataSet$data.taxa[[i]]) <- mic.vec[,i]
     dataSet$data.taxa[[i]] <- RemoveDuplicates(dataSet$data.taxa[[i]], "sum", quiet=T); # remove duplicates
     dataSet$data.taxa[[i]] <- as.data.frame(dataSet$data.taxa[[i]])
+   }
   }
 
   qs::qsave(data, dataSet$data.annotated.path);
