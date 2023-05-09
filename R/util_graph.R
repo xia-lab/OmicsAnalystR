@@ -332,6 +332,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   sink(filenm);
   cat(rjson::toJSON(netData));
   sink();
+  return(1);
 }
 
 my.perform.layout <- function(net.nm, algo, focus=""){
