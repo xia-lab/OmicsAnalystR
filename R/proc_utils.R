@@ -399,15 +399,15 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$name <- fileName;
   dataSet$de.method <- "NA"
   dataSet$type <- omics.type;
-  if(omics.type == "rna_b"){
+  if(grepl("rna_b", omics.type)){
     readableType <- "Transcriptomics";
-  }else if (omics.type == "met_t" || omics.type == "met_u"){
+  }else if (grepl("met_t", omics.type) || grepl("met_u", omics.type)){
     readableType <- "Metabolomics";
-  }else if (omics.type == "mic_m"){
+  }else if (grepl("mic_m", omics.type)){
     readableType <- "Microbiome";
-  }else if (omics.type == "prot"){
+  }else if (grepl("prot", omics.type)){
     readableType <- "Proteomics";
-  }else if (omics.type == "mirna"){
+  }else if (grepl("mirna", omics.type)){
     readableType <- "miRNA";
   }else{
     readableType <-  omics.type;
@@ -452,7 +452,7 @@ SanityCheckMeta <- function(){
         dataSet$meta <- rdtSet$dataSet$meta.info;
         dataSet$data.proc <- dataSet$data.proc.origin <- dataSet$data.proc[,samples_intersect];
         RegisterData(dataSet);
-    }
+        }
     .set.rdt.set(rdtSet)
 
     disc.vec <- paste(names(rdtSet$dataSet$disc.inx)[which(rdtSet$dataSet$disc.inx)],collapse=", ")  

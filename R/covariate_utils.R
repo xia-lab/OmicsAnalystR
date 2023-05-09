@@ -21,6 +21,7 @@ CovariateScatter.Anal <- function(dataName,
                                   block = "NA", 
                                   thresh=0.05,
                                   contrast.cls = "anova"){
+
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
   msg.lm <- ""
@@ -227,7 +228,7 @@ CovariateScatter.Anal <- function(dataName,
   colnames(rest)[1] <- "coefficient"; 
   rest$ids <- rownames(rest);
 
-  names(fstat) <- names(p.value) <- colnames(dataSet$data.proc);
+  names(fstat) <- names(p.value) <- rownames(dataSet$data.proc);
   fdr.p <- rest[,"adj.P.Val"];
   inx.imp <- p.value <= thresh;
   sig.num <- length(which(inx.imp == TRUE))

@@ -104,19 +104,8 @@ ComputeSubnetStats <- function(comps){
       nd.res <- "";
       for( i in 1:length(sel.nms)){
            dataSet <- qs::qread(sel.nms[[i]]);
-        if(dataSet$type == "mirna"){
-          lbl = "miRNA"
-        }else if(dataSet$type == "rna_b"){
-          lbl = "Genes";
-        }else if(dataSet$type == "prot"){
-          lbl = "Proteins";
-        }else if(dataSet$type == "met_t" || dataSet$type == "met_u"){
-          lbl = "Metabolites";
-        }else if(dataSet$type == "mic_m"){
-          lbl = "Microbiome";
-        }else{
-          lbl = dataSet$type;
-        }
+          lbl = dataSet$readableType;
+        
         
         nms <- unique(unname(dataSet$enrich_ids));
         if(sum(nms %in% nd.queries)>0 && !grepl(lbl, nd.res)){

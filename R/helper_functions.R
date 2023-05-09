@@ -94,10 +94,11 @@ GetLoadingColNames<-function(dataName){
   colnames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
 }
 
-GetVarianceArr<-function(omicsType){
+GetVarianceArr<-function(dataName){
   reductionSet <- .get.rdt.set();
+  dataSet <- qs::qread(dataName);
   df <- reductionSet$var.exp;
-  varArr <- df[,omicsType];
+  varArr <- df[,dataSet$type];
   varArr <- signif(varArr,4)*100;
   print(varArr);
   return(varArr);

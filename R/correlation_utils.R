@@ -237,6 +237,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       return(intres);
     } else {
       msg.vec <<- "Less than 3 correlations have been identified using current parameters. Failed to create correlation network";
+      .set.rdt.set(reductionSet);
       return(0)
     }
     

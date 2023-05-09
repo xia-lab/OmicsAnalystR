@@ -8,20 +8,18 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){  
-
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
   data.list = list()
   omics.type = vector();
   featureNms <- vector();
   uniqFeats <- vector();
-  
   for(i in 1:length(sel.nms)){
-    
+  
     dataSet = qs::qread(sel.nms[i])
     omics.type <- c(omics.type, dataSet$type)
     data.list[[dataSet$type]] <- dataSet$data.proc
-    
+
     if(i == 1){       
       comp.res1 = dataSet$comp.res
       enrich.nms1 = dataSet$enrich_ids
@@ -38,7 +36,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
     }
   }
-  
   reductionSet <- .get.rdt.set();
   reductionSet$comp.res <- comp.res1;
   reductionSet$enrich_ids <- enrich.nms1;
