@@ -549,12 +549,12 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   }else if(scaleNorm=="colsum"){
     data <- sweep(data, 2, colSums(data), FUN="/")
     data <- data*10000000;
-    #msg <- c(msg, paste("Performed total sum normalization."));
+    msg <- c(msg, paste("Performed total sum normalization."));
   }else if(scaleNorm=="upperquartile"){
     suppressMessages(library(edgeR))
     otuUQ <- edgeRnorm(data,method="upperquartile");
     data <- as.matrix(otuUQ$counts);
-    #msg <- c(msg, paste("Performed upper quartile normalization"));
+    msg <- c(msg, paste("Performed upper quartile normalization"));
   }else if(scaleNorm=="CSS"){
     suppressMessages(library(metagenomeSeq))
     #biom and mothur data also has to be in class(matrix only not in phyloseq:otu_table)
@@ -562,7 +562,7 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
     dataMR <- newMRexperiment(data1);
     data <- cumNorm(dataMR,p=cumNormStat(dataMR));
     data <- MRcounts(data,norm = T);
-    #msg <- c(msg, paste("Performed cumulative sum scaling normalization"));
+    msg <- c(msg, paste("Performed cumulative sum scaling normalization"));
   }else{
     scalenm<-"N/A";
   }
@@ -573,8 +573,18 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   data <- as.data.frame(data)
   rownames(data) <- rnms;
   colnames(data) <- cnms;
+
+  df_complete <- data[complete.cases(data), ]
+  dim1 <- dim(data);
+  dim2 <- dim(df_complete);
+
+  if (dim1[1] != dim2[1]) {
+    removed.num <- dim2[1] - dim1[1];
+    msg <- c(msg, paste(removed.num, "features have been removed for having NA values after normalization!"));
+  }
+
   msg.vec <<- msg;
-  return(data)
+  return(df_complete)
 }
 
 

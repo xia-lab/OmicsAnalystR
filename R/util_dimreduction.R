@@ -45,6 +45,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   reductionSet$reductionOpt <- reductionOpt;
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
+    save.image("dimRed.RData");
 
   if(reductionOpt == "mcia") {
     
@@ -52,7 +53,10 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     mcoin <- mcia(data.list, cia.nf=ncomps)
     
     pos.xyz = mcoin$mcoa$SynVar;
-    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps))
+    
+    #setting rownames because mcia may modify the names (i.e "-")
+    rownames(pos.xyz) <- rownames(reductionSet$meta);
+    colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps));
     
     loading.pos.xyz = mcoin$mcoa$Tco;
     loading.pos.xyz$ids = featureNms;
