@@ -32,12 +32,6 @@ GetCovSigColNames<-function(dataName){
   colnames(dataSet$analSet$cov$sig.mat[,!(names(dataSet$analSet$cov$sig.mat) %in% drops)]);
 }
 
-GetPrimaryType <- function(analysis.var){
-    rdtSet <- .get.rdt.set();
-    primary.type <- unname(rdtSet$dataSet$meta.types[analysis.var]);
-    return(primary.type);
-}
-
 GetCovDENums <- function(dataName){
     deNum <- nrow(dataSet$analSet$cov$sig.mat);
     nonDeNum <- nrow(dataSet$comp.res) - deNum;

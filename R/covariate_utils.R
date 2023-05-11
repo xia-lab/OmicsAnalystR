@@ -42,7 +42,7 @@ CovariateScatter.Anal <- function(dataName,
       vars <- analysis.var;
     }
   }
-  
+
   covariates <- rdtSet$dataSet$meta.info
   covariates <- droplevels(covariates)
   var.types <- rdtSet$dataSet[["meta.types"]]
@@ -401,7 +401,6 @@ AddMsg <- function(msg){
 PlotMultiFacCmpdSummary <- function(dataName,name, id, meta, version, format="png", dpi=72, width=NA){
   dataSet <- qs::qread(dataName);
   rdtSet <- .get.rdt.set();
-  print(name);
   if(.on.public.web){
     load_ggplot()
   }
