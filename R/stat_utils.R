@@ -4,12 +4,12 @@
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
-UpdateDE<-function(dataName, p.lvl = 0.05){
+UpdateDE<-function(dataName, fc.lvl, p.lvl = 0.05){
   dataSet <- qs::qread(dataName);
 
   res <- dataSet$comp.res
-  
-  hit.inx <- as.numeric(res[, "P.Value"]) <= p.lvl #pval
+
+  hit.inx <- as.numeric(res[, "P.Value"]) <= p.lvl & abs(as.numeric(res$coefficient)) >= fc.lvl #pval
   
   if(sum(hit.inx) == 0){
     return (c(1, 0, nrow(res)));
