@@ -153,7 +153,6 @@ FilterDataByVariance <- function(data, filterPercent){
 #'
 
 PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
-  
   load_cairo();
   load_ggplot();
   dpi<-as.numeric(dpi)
@@ -196,25 +195,26 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
     
     fig.list[[i]] <- pcafig
     
-    pos.xyz = data.frame(x=pca$x[,1], y=pca$x[,2], z=pca$x[,3]);
-    loading.pos.xyz = data.frame(pca$rotation[,c(1:3)]);
-    loadingNames = rownames(pca$rotation);
+    #computing 3d pca
+    #pos.xyz = data.frame(x=pca$x[,1], y=pca$x[,2], z=pca$x[,3]);
+    #loading.pos.xyz = data.frame(pca$rotation[,c(1:3)]);
+    #loadingNames = rownames(pca$rotation);
     
-    pos.xyz <- as.data.frame(pos.xyz);
-    pos.xyz <- unitAutoScale(pos.xyz);
-    rownames(pos.xyz) = rownames(dataSet$meta);
-    dataSet$pos.xyz = pos.xyz;
+    #pos.xyz <- as.data.frame(pos.xyz);
+    #pos.xyz <- unitAutoScale(pos.xyz);
+    #rownames(pos.xyz) = rownames(dataSet$meta);
+    #dataSet$pos.xyz = pos.xyz;
     
-    loadingNames <- rownames(loading.pos.xyz);
-    loading.pos.xyz <- as.data.frame(loading.pos.xyz);
-    loading <- unitAutoScale(loading.pos.xyz);
-    rownames(loading) <- loadingNames;
-    nm <- paste0("pca_", dataSet$type);
-    pca.list[[nm]][["score"]] <- pos.xyz * 1000;
-    pca.list[[nm]][["loading"]] <- loading* 1000;    
+    #loadingNames <- rownames(loading.pos.xyz);
+    #loading.pos.xyz <- as.data.frame(loading.pos.xyz);
+    #loading <- unitAutoScale(loading.pos.xyz);
+    #rownames(loading) <- loadingNames;
+    #nm <- paste0("pca_", dataSet$type);
+    #pca.list[[nm]][["score"]] <- pos.xyz * 1000;
+    #pca.list[[nm]][["loading"]] <- loading* 1000;    
     
-    pct2Nm <- paste0("pca_", dataSet$type)
-    pct[[pct2Nm]] <- unname(round(imp.pca[2,],3))[c(1:3)]*100;
+    #pct2Nm <- paste0("pca_", dataSet$type)
+    #pct[[pct2Nm]] <- unname(round(imp.pca[2,],3))[c(1:3)]*100;
   }
   pca.list$pct2 <- pct;
   qs::qsave(pca.list, file="pca.scatter.qs");
@@ -227,7 +227,6 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   dev.off();
   
 }
-
 
 PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
   load_cairo();

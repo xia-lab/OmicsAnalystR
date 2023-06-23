@@ -6,7 +6,7 @@
 
 ReadMetaDataFile <- function(metafilename){
   reductionSet <- .get.rdt.set();
-  res <- .readMetaData(metafilename,"", "false")
+  res <- .readMetaData(metafilename,"", "false");
   meta.types <- rep("disc", ncol(res$meta.info));
   meta.types[res$cont.inx] <- "cont";
   names(meta.types) <- colnames(res$meta.info);
@@ -15,7 +15,9 @@ ReadMetaDataFile <- function(metafilename){
   reductionSet$dataSet$cont.inx <- res$cont.inx;
   reductionSet$dataSet$disc.inx <- res$disc.inx;
   reductionSet$dataSet$meta.info <- res$meta.info;
-  return(.set.rdt.set(reductionSet));
+  .set.rdt.set(reductionSet)
+  print(msg.vec);
+  return(res$check.bool);
 }
 
 GetPrimaryMeta <- function(){
@@ -98,7 +100,9 @@ GetUniqueMetaNames <-function(metadata){
   }else{
     msg <- msg.vec;
   }
-  
+
+  #any warning or error, 0 error, 1 success, 2 warning
+  check.bool <- 1;
   if(metaContain=="true"){
     meta.info <- list();
     # look for #CLASS, could have more than 1 class labels, store in a list
@@ -197,13 +201,75 @@ GetUniqueMetaNames <-function(metadata){
     # make sure the discrete data is on the left side
     meta.info <- cbind(meta.info[,disc.inx, drop=FALSE], meta.info[,cont.inx, drop=FALSE]);
   }
+
+
   disc.inx <- disc.inx[colnames(meta.info)]
   cont.inx <- cont.inx[colnames(meta.info)]
 
   meta.info <- as.data.frame(meta.info);
 
-  msg.vec <<- na.msg
-  return(list(meta.info=meta.info,disc.inx=disc.inx,cont.inx=cont.inx))
+  check.inx <-apply(meta.info , 2, function(x){ ( sum(is.na(x))/length(x) + sum(x=="NA")/length(x) + sum(x=="")/length(x) ) >0})
+  
+  init <- 1;
+
+  cls.vec <- vector()
+  lowrep.vec <- vector()
+  toolow.vec <- vector();
+
+  for(i in 1:ncol(meta.info)){
+      cls.lbl <- meta.info[,i];
+      qb.inx <- tolower(cls.lbl) %in% c("qc", "blank");
+      if(sum(qb.inx) > 0){
+        cls.Clean <- as.factor(as.character(cls.lbl[!qb.inx])); # make sure drop level
+      } else {
+        cls.Clean <- cls.lbl;
+      }
+      meta.name <- colnames(meta.info)[i]
+      min.grp.size <- min(table(cls.Clean));
+      cls.num <- length(levels(cls.Clean));
+
+
+    # checking if too many groups but a few samples in each group
+      if(cls.num/min.grp.size > 3 && !tolower(meta.name) %in% c("subject", "time")){
+        if(init == 1){
+           isNum <- grepl("^-?[0-9.]+$", cls.Clean);
+           if(all(isNum)){
+             cls.vec <- c(cls.vec, meta.name)
+           }else{
+             if(!check.inx[i]){
+             toolow.vec <- c(toolow.vec, meta.name)
+             }
+           }
+        }
+    # checking if some groups have low replicates
+      } else if(min.grp.size < 3 | cls.num < 2){
+        if(init == 1){
+           isNum <- grepl("^-?[0-9.]+$", cls.Clean);
+           if(all(isNum)){
+             cls.vec <- c(cls.vec, meta.name)
+           }else{
+             if(!check.inx[i] && !meta.name %in% toolow.vec){
+             lowrep.vec <- c(lowrep.vec, meta.name)
+             }
+           }
+        }
+      }
+    
+  }
+
+  if(length(toolow.vec)>0 && init == 1){
+    msg <- c(msg, paste0( "<b>",paste0(toolow.vec, collapse=", "),"</b>", " meta-data factors have too many groups with low replicates (less than 3) per group."));
+    check.bool = 2;
+   }
+
+  if(length(lowrep.vec)>0 && init == 1){
+    msg <- c(msg, paste0( "<b>",paste0(lowrep.vec, collapse=", "),"</b>", " meta-data factors have some groups with low replicates (less than 3) per group."));
+    check.bool = 2;
+}
+
+
+  msg.vec <<- paste(na.msg, msg);
+  return(list(meta.info=meta.info,disc.inx=disc.inx,cont.inx=cont.inx,check.bool=check.bool))
 }
 
 GetPrimaryType <- function(analysis.var){
