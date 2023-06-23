@@ -16,7 +16,6 @@ ReadMetaDataFile <- function(metafilename){
   reductionSet$dataSet$disc.inx <- res$disc.inx;
   reductionSet$dataSet$meta.info <- res$meta.info;
   .set.rdt.set(reductionSet)
-  print(msg.vec);
   return(res$check.bool);
 }
 
