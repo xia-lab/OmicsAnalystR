@@ -258,15 +258,19 @@ GetUniqueMetaNames <-function(metadata){
   }
 
   if(length(toolow.vec)>0 && init == 1){
-    msg <- c(msg, paste0( "<b>",paste0(toolow.vec, collapse=", "),"</b>", " meta-data factors have too many groups with low replicates (less than 3) per group."));
+    msg <- paste0( "<b>",paste0(toolow.vec, collapse=", "),"</b>", " meta-data factors have too many groups with low replicates (less than 3) per group.");
     check.bool = 2;
    }
 
   if(length(lowrep.vec)>0 && init == 1){
-    msg <- c(msg, paste0( "<b>",paste0(lowrep.vec, collapse=", "),"</b>", " meta-data factors have some groups with low replicates (less than 3) per group."));
+    msg <-paste0( "<b>",paste0(lowrep.vec, collapse=", "),"</b>", " meta-data factors have some groups with low replicates (less than 3) per group.");
     check.bool = 2;
 }
 
+  if(nrow(meta.info) < 4){
+    msg <-  paste0("Less than 4 samples are detected. More samples are required!");
+    check.bool = 0;
+}
 
   msg.vec <<- paste(na.msg, msg);
   return(list(meta.info=meta.info,disc.inx=disc.inx,cont.inx=cont.inx,check.bool=check.bool))
