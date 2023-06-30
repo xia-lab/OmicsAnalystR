@@ -215,7 +215,8 @@ my.json.scatter <- function(filenm){
   loading.data.orig <- as.data.frame(loading.data.orig)
   loading.data.orig$omicstype <- type.vec;
   reductionSet$loading.pos.xyz.orig <- loading.data.orig;
-  #reductionSet$loading.pos.xyz <- loading.data;
+  fileName <- paste0("loading_",reductionSet$reductionOpt, ".csv")
+  fast.write.csv(loading.data.orig,file=fileName);
 
   .set.rdt.set(reductionSet);
 

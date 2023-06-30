@@ -253,8 +253,8 @@ CovariateScatter.Anal <- function(dataName,
 
   if(sig.num> 0){
     res <- 1;
-    fileName <- "covariate_result.csv"
-    fast.write.csv(sig.mat,file=fileName);
+    fileName <- paste0("covariate_result_",sub("^(.*)[.].*", "\\1", dataSet$name), ".csv")
+    fast.write.csv(rest,file=fileName);
     cov<-list (
       sig.num = sig.num,
       sig.nm = fileName,
