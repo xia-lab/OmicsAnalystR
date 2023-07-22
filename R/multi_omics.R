@@ -56,6 +56,7 @@ NormalizeDataWrapper <-function (nm, opt, colNorm){
       )
       dataSet$data.proc.taxa <- data.norm.taxa
     }
+    fast.write(data, paste0("table_", dataSet$name));
     RegisterData(dataSet)
   }
   return(1)
@@ -167,6 +168,7 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   for(i in 1:length(sel.nms)){
     dataSet = qs::qread(sel.nms[i])
     x <- dataSet$data.proc
+    print(head(x));
     pca <- prcomp(t(na.omit(x)), center=T, scale=T);
     imp.pca<-summary(pca)$importance;
     xlabel <- paste0("PC1"," (", 100*round(imp.pca[2,][1], 3), "%)")

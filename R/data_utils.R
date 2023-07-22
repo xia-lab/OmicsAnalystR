@@ -631,7 +631,7 @@ RemoveMissingPercent <- function(dataName="", percent=0.5){
 
   dataSet <- qs::qread(dataName);
   
-  int.mat <- dataSet$data.annotated;
+  int.mat <-  qs::qread(dataSet$data.annotated.path);
   good.inx1 <- apply(is.na(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% NA for each feature
   good.inx2 <- apply(R.utils:::isZero(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% 0 for each feature
   
@@ -653,7 +653,7 @@ ImputeMissingVar <- function(dataName="", method="min"){
 
   # get parameters
   dataSet <- qs::qread(dataName);
-  int.mat <- dataSet$data.annotated;
+  int.mat <- qs::qread(dataSet$data.annotated.path);
   new.mat <- NULL;
   msg.vec <- "";
   

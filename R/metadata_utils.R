@@ -7,6 +7,7 @@
 ReadMetaDataFile <- function(metafilename){
   reductionSet <- .get.rdt.set();
   res <- .readMetaData(metafilename,"", "false");
+  res$meta.info <- removeXPrefix(res$meta.info);
   meta.types <- rep("disc", ncol(res$meta.info));
   meta.types[res$cont.inx] <- "cont";
   names(meta.types) <- colnames(res$meta.info);
@@ -176,7 +177,7 @@ GetUniqueMetaNames <-function(metadata){
   # make sure categorical metadata are valid names
   if(class(meta.info[,disc.inx]) == "data.frame"){
     meta.info[,disc.inx] <- apply(meta.info[,disc.inx], 2, function(x){x[x != "NA"] = make.names(x[x != "NA"]); return(x)});
-    meta.info[,disc.inx] <- lapply(meta.info[,disc.inx], factor);
+    meta.info[,disc.inx] <- lapply(meta.info[,disc.inx], function(x) factor(x));
   }else{
     x <- meta.info[,disc.inx];
     x[x != "NA"] = make.names(x[x != "NA"])
@@ -339,6 +340,17 @@ GetMetaDataSmpl <- function(){
 GetMetaCell <- function(ridx=1,cidx=1){
   rdtSet <- .get.rdt.set();
   return(rdtSet$dataSet$meta.info[ridx,cidx]);
+}
+
+removeXPrefix <- function(df) {
+  for (col in 1:ncol(df)) {
+    values <- df[[col]]
+    # Check if all values start with "X"
+    if (all(grepl("^X", values))) {
+      df[[col]] <- sub("^X", "", values)  # Remove "X" prefix
+    }
+  }
+  return(df)
 }
 
 

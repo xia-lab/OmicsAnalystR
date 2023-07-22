@@ -68,7 +68,6 @@ GetLoadingIds<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- qs::qread(dataName);
   omicstype <- dataSet$type;
-  print(head(reductionSet$loading.pos.xyz));
   inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
   reductionSet$loading.pos.xyz$ids[inx];
 }

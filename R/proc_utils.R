@@ -403,6 +403,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
 }
 
 SanityCheckMeta <- function(){
+    save.image("san.RData");
     rdtSet <- .get.rdt.set();
     sel.nms <- names(mdata.all)
     data.list = list();
@@ -436,7 +437,6 @@ SanityCheckMeta <- function(){
 intersect_rownames <- function(df_list) {
   # Find the intersection of row names across all data frames
   row_names <- Reduce(intersect, lapply(df_list, row.names))
-  
   return(row_names)
 }
 

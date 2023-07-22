@@ -5,23 +5,6 @@
 ###################################################
 
 
-# fast readder for csv and txt
-.readDataTable <- function(fileName){
-  dat <- try(data.table::fread(fileName, header=TRUE, check.names=FALSE, blank.lines.skip=TRUE, data.table=FALSE));
-  if(class(dat) == "try-error" || any(dim(dat) == 0)){
-    print("Using slower file reader ...");
-    formatStr <- substr(fileName, nchar(fileName)-2, nchar(fileName))
-    if(formatStr == "txt"){
-      dat <- try(read.table(fileName, header=TRUE, comment.char = "", check.names=F, as.is=T));
-    }else{ # note, read.csv is more than read.table with sep=","
-      dat <- try(read.csv(fileName, header=TRUE, comment.char = "", check.names=F, as.is=T));
-    }  
-  }
-  # need to remove empty columns
-  dat <- dat[!sapply(dat, function(x) all(x == "" | is.na(x)))];
-  return(dat);
-}
-
 # new range [a, b]
 rescale2NewRange <- function(qvec, a, b){
   qvec = replace(qvec, qvec == 0, 1)
