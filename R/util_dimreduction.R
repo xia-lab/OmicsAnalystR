@@ -215,10 +215,3 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   
   return(1)
 }
-
-#used to get MOFA results
-GetRdtQs <- function(){
-    res <- qs::qread("rdt.set.qs");
-    result.set <<- res;
-    return(1);
-}

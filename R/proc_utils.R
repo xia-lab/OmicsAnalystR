@@ -164,34 +164,6 @@ MetaboliteMappingExact <- function(dataSet, qvec, q.type){
   return(dataSet);
 }
 
-  bindList <- function(A,B){
-    if(length(A)==length(B)){
-      res <- list()
-      for(i in 1:length(A)){
-       res[[i]] <-  rbind(A[[i]],B[[i]])
-      }
-      names(res) <- names(A)
-      return(res)
-    }else{
-      return("Please check the length of input data")
-    }
-  
-    }
-
-  filtList <- function(A,B){
-    if(length(A)==length(B)){
-      res <- list()
-      for(i in 1:length(A)){
-        res[[i]] <-  A[[i]][B[[i]],]
-      }
-      names(res) <- names(A)
-      return(res)
-    }else{
-      return("Please check the length of input data")
-    }
-    
-  }
-
 
 DoMetMapping <- function(mvec){
   
@@ -308,7 +280,6 @@ M2Mscore <- function(qvec,mvec,taxlvl="Genus",dataGem="agora"){
   return(m2m.dic)
   
 }
-
 
 
 ReadOmicsDataFile <- function(fileName, omics.type=NA) {
