@@ -186,7 +186,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
     loading.pos.xyz$type <- omics.vec;
-
   }
   
   # preserve original order
