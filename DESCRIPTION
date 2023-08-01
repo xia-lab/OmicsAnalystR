@@ -13,7 +13,7 @@ License: GPL (>= 2)
 Depends: R (>= 4.0.3), igraph, RColorBrewer, qs, RJSONIO, rjson, RSQLite, ggplot2, Cairo
 Imports: Rcpp, BiocManager, data.table, metap, ks, fgsea,
     dplyr, ggforce, graphlayouts, httr, knitr, rgl, edgeR, limma,
-    pryr, readr, metagenomeSeq, ggpubr, omicade4, cluster, Spectrum, PINSPlus, SNFtool, Rtsne,
+    pryr, readr, metagenomeSeq, ggpubr, cluster, Spectrum, PINSPlus, SNFtool, Rtsne,
     mogsa, mixOmics, vegan, cowplot, grid, gridExtra, tidyverse, factoextra
 VignetteBuilder: knitr
 LinkingTo: Rcpp
