@@ -45,7 +45,8 @@ GetUniqueMetaNames <-function(metadata){
 # some windows 10 files "Line ending is \r\r\n. .... appears to add the extra \r in text mode on Windows"
 # in such as, use the slower read.table method
 .readDataTable <- function(fileName){
-  msgSet <- readSet(msgSet, "msgSet");
+  infoSet <- readSet(infoSet, "infoSet");
+  msgSet <- infoSet$msgSet; 
   if(length(grep('\\.zip$',fileName,perl=TRUE))>0){
     fileName <- unzip(fileName);
     if(length(fileName) > 1){
@@ -93,7 +94,8 @@ GetUniqueMetaNames <-function(metadata){
 }
 
 .readMetaData <- function(metafileName,datOrig,metaContain) {
-  msgSet <- readSet(msgSet, "msgSet");
+  infoSet <- readSet(infoSet, "infoSet");
+  msgSet <- infoSet$msgSet; 
   na.msg = ""
   if(is.null(msg.vec)){
     msg <-""

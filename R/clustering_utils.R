@@ -5,8 +5,7 @@
 ###################################################
 
 ComputeHeatmap <- function(fileNm, type){
-  paramSet <- readSet(paramSet, "paramSet");
-  sel.nms <- names(mdata.all);
+  infoSet <- readSet(infoSet, "infoSet");
   reductionSet <- .get.rdt.set();
   if(type == "NA"){
     reductionSet$clustVec <- "NA";
@@ -25,8 +24,8 @@ ComputeHeatmap <- function(fileNm, type){
   cat(json.mat);
   sink();
   current.msg <<- "Data is now ready for heatmap visualization!";
-  paramSet$jsonNms$heatmap <- fileNm
-  saveSet(paramSet);
+  infoSet$paramSet$jsonNms$heatmap <- fileNm
+  saveSet(infoSet);
   return(1)
 }
 

@@ -69,10 +69,12 @@ Init.Data <- function(){
   paramSet <- list(objName="paramSet", jsonNms=list());
   cmdSet <- list(objName="cmdSet");
   msgSet <- list(objName="msgSet");
+  infoSet$objName <- "infoSet";
+  infoSet$paramSet <- paramSet;
+  infoSet$cmdSet <- cmdSet;
+  infoSet$msgSet <- msgSet;
 
-  saveSet(paramSet, "paramSet");
-  saveSet(cmdSet, "cmdSet");
-  saveSet(msgSet, "msgSet");
+  saveSet(infoSet, "infoSet");
 
   .set.rdt.set(reductionSet);
 }
@@ -451,8 +453,8 @@ GetFeatureNum <-function(dataName){
 
 
 GetCurrentJson <-function(type){
-  paramSet <- readSet(paramSet, "paramSet");
-
+  infoSet <- readSet(infoSet, "infoSet");
+  paramSet <- infoSet$paramSet;
   return(paramSet$jsonNms[[type]]);
 }
 
@@ -830,14 +832,15 @@ SetCustomSig <- function(dataName, ids){
 #'@param cmd Commands 
 #'@export
 RecordRCommand <- function(cmd){
-  cmdSet <- readSet(cmdSet, "cmdSet"); 
-  cmdSet$cmdVec <- c(cmdSet$cmdVec, cmd);
-  saveSet(cmdSet, "cmdSet");
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$cmdSet$cmdVec <- c(cmdSet$cmdVec, cmd);
+  saveSet(infoSet);
   return(1);
 }
 
 SaveRCommands <- function(){
-  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  infoSet <- readSet(infoSet, "infoSet");
+  cmdSet <- infoSet$cmdSet; 
   cmds <- paste(cmdSet$cmdVec, collapse="\n");
   pid.info <- paste0("# PID of current job: ", Sys.getpid());
   cmds <- c(pid.info, cmds);
@@ -848,7 +851,8 @@ SaveRCommands <- function(){
 #'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
 #'@export
 GetRCommandHistory <- function(){
-  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  infoSet <- readSet(infoSet, "infoSet");
+  cmdSet <- infoSet$cmdSet; 
   if(length(cmdSet$cmdVec) == 0){
     return("No commands found");
   }

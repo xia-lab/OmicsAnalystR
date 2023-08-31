@@ -403,7 +403,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
 }
 
 SanityCheckMeta <- function(){
-    paramSet <- readSet(paramSet, "paramSet");
+    infoSet <- readSet(infoSet, "infoSet");
     rdtSet <- .get.rdt.set();
     sel.nms <- names(mdata.all)
     data.list = list();
@@ -430,10 +430,10 @@ SanityCheckMeta <- function(){
     disc.vec <- paste(names(rdtSet$dataSet$disc.inx)[which(rdtSet$dataSet$disc.inx)],collapse=", ")  
     cont.vec <- paste(names(rdtSet$dataSet$cont.inx)[which(rdtSet$dataSet$cont.inx)],collapse=", ")  
     na.vec <- na.check(meta.info)
-    paramSet$summaryVecMeta <- c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
+    infoSet$paramSet$summaryVecMeta <- c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
          length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec )
-    saveSet(paramSet);
-    return(paramSet$summaryVecMeta);
+    saveSet(infoSet);
+    return(infoSet$paramSet$summaryVecMeta);
 }
 
 intersect_rownames <- function(df_list) {
