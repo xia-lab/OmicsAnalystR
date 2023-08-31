@@ -168,7 +168,7 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   for(i in 1:length(sel.nms)){
     dataSet = qs::qread(sel.nms[i])
     x <- dataSet$data.proc
-    print(head(x));
+    #print(head(x));
     pca <- prcomp(t(na.omit(x)), center=T, scale=T);
     imp.pca<-summary(pca)$importance;
     xlabel <- paste0("PC1"," (", 100*round(imp.pca[2,][1], 3), "%)")
@@ -414,7 +414,7 @@ CheckMetaIntegrity <- function(){
         return(0)
       }
       boolMeta <- identical(metas[[i]],metas[[j]])
-      print(boolMeta);
+      #print(boolMeta);
       if(!boolMeta){
         msg.vec <<- "Please make sure the meta data is consistent across all uploaded data sets.";
         return(0)

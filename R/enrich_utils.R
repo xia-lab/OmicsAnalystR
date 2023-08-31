@@ -102,11 +102,11 @@ PerformKeggEnrichment <- function(file.nm, fun.type, ids){
   containsMet = length(rownames(dataSet$met.seed))>0
   if(containsMet && (containsGene || containsKo)){
     met.vec <- dataSet$met.seed
-    if(isKo){
-      gene.vec <- dataSet$ko.seed
-    }else{
+    #if(isKo){
+    #  gene.vec <- dataSet$ko.seed
+    #}else{
       gene.vec <- dataSet$gene.seed
-    }
+    #}
     res= pathwayMetGenePair(met.vec, gene.vec)
     nohits.vec = vector()
     

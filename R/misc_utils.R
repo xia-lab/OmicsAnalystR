@@ -808,23 +808,33 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 }
 
 
-saveSet <- function(obj=NA, set=""){
 
-    #if(exists("paramSet")){ #check if global object exists
-    #  if(set == "dataSet"){
-    #    dataSet <<- obj;
-    #  }else if(set == "analSet"){
-    #    analSet <<- obj;
-    #  }else if(set == "imgSet"){
-    #    imgSet <<- obj;
-    #  }else if(set == "paramSet"){
-    #    paramSet <<- obj;
-    #  }else if(set == "msgSet"){
-    #    msgSet <<- obj;
-    #  }
-    #}else{
+saveSet <- function(obj=NA, set="", output=1){
+    globalConfig$anal.mode = "default";
+    if(globalConfig$anal.mode == "api"){ 
       qs:::qsave(obj, paste0(set, ".qs"));
-    #}
+    }else{
+      if(set == ""){
+        set <- obj$objName;
+      }
+      if(set == "dataSet"){
+        dataSet <<- obj;
+      }else if(set == "analSet"){
+        analSet <<- obj;
+      }else if(set == "imgSet"){
+        imgSet <<- obj;
+      }else if(set == "paramSet"){
+        head(paramSet);
+        paramSet <<- obj;
+      }else if(set == "msgSet"){
+        msgSet <<- obj;
+      }else if(set == "cmdSet"){
+        cmdSet <<- obj;
+      }
+
+    }
+      return(output);
+
 }
 
 readSet <- function(obj=NA, set=""){

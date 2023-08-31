@@ -30,22 +30,18 @@ Init.Data <- function(){
   load_ggplot();
   Sys.setenv("OMP_NUM_THREADS" = 2); 
   Sys.setenv("OPENBLAS_NUM_THREADS" = 2);
-  jsonNms <<- list()
+
   reductionSet <- list()
   reductionSet$taxlvl <- "Feature"
   reductionSet$clustVec <- "NA";
-  fileTypeu <<- "NA"
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")
-  regids <<- vector()
-  rcmd.vecu <<- vector()
-  table.nmu <<- ""
-  isKo <<- F
   integOpts <<- c("mcia")
-  merged.reduction <<- F
   reductionOptGlobal <<- "pca"
   dataSet <- list(annotated=FALSE);
   dataSet$misc <- list();
   dataSet$de.method <- "NA";
+  dataSet$idType <- "NA";
+
   anal.type <<- "multiomics";
   dataSet <<- dataSet;
   mdata.all <<- list(); 
@@ -70,9 +66,11 @@ Init.Data <- function(){
     sqlite.path <<- "/Users/jessicaewald/sqlite/sqlite/"; #jess local
   }
 
-  cmdSet <- list(annotated=FALSE);
-  msgSet <- list(annotated=FALSE);
+  paramSet <- list(objName="paramSet", jsonNms=list());
+  cmdSet <- list(objName="cmdSet");
+  msgSet <- list(objName="msgSet");
 
+  saveSet(paramSet, "paramSet");
   saveSet(cmdSet, "cmdSet");
   saveSet(msgSet, "msgSet");
 
@@ -236,12 +234,7 @@ SelectData <- function(){
       mdata.all[[nm]] <<- 0;
     }
   }
-  
-  if("merged" %in% nm.vec){
-    merged.reduction <<- TRUE;
-  }else{
-    merged.reduction <<- FALSE;
-  }
+ 
   
   rm('nm.vec', envir = .GlobalEnv);
   return(1);
@@ -458,7 +451,9 @@ GetFeatureNum <-function(dataName){
 
 
 GetCurrentJson <-function(type){
-  return(jsonNms[[type]]);
+  paramSet <- readSet(paramSet, "paramSet");
+
+  return(paramSet$jsonNms[[type]]);
 }
 
 .set.dataSet <- function(dataSetObj=NA){

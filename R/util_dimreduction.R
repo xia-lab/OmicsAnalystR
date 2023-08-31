@@ -7,7 +7,7 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){  
+reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){  
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
   data.list = list()
@@ -45,10 +45,12 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   reductionSet$reductionOpt <- reductionOpt;
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
-    save.image("dimRed.RData");
+
+  save.image("dimRed.RData");
 
   if(reductionOpt == "mcia") {
     
+    library(omicade4)
     mcoin <- mcia(data.list, cia.nf=ncomps)
     
     pos.xyz = mcoin$mcoa$SynVar;
@@ -114,10 +116,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
     
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
-    print(diabloMeta);
-    print("===diablo");
-    diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta]
-    diabloPar <- as.numeric(diabloPar);
+    #print(diabloMeta);
+    #print("===diablo");
+    diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta];
     
     if(diablo.meta.type == "disc"){
       Y <- reductionSet$meta[,diabloMeta];
@@ -213,6 +214,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   
   return(1)
 }
+
 
 #used to get MOFA results
 GetRdtQs <- function(){
@@ -355,8 +357,7 @@ mcia <- function (df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE)
 }
 
 
-"getdata" <-
-function(arraydata) {
+"getdata" <- function(arraydata) {
         # Edited from vsn function getIntensityMatrix() from W. Huber
         # To run ade4 the arraydata needs to be in a data.frame format.
         y = switch(class(arraydata),
@@ -435,4 +436,4 @@ function(dataset, pos=FALSE,  trans=FALSE){
         
         data.out<-dataset        
         return(data.out)
-	}
+}

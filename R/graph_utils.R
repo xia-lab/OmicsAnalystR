@@ -359,12 +359,10 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
     if(psize < 5){
       next; # ignore very small community
     }
-    if(netUploadU == 1){
-      qnums <- psize;
-    }else{
-      hits <- seed.proteins %in% path.ids;
-      qnums <- sum(hits);
-    }
+
+    hits <- seed.proteins %in% path.ids;
+    qnums <- sum(hits);
+    
     if(qnums == 0){
       next; # ignor community containing no queries
     }
