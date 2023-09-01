@@ -810,7 +810,8 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 
 
 saveSet <- function(obj=NA, set="", output=1){
-    globalConfig$anal.mode = "default";
+
+    
     if(globalConfig$anal.mode == "api"){ 
       qs:::qsave(obj, paste0(set, ".qs"));
     }else{
@@ -839,7 +840,7 @@ saveSet <- function(obj=NA, set="", output=1){
 }
 
 readSet <- function(obj=NA, set=""){
-    #if(!exists("paramSet")){
+    if(globalConfig$anal.mode == "api"){
       path <- "";
       if(exists('user.path')){
         path <- user.path;
@@ -850,7 +851,7 @@ readSet <- function(obj=NA, set=""){
       }else{
       obj <- qs:::qread(paste0(set, ".qs"));
       }
-    #}
+    }
     return(obj);
 }
 

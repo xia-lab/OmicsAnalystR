@@ -69,11 +69,14 @@ Init.Data <- function(){
   paramSet <- list(objName="paramSet", jsonNms=list());
   cmdSet <- list(objName="cmdSet");
   msgSet <- list(objName="msgSet");
+  infoSet <- list();
   infoSet$objName <- "infoSet";
   infoSet$paramSet <- paramSet;
   infoSet$cmdSet <- cmdSet;
   infoSet$msgSet <- msgSet;
-
+  globalConfig <- list();
+  globalConfig$anal.mode <- "default";
+  globalConfig <<- globalConfig;
   saveSet(infoSet, "infoSet");
 
   .set.rdt.set(reductionSet);
@@ -833,7 +836,7 @@ SetCustomSig <- function(dataName, ids){
 #'@export
 RecordRCommand <- function(cmd){
   infoSet <- readSet(infoSet, "infoSet");
-  infoSet$cmdSet$cmdVec <- c(cmdSet$cmdVec, cmd);
+  infoSet$cmdSet$cmdVec <- c(infoSet$cmdSet$cmdVec, cmd);
   saveSet(infoSet);
   return(1);
 }

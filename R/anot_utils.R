@@ -105,7 +105,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   
   #record the info
   data.org <<- org
-  dataSet$idType <- idType;
+  dataSet$idType <- idtype;
   dataSet$gene.org <- org;
   dataSet$gene <- gene.vec;
   
