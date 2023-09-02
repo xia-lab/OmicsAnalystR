@@ -93,7 +93,6 @@ GetVarianceArr<-function(dataName){
   df <- reductionSet$var.exp;
   varArr <- df[,dataSet$type];
   varArr <- signif(varArr,4)*100;
-  #print(varArr);
   return(varArr);
 }
 

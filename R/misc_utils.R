@@ -810,7 +810,6 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 
 
 saveSet <- function(obj=NA, set="", output=1){
-
     
     if(globalConfig$anal.mode == "api"){ 
       qs:::qsave(obj, paste0(set, ".qs"));

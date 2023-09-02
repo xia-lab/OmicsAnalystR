@@ -36,7 +36,6 @@ Init.Data <- function(){
   reductionSet$clustVec <- "NA";
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")
   integOpts <<- c("mcia")
-  reductionOptGlobal <<- "pca"
   dataSet <- list(annotated=FALSE);
   dataSet$misc <- list();
   dataSet$de.method <- "NA";

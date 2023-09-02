@@ -227,7 +227,11 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2))
   print(p1)
   dev.off();
-  
+
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$qc_multi_pca <- imgNm;
+  saveSet(infoSet);
 }
 
 PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
@@ -267,127 +271,11 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
     theme(text=element_text(size=13))
   print(g)
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$qc_multi_density <- imgNm;
+  saveSet(infoSet);
 } 
-
-PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-  load_cairo();
-  library(see)
-  load_ggplot();
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx]
-  dpi<-as.numeric(dpi)
-  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  reductionSet <- .get.rdt.set();
-  
-  df <- reductionSet$var.exp;
-  df <- reshape2::melt(df)
-  colnames(df) <- c("Component", "Dataset", "value")
-  df$Component <- gsub("Factor","", df$Component);
-  for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i]);
-    df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
-  }
-  min_r2 = 0
-  max_r2 = max(df$value)
-  
-  p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
-    geom_line(aes(color=Dataset),linewidth=2) +
-    scale_fill_okabeito() +
-    scale_color_okabeito() +
-    labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
-    theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
-  
-  
-  Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
-  print(p1)
-  dev.off();
-}
-
-PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  
-  load_cairo();
-  load_ggplot();
-  library(GGally)
-  library(see)
-  library(grid)
-  
-  dpi<-as.numeric(dpi)
-  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  sel.nms <- names(mdata.all)
-  data.list <- list()
-  for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
-  }
-  reductionSet <- .get.rdt.set();
-  
-  pclabels <- paste0("Component ", 1:pc.num);
-  
-  # draw plot
-  Cairo::Cairo(file = imgNm, unit="in", dpi=dpi, width=10, height=10, type=format, bg="white");
-  
-  data <- as.data.frame(reductionSet$pos.xyz[,1:pc.num]);
-  meta.info <- reductionSet$meta;
-  meta.info <- meta.info[match(rownames(data), rownames(meta.info)),,drop=F]
-  
-  
-  inx <- which(colnames(meta.info) == meta)
-  cls <- meta.info[, inx];
-  cls.type <- reductionSet$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
-  
-  if (cls.type == "disc"){ ## code to execute if metadata class is discrete
-    
-    # make plot
-    p <- ggpairs(data, 
-                 lower = list(continuous = wrap("points")), 
-                 upper = list(continuous = wrap("density")),
-                 diag = list(continuous = wrap("densityDiag", alpha = 0.5, color = NA)),
-                 columnLabels = pclabels, mapping = aes(color = cls))
-    
-    auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) + 
-      theme_bw() + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
-      scale_fill_okabeito() + 
-      scale_color_okabeito() +
-      guides(col = guide_legend(nrow = 1))
-    p <- p + theme_bw() + 
-      scale_fill_okabeito() + 
-      scale_color_okabeito() +
-      theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"))
-    mylegend <- grab_legend(auxplot)
-    
-  } else { ## code to excute if metadata class is continuous
-    
-    colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(9, "Blues"))(20));
-    num.cls <- as.numeric(as.character(cls));
-    cols <- colors[as.numeric(cut(num.cls,breaks = 20))];
-    
-    # make plot
-    p <- ggpairs(data, lower = list(continuous = wrap("points", color = cols)), 
-                 upper = list(continuous = wrap("density", color = "#505050")),
-                 diag = list(continuous = wrap("densityDiag", fill = "#505050", color = NA)),
-                 columnLabels = pclabels)
-    
-    auxplot <- ggplot(data.frame(cls = num.cls), aes(x=cls, y=cls, color=cls)) + 
-      theme_bw() + geom_point(size = 6) + 
-      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
-      guides(col = guide_legend(nrow = 1))
-    
-    p <- p + theme_bw() + theme(plot.margin = unit(c(0.25, 0.25, 0.8, 0.25), "in"))
-    mylegend <- grab_legend(auxplot)
-    
-  }
-  
-  grid.newpage()
-  grid.draw(p)
-  vp = viewport(x=5, y=0.3, width=.35, height=.3, default.units = "in") ## control legend position
-  pushViewport(vp)
-  grid.draw(mylegend)
-  upViewport()
-  dev.off()
-}
-
 
 CheckMetaIntegrity <- function(){
   sel.nms <- names(mdata.all)
