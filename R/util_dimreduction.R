@@ -45,7 +45,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar="0.2"){
   reductionSet$reductionOpt <- reductionOpt;
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
-    save.image("dimRed.RData");
 
   if(reductionOpt == "mcia") {
     
