@@ -49,7 +49,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
   if(reductionOpt == "mcia") {
     
-    library(omicade4)
     mcoin <- mcia(data.list, cia.nf=ncomps)
     
     pos.xyz = mcoin$mcoa$SynVar;
