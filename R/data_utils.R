@@ -30,22 +30,17 @@ Init.Data <- function(){
   load_ggplot();
   Sys.setenv("OMP_NUM_THREADS" = 2); 
   Sys.setenv("OPENBLAS_NUM_THREADS" = 2);
-  jsonNms <<- list()
+
   reductionSet <- list()
   reductionSet$taxlvl <- "Feature"
   reductionSet$clustVec <- "NA";
-  fileTypeu <<- "NA"
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")
-  regids <<- vector()
-  rcmd.vecu <<- vector()
-  table.nmu <<- ""
-  isKo <<- F
   integOpts <<- c("mcia")
-  merged.reduction <<- F
-  reductionOptGlobal <<- "pca"
   dataSet <- list(annotated=FALSE);
   dataSet$misc <- list();
   dataSet$de.method <- "NA";
+  dataSet$idType <- "NA";
+
   anal.type <<- "multiomics";
   dataSet <<- dataSet;
   mdata.all <<- list(); 
@@ -70,11 +65,18 @@ Init.Data <- function(){
     sqlite.path <<- "/Users/jessicaewald/sqlite/sqlite/"; #jess local
   }
 
-  cmdSet <- list(annotated=FALSE);
-  msgSet <- list(annotated=FALSE);
-
-  saveSet(cmdSet, "cmdSet");
-  saveSet(msgSet, "msgSet");
+  paramSet <- list(objName="paramSet", jsonNms=list());
+  cmdSet <- list(objName="cmdSet");
+  msgSet <- list(objName="msgSet");
+  infoSet <- list();
+  infoSet$objName <- "infoSet";
+  infoSet$paramSet <- paramSet;
+  infoSet$cmdSet <- cmdSet;
+  infoSet$msgSet <- msgSet;
+  globalConfig <- list();
+  globalConfig$anal.mode <- "default";
+  globalConfig <<- globalConfig;
+  saveSet(infoSet, "infoSet");
 
   .set.rdt.set(reductionSet);
 }
@@ -236,12 +238,7 @@ SelectData <- function(){
       mdata.all[[nm]] <<- 0;
     }
   }
-  
-  if("merged" %in% nm.vec){
-    merged.reduction <<- TRUE;
-  }else{
-    merged.reduction <<- FALSE;
-  }
+ 
   
   rm('nm.vec', envir = .GlobalEnv);
   return(1);
@@ -458,7 +455,9 @@ GetFeatureNum <-function(dataName){
 
 
 GetCurrentJson <-function(type){
-  return(jsonNms[[type]]);
+  infoSet <- readSet(infoSet, "infoSet");
+  paramSet <- infoSet$paramSet;
+  return(paramSet$jsonNms[[type]]);
 }
 
 .set.dataSet <- function(dataSetObj=NA){
@@ -835,14 +834,15 @@ SetCustomSig <- function(dataName, ids){
 #'@param cmd Commands 
 #'@export
 RecordRCommand <- function(cmd){
-  cmdSet <- readSet(cmdSet, "cmdSet"); 
-  cmdSet$cmdVec <- c(cmdSet$cmdVec, cmd);
-  saveSet(cmdSet, "cmdSet");
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$cmdSet$cmdVec <- c(infoSet$cmdSet$cmdVec, cmd);
+  saveSet(infoSet);
   return(1);
 }
 
 SaveRCommands <- function(){
-  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  infoSet <- readSet(infoSet, "infoSet");
+  cmdSet <- infoSet$cmdSet; 
   cmds <- paste(cmdSet$cmdVec, collapse="\n");
   pid.info <- paste0("# PID of current job: ", Sys.getpid());
   cmds <- c(pid.info, cmds);
@@ -853,7 +853,8 @@ SaveRCommands <- function(){
 #'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
 #'@export
 GetRCommandHistory <- function(){
-  cmdSet <- readSet(cmdSet, "cmdSet"); 
+  infoSet <- readSet(infoSet, "infoSet");
+  cmdSet <- infoSet$cmdSet; 
   if(length(cmdSet$cmdVec) == 0){
     return("No commands found");
   }

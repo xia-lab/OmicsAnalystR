@@ -127,6 +127,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
   reductionSet <- .get.rdt.set();
   reductionSet$threshold.inter <- threshold.inter
   reductionSet$threshold.intra <- threshold.intra
+  reductionSet$crossOmicsOnly <- crossOmicsOnly;
 
   load_igraph();
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
@@ -571,6 +572,10 @@ PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
     theme(plot.title = element_text(hjust = 0.5))
   print(p)
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$degree_distribution <- imgNm;
+  saveSet(infoSet);
 }
 
 PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
@@ -599,6 +604,10 @@ PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
     theme(plot.title = element_text(hjust = 0.5))
   print(p)
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$betweenness_distribution <- imgNm;
+  saveSet(infoSet);
 }
 
 GetNetworkTopology <- function(netnm){

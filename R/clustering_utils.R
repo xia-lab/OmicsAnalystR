@@ -5,7 +5,7 @@
 ###################################################
 
 ComputeHeatmap <- function(fileNm, type){
-  sel.nms <- names(mdata.all);
+  infoSet <- readSet(infoSet, "infoSet");
   reductionSet <- .get.rdt.set();
   if(type == "NA"){
     reductionSet$clustVec <- "NA";
@@ -24,7 +24,8 @@ ComputeHeatmap <- function(fileNm, type){
   cat(json.mat);
   sink();
   current.msg <<- "Data is now ready for heatmap visualization!";
-  jsonNms$heatmap <<- fileNm
+  infoSet$paramSet$jsonNms$heatmap <- fileNm
+  saveSet(infoSet);
   return(1)
 }
 
@@ -136,7 +137,7 @@ ComputePathHeatmapTable <- function(dataSet){
     grp.nm <- grps[i];
     meta.vec <- c(meta.vec, as.character(cls))
     # make sure each label are unqiue across multiple meta data
-    print(grp.nm);
+    #print(grp.nm);
     if( meta.types[grp.nm] == "disc"){
       ncls <- paste(grp.nm, as.numeric(cls)+99); # note, here to retain ordered factor
       disc.inx[c((nrow(meta)*(i-1)+1): (nrow(meta)*i))] <- T;
@@ -286,11 +287,11 @@ GetClusterMembers<-function(clust){
     reductionSet <- .get.rdt.set();
     clustVec <- reductionSet$clustVec;
     sampleNames <- rownames(reductionSet$dataSet$meta.info);
-    print(sampleNames);
-    print(colnames(dataSet$proc));
+    #print(sampleNames);
+    #print(colnames(dataSet$proc));
     match.inx <- clustVec == clust;
     members <- sampleNames[match.inx];
-    print(members);
+    #print(members);
     return(cbind(paste0("Cluster ", clust), paste(unique(members), collapse="; ")));
 }
 

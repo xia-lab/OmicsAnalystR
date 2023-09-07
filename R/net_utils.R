@@ -345,7 +345,7 @@ GetSelectedNetworks <- function(){
 ClearNetSelection <- function(type){
     if(type %in% names(dataSet$nets)){
         inx = which( names(dataSet$nets) == type)
-        print(inx);
+        #print(inx);
          dataSet$nets[[inx]] = NULL;
     }
     RegisterData(dataSet)

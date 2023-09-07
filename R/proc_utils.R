@@ -164,34 +164,6 @@ MetaboliteMappingExact <- function(dataSet, qvec, q.type){
   return(dataSet);
 }
 
-  bindList <- function(A,B){
-    if(length(A)==length(B)){
-      res <- list()
-      for(i in 1:length(A)){
-       res[[i]] <-  rbind(A[[i]],B[[i]])
-      }
-      names(res) <- names(A)
-      return(res)
-    }else{
-      return("Please check the length of input data")
-    }
-  
-    }
-
-  filtList <- function(A,B){
-    if(length(A)==length(B)){
-      res <- list()
-      for(i in 1:length(A)){
-        res[[i]] <-  A[[i]][B[[i]],]
-      }
-      names(res) <- names(A)
-      return(res)
-    }else{
-      return("Please check the length of input data")
-    }
-    
-  }
-
 
 DoMetMapping <- function(mvec){
   
@@ -308,7 +280,6 @@ M2Mscore <- function(qvec,mvec,taxlvl="Genus",dataGem="agora"){
   return(m2m.dic)
   
 }
-
 
 
 ReadOmicsDataFile <- function(fileName, omics.type=NA) {
@@ -432,7 +403,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
 }
 
 SanityCheckMeta <- function(){
-    save.image("san.RData");
+    infoSet <- readSet(infoSet, "infoSet");
     rdtSet <- .get.rdt.set();
     sel.nms <- names(mdata.all)
     data.list = list();
@@ -459,8 +430,10 @@ SanityCheckMeta <- function(){
     disc.vec <- paste(names(rdtSet$dataSet$disc.inx)[which(rdtSet$dataSet$disc.inx)],collapse=", ")  
     cont.vec <- paste(names(rdtSet$dataSet$cont.inx)[which(rdtSet$dataSet$cont.inx)],collapse=", ")  
     na.vec <- na.check(meta.info)
-    return(c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
-         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec ));
+    infoSet$paramSet$summaryVecMeta <- c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
+         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec )
+    saveSet(infoSet);
+    return(infoSet$paramSet$summaryVecMeta);
 }
 
 intersect_rownames <- function(df_list) {

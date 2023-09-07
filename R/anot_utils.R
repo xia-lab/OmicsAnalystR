@@ -105,7 +105,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   
   #record the info
   data.org <<- org
-  dataSet$q.type.gene <- idtype;
+  dataSet$idType <- idtype;
   dataSet$gene.org <- org;
   dataSet$gene <- gene.vec;
   
@@ -204,7 +204,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
 AnnotateMetaboliteData <- function(dataName, idtype){
   dataSet <- qs::qread(dataName);
   dataSet$name <- dataName
-  
+  dataSet$idType <- idType;
   data <- qs::qread(dataSet$data.raw.path);
   qvec <- rownames(data);
   
@@ -219,7 +219,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   # do some sanity check
   todo.inx <- which(is.na(dataSet$name.map$hit.inx));
   resint <- 1;
-  print(length(todo.inx)/length(dataSet$name.map$hit.inx));
+  #print(length(todo.inx)/length(dataSet$name.map$hit.inx));
   if(length(todo.inx)/length(dataSet$name.map$hit.inx) > 0.5){
     msg <- c("Over half of the compound IDs could not be matched to our database. Please make 
              sure that correct compound IDs or common compound names are used.");
