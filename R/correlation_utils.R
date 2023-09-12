@@ -6,7 +6,7 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
-  
+  save.image("feat.RData");
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -46,7 +46,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       if(exists("m2m",dataSet)){ 
         
         all.mat.taxa <- dataSet$data.proc.taxa
-        
+
         if(type == "default"){
           sig.mat.taxa <- dataSet$sig.mat.tax
         }else{
