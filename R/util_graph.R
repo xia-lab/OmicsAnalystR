@@ -325,9 +325,11 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
     netData[["maxCorrelation"]] <- max(E(g)$correlation)
     netData[["minCorrelation"]] <- min(abs(E(g)$correlation))
   }
-  
-  jsonNms$network <<- filenm
-  
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$paramSet$jsonNms$network <- filenm
+  saveSet(infoSet);
+
   sink(filenm);
   cat(rjson::toJSON(netData));
   sink();
