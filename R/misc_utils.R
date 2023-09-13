@@ -958,3 +958,27 @@ get_pheatmap_dims <- function(dat, annotation, view.type, width, cellheight = 15
 
   return(list(height = h, width = w));
 }
+
+readDataset <- function(fileName=""){
+    if(globalConfig$anal.mode == "api"){
+      if(exists('user.path')){
+        path <- user.path;
+        obj <- load_qs(paste0(path, fileName));
+      }else{
+        obj <- qs:::qread(fileName);
+      }
+    }else{
+       obj <- dataSets[[fileName]];
+    }
+
+    return(obj);
+}
+
+saveDataQs <-function(data, name, dataName){
+    qs::qsave(data, file=paste0(dataName, "_data/", name));
+}
+
+readDataQs <-function(name, dataName){
+    dat <- qs::qread(file=paste0(dataName, "_data/", name));
+}
+

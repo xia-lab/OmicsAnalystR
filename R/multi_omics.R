@@ -9,7 +9,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   data <- list()
   labels <- vector();
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     dat <- dataSet$data.proc
     df <- data.frame(dat, stringsAsFactors = FALSE)
     df <- t(df)
@@ -46,7 +46,7 @@ NormalizeDataWrapper <-function (nm, opt, colNorm){
     sel.nms <- c(nm);
   }
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     data <- NormalizingDataOmics(dataSet$data.filtered, opt, colNorm, "NA")
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
@@ -69,7 +69,7 @@ ScaleDataWrapper <-function (nm, scaleNorm){
     sel.nms <- c(nm);
   }
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
@@ -92,7 +92,7 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
   }
   
   for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+    dataSet <- readDataset(sel.nms[i])
     int.mat <- qs::qread(dataSet$data.annotated.path);
     int.mat <- int.mat[,colnames(int.mat) %in% colnames(dataSet$data.proc)];
 
@@ -166,7 +166,7 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   pct <- list();
   
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     x <- dataSet$data.proc
     #print(head(x));
     pca <- prcomp(t(na.omit(x)), center=T, scale=T);
@@ -245,7 +245,7 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
   merged.df <- data.frame
   df.list <- list()
   for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+    dataSet <- readDataset(sel.nms[i])
     dat <- dataSet$data.proc
     if(i==1){
       st <- stack(as.data.frame(dat))
@@ -284,7 +284,7 @@ CheckMetaIntegrity <- function(){
   cnms <- list()
   metas <- list();
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     cnms[[i]] <- colnames(dat$data.proc);
     metas[[i]] <- dat$meta;
   }
@@ -338,7 +338,7 @@ PlotMultiTsne <- function(imgNm, dpi=72, format="png",factor="1"){
   pct <- list();
   
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     
     x <- t(dataSet$data.proc)
     max.perx <- floor((nrow(x)-1)/3);

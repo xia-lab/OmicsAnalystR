@@ -36,6 +36,7 @@ Init.Data <- function(){
   reductionSet$clustVec <- "NA";
   partialToBeSaved <<- c("Rload.RData", "Rhistory.R")
   integOpts <<- c("mcia")
+  dataSets <<- list();
   dataSet <- list(annotated=FALSE);
   dataSet$misc <- list();
   dataSet$de.method <- "NA";
@@ -93,8 +94,8 @@ SetOrganism <- function(org){
 #'License: MIT
 #'@export
 #'
-SanityCheckData <- function(fileName){
-  dataSet <- qs::qread(fileName);
+SanityCheckData <- function(dataName){
+  dataSet <- readDataset(dataName);
   # general sanity check then omics specific
 
   # use first column by default
@@ -197,19 +198,33 @@ SanityCheckData <- function(fileName){
 # All datasets are selected by default (1 for selected, 0 for unselected)
 # note, dataSet need to have "name" property
 # for now only most current will be selected
-RegisterData <- function(dataSet){
+# note, dataSet need to have "name" property
+RegisterData <- function(dataSet, output=1){
   dataName <- dataSet$name;
-  qs::qsave(dataSet, file=dataName);
-  mdata.all <<- lapply(mdata.all, function(x){ x <- 0;});
+
   mdata.all[[dataName]] <<- 1;
-  print(paste("Sucessfully registered data:", dataName));
-  return(1);
-}
+
+  if(.on.public.web){
+    dataSets[[dataName]] <- dataSet;
+    dataSets <<- dataSets;
+    return(output);
+  }else{
+    if(paramSet$api.bool){
+        qs::qsave(dataSet, file=dataName);
+        return(output);
+    }else{
+        dataSets[[dataName]] <- dataSet;
+        dataSets <<- dataSets;
+        return(dataSets);
+    }
+  }
+} 
+
 
 # only for switching single expression data results
-SetCurrentData <- function(nm){
-  #if(dataSet$name != nm){
-    dataSet <- qs::qread(nm);
+SetCurrentData <- function(dataName){
+  #if(dataSet$name != dataName){
+    dataSet <- readDataset(dataName);
   #}
   return(1);
 }
@@ -273,7 +288,7 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
   if(omicstype != "NA"){
   sel.nms <- names(mdata.all)[mdata.all==1];
     for(i in 1:length(sel.nms)){
-      dat = qs::qread(sel.nms[i])
+      dat = readDataset(sel.nms[i])
       if(dat$type == omicstype){
         dataSet <- dat;
       }
@@ -348,7 +363,7 @@ doScatterJson <- function(filenm){
 
 PlotDataProfile<-function(dataName,type, boxplotName, pcaName){
   if(type=="normalize"){
-    dataSet <- qs::qread(dataName);
+    dataSet <- readDataset(dataName);
     qc.boxplot2(as.matrix(dataSet$data.proc), boxplotName);
     qc.pcaplot2(as.matrix(dataSet$data.proc), pcaName);
   }else{
@@ -426,9 +441,9 @@ qc.pcaplot2 <- function(x, imgNm){
   dev.off();
 }
 
-ScalingData <-function (nm,opt){
-  #if(dataSet$name != nm){
-    dataSet <- qs::qread(nm);
+ScalingData <-function (dataName,opt){
+  #if(dataSet$name != dataName){
+    dataSet <- readDataset(dataName);
   #}
   return(ScalingDataOmics(dataSet, opt))
 }
@@ -442,13 +457,13 @@ ScalingDataOmics <-function (dataSet, norm.opt){
 ###
 
 ReadDataForMetaInfo<-function(dataName){
-  dataSet <- qs::qread(dataName)
+  dataSet <- readDataset(dataName)
   return(colnames(dataSet$meta));
 }
 
 GetFeatureNum <-function(dataName){
   #if(dataSet$name != dataName){
-    dataSet <- qs::qread(dataName);
+    dataSet <- readDataset(dataName);
   #}
   return(nrow(dataSet$data.proc));
 }
@@ -471,7 +486,7 @@ GetCurrentDatasets <-function(type){
 }
 
 SetGroupContrast <- function(dataName, grps, meta="NA"){
-    dataSet <- qs::qread(dataName);
+    dataSet <- readDataset(dataName);
 
     if(meta == "NA"){
         meta <- 1;
@@ -498,7 +513,7 @@ SetGroupContrast <- function(dataName, grps, meta="NA"){
 # the data in the memory could be changed
 GetGroupNames <- function(dataName, meta="NA"){
     #if(dataSet$name != dataName){
-    #    dataSet <- qs::qread(dataName);
+    #    dataSet <- readDataset(dataName);
     #}
     rdtSet <- .get.rdt.set();
     if(meta == "NA"){
@@ -525,7 +540,7 @@ ReadMetaData <- function(metafilename){
     sel.nms <- names(mdata.all)
 
    for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i]);
+    dataSet <- readDataset(sel.nms[i]);
     data.smpl.nms <- colnames(dataSet$data.proc)
     nm.hits <- data.smpl.nms %in% smpl.nms;
     if(!all(nm.hits)){
@@ -554,7 +569,7 @@ ReadMetaData <- function(metafilename){
 }
 
 CheckDataType <- function(dataName, type){
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   isOk <- T;
   data <- qs::qread(dataSet$data.raw.path);
   containsNeg <- "TRUE" %in% names(table(data < 0)) 
@@ -609,7 +624,7 @@ CheckDataType <- function(dataName, type){
 }
 
 SetParamsNormalizedData <- function(dataName){
-    dataSet <- qs::qread(dataName);
+    dataSet <- readDataset(dataName);
     int.mat <- qs::qread(dataSet$data.annotated.path);
     msg.vec <- "";
 
@@ -628,7 +643,7 @@ SetParamsNormalizedData <- function(dataName){
 
 RemoveMissingPercent <- function(dataName="", percent=0.5){
 
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   
   int.mat <-  qs::qread(dataSet$data.annotated.path);
   good.inx1 <- apply(is.na(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% NA for each feature
@@ -651,7 +666,7 @@ RemoveMissingPercent <- function(dataName="", percent=0.5){
 ImputeMissingVar <- function(dataName="", method="min"){
 
   # get parameters
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   int.mat <- qs::qread(dataSet$data.annotated.path);
   new.mat <- NULL;
   msg.vec <- "";
@@ -719,8 +734,8 @@ ImputeMissingVar <- function(dataName="", method="min"){
 }
 
 
-FilteringData <- function(nm, countOpt="pct",count="2", var="15"){
-  dataSet <- qs::qread(nm);
+FilteringData <- function(dataName, countOpt="pct",count="2", var="15"){
+  dataSet <- readDataset(dataName);
   
   data = dataSet$data.missed
   msg <- ""
@@ -804,7 +819,7 @@ ReplaceMissingByLoD <- function(int.mat){
 
 
 SetCustomSig <- function(dataName, ids){
-    dataSet <- qs::qread(dataName);
+    dataSet <- readDataset(dataName);
     lines <- strsplit(ids, "\r|\n|\r\n")[[1]];
     lines<- sub("^[[:space:]]*(.*?)[[:space:]]*$", "\\1", lines, perl=TRUE);
 

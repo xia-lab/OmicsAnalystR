@@ -14,8 +14,8 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   sel.nms <- names(mdata.all)[sel.inx];
   if(type %in% c("default","custom")){
     for(i in 1:length(sel.nms)){
-      nm = sel.nms[i];
-      dataSet <- qs::qread(nm);
+      dataName = sel.nms[i];
+      dataSet <- readDataset(dataName);
       
       if(i==1){
         all.mat <- dataSet$data.proc
@@ -74,8 +74,8 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
     sel.dats <- list();
     reductionSet$corr.axis.nms <- list();
     for(i in 1:length(sel.nms)){
-      nm = sel.nms[i]
-      dataSet <- qs::qread(nm);
+      dataName = sel.nms[i]
+      dataSet <- readDataset(dataName);
       
       inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
       loading.df <- reductionSet$loading.pos.xyz[inx, ]
@@ -131,9 +131,8 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
 
   load_igraph();
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
-    #print("filter");
     sel.nms <- names(mdata.all)[mdata.all == 1];
-    dataSetList <- lapply(sel.nms, qs::qread);
+    dataSetList <- lapply(sel.nms, readDataset);
     labels <- unlist(lapply(dataSetList, function(x) x$enrich_ids))
     types <- unlist(lapply(dataSetList, function(x) rep(x$type, length(x$enrich_ids))))
     type_df <- data.frame(name=c(labels),
@@ -258,11 +257,11 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       micidx <- reductionSet$micidx
       residx <- reductionSet$residx
       
-      dataSet <- qs::qread(sel.nms[micidx]);
+      dataSet <- readDataset(sel.nms[micidx]);
       
       labels <- unique(dataSet$taxa_table[,taxlvl])
       labels <- setNames(labels, labels)
-      dataSet <- qs::qread(sel.nms[residx]);
+      dataSet <- readDataset(sel.nms[residx]);
       labels <- c(labels, dataSet$enrich_ids);
       
       corr.mat <- reductionSet$corr.mat.taxa[[taxlvl]]
@@ -414,8 +413,8 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   
   m2midx<-0
   for(i in 1:length(sel.nms)){
-    nm = sel.nms[i]
-    dataSet <- qs::qread(nm);
+    dataName = sel.nms[i]
+    dataSet <- readDataset(dataName);
     labels <- c(labels, dataSet$enrich_ids);
     if(exists("m2m",dataSet)){
       labels.taxa <- lapply(dataSet$data.taxa, function(x) rownames(x))

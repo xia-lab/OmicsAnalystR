@@ -5,7 +5,7 @@
 ###################################################
 
 UpdateDE<-function(dataName, fc.lvl, p.lvl = 0.05){
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
 
   res <- dataSet$comp.res
 

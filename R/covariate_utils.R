@@ -22,7 +22,7 @@ CovariateScatter.Anal <- function(dataName,
                                   thresh=0.05,
                                   contrast.cls = "anova"){
 
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   rdtSet <- .get.rdt.set();
   msg.lm <- ""
   # load libraries
@@ -313,7 +313,7 @@ invert_named_vector <- function(input_named_vec) {
 
 
 PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="png", dpi=72){
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   both.mat <- dataSet$cov.mat
   both.mat <- both.mat[order(-both.mat[,"pval.adj"]),]
   logp_val <- dataSet$cov$thresh
@@ -399,7 +399,7 @@ AddMsg <- function(msg){
 #'@export
 #'
 PlotMultiFacCmpdSummary <- function(dataName,imgName,name, id, meta, version, format="png", dpi=72, width=NA){
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   rdtSet <- .get.rdt.set();
 
   if(.on.public.web){

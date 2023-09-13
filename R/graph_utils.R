@@ -75,14 +75,14 @@ ComputeSubnetStats <- function(comps){
         nd.queries <- V(g)$name;
         sel.nms <- names(mdata.all)[mdata.all==1];
         nd.res <- "";
-        dataSet <- qs::qread(sel.nms[reductionSet$micidx]);
+        dataSet <- readDataset(sel.nms[reductionSet$micidx]);
         lbl = reductionSet$taxlvl
      
         nms <- unique(dataSet$taxa_table[,reductionSet$taxlvl]);
           if(sum(nms %in% nd.queries)>0 && !grepl(lbl, nd.res)){
             nd.res <- paste0(lbl,": ", sum(nms %in% nd.queries), "; ", nd.res)
           }
-           dataSet <- qs::qread(sel.nms[reductionSet$residx]);
+           dataSet <- readDataset(sel.nms[reductionSet$residx]);
         lbl = "Metabolite"
         
         nms <- unique(unname(dataSet$enrich_ids));
@@ -103,7 +103,7 @@ ComputeSubnetStats <- function(comps){
       sel.nms <- names(mdata.all)[mdata.all==1];
       nd.res <- "";
       for( i in 1:length(sel.nms)){
-           dataSet <- qs::qread(sel.nms[[i]]);
+           dataSet <- readDataset(sel.nms[[i]]);
           lbl = dataSet$readableType;
         
         

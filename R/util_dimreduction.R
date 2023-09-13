@@ -17,7 +17,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   uniqFeats <- vector();
   for(i in 1:length(sel.nms)){
   
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     omics.type <- c(omics.type, dataSet$type)
     data.list[[dataSet$type]] <- dataSet$data.proc
 
@@ -49,7 +49,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
   if(reductionOpt == "mcia") {
     
-    library(omicade4)
     mcoin <- mcia(data.list, cia.nf=ncomps)
     
     pos.xyz = mcoin$mcoa$SynVar;
@@ -456,7 +455,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   colnames(df) <- c("Component", "Dataset", "value")
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i]);
+    dataSet <- readDataset(sel.nms[i]);
     df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
   }
   min_r2 = 0
@@ -493,7 +492,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   sel.nms <- names(mdata.all)
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
