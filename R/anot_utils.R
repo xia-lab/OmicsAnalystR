@@ -77,7 +77,9 @@ AnnotateMicrobiomeData <- function(dataName,org,feattype){
   qs::qsave(data, dataSet$data.annotated.path);
   dataSet$enrich_ids <- rownames(data);
   names(dataSet$enrich_ids) = rownames(data);
-  dataSet$m2m <- 1
+  if(feattype != "otu"){
+    dataSet$m2m <- 1
+  }
   RegisterData(dataSet);
   return(1)
 }
