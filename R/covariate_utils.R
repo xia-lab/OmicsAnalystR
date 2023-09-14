@@ -279,6 +279,18 @@ CovariateScatter.Anal <- function(dataName,
     );
   }
   
+  dataSet$design <- design;
+  dataSet$contrast.type <- analysis.type;
+  dataSet$comp.res <- rest;
+  dataSet$de.method <- "limma"
+  dataSet$comp.type <- "default"
+  dataSet$fit.obj <- fit;
+
+  dataSet$pval <- thresh;
+  dataSet$fc.val <- 1;
+  dataSet$analysis.var <- analysis.var;
+  dataSet$de.adj <- adj.vec;
+
   # for detail table
   dataSet$analSet$cov <- cov; 
   # for plotting adjp vs p
