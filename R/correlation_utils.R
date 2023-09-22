@@ -6,7 +6,6 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
-  save.image("feat.RData");
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -116,7 +115,8 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       sel.dats[[i]] <- dat
     }
   }
-  reductionSet$selDatsCorr <- sel.dats
+  reductionSet$selDatsCorr <- sel.dats;
+  reductionSet$feat.sel.type <- type;
   .set.rdt.set(reductionSet);
   return(1)
 }
@@ -425,7 +425,8 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   }
   
   reductionSet <- .get.rdt.set();
-  
+  reductionSet$cor.stat <- cor.stat;
+  reductionSet$cor.method <- cor.method;
   sel.dats <- reductionSet$selDatsCorr;
   
   load_igraph();
@@ -545,6 +546,10 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
   print(p1)
   dev.off();
   
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$correlation_distribution <- imgNm;
+  saveSet(infoSet);
+
 }
 
 

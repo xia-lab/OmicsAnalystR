@@ -1,5 +1,5 @@
 ##################################################
-## R script for ExpressAnalyst
+## R script for OmicsAnalyst
 ## Description: GSEA functions
 ## Author: G. Zhou, guangyan.zhou@mail.mcgill.ca
 ###################################################

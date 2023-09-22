@@ -206,7 +206,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
 AnnotateMetaboliteData <- function(dataName, idtype){
   dataSet <- readDataset(dataName);
   dataSet$name <- dataName
-  dataSet$idType <- idType;
+  dataSet$idType <- idtype;
   data <- qs::qread(dataSet$data.raw.path);
   qvec <- rownames(data);
   

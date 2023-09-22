@@ -580,7 +580,10 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
   }
   dev.off();
-  
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$diagnostic_components <- imgNm;
+  saveSet(infoSet, "infoSet");
   return(1);
 }
 
@@ -727,5 +730,10 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                        color = colors,
                        display_numbers=displayText);
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$metaHeatmap <- imgName;
+  saveSet(infoSet, "infoSet");
+
   return(.set.mSet(mSetObj));
 }

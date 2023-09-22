@@ -33,13 +33,16 @@ CovariateScatter.Anal <- function(dataName,
   if(!exists('adj.vec')){
     adj.bool = F;
     vars <- analysis.var;
+    covariates.vec <- "NA" #for report generation purpose only
   }else{
     if(length(adj.vec) > 0){
       adj.bool = T;
       vars <- c(analysis.var, adj.vec)
+      covariates.vec <- adj.vec;
     }else{
       adj.bool = F;
       vars <- analysis.var;
+      covariates.vec <- "NA"
     }
   }
 
@@ -289,7 +292,7 @@ CovariateScatter.Anal <- function(dataName,
   dataSet$pval <- thresh;
   dataSet$fc.val <- 1;
   dataSet$analysis.var <- analysis.var;
-  dataSet$de.adj <- adj.vec;
+  dataSet$de.adj <- covariates.vec;
 
   # for detail table
   dataSet$analSet$cov <- cov; 
