@@ -12,8 +12,8 @@ ComputeHeatmap <- function(fileNm, type){
   }
   .set.rdt.set(reductionSet);
   res.list <- list()
-  for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+  for(i in 1:length(dataSets)){
+    dataSet <- readDataset(names(dataSets)[1])
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
   }
@@ -205,7 +205,7 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -250,7 +250,7 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- t(dat$data.proc)
   }
   reductionSet <- .get.rdt.set();
@@ -433,7 +433,7 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -492,7 +492,7 @@ ComputeSilhouette <-function(type){
   
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   
@@ -580,7 +580,10 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
   }
   dev.off();
-  
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$diagnostic_components <- imgNm;
+  saveSet(infoSet, "infoSet");
   return(1);
 }
 
@@ -594,7 +597,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   sel.nms <- names(mdata.all)
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -605,7 +608,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   
   fig.list <- list()
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     x <- dataSet$data.proc
     pca <- prcomp(t(na.omit(x)));
     imp.pca<-summary(pca)$importance;
@@ -727,5 +730,10 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                        color = colors,
                        display_numbers=displayText);
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$metaHeatmap <- imgName;
+  saveSet(infoSet, "infoSet");
+
   return(.set.mSet(mSetObj));
 }

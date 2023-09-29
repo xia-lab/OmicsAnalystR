@@ -409,7 +409,7 @@ SanityCheckMeta <- function(){
     data.list = list();
 
     for(i in 1:length(sel.nms)){
-        dataSet <- qs::qread(sel.nms[i])
+        dataSet <- readDataset(sel.nms[i])
         data.list[[i]] <- dataSet$meta;
         mdata.all[[i]] <- 1;
     }
@@ -420,7 +420,7 @@ SanityCheckMeta <- function(){
     rdtSet$dataSet$meta.info <- meta.info;
     rdtSet$dataSet.origin <- rdtSet$dataSet;
     for(i in 1:length(sel.nms)){
-        dataSet <- qs::qread(sel.nms[i])
+        dataSet <- readDataset(sel.nms[i])
         dataSet$meta <- rdtSet$dataSet$meta.info;
         dataSet$data.proc <- dataSet$data.proc.origin <- dataSet$data.proc[,samples_intersect];
         RegisterData(dataSet);

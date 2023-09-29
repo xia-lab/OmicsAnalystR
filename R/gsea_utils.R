@@ -1,5 +1,5 @@
 ##################################################
-## R script for ExpressAnalyst
+## R script for OmicsAnalyst
 ## Description: GSEA functions
 ## Author: G. Zhou, guangyan.zhou@mail.mcgill.ca
 ###################################################
@@ -23,7 +23,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
     rankedVec <- loading.pos.xyz[,loading.comp];
     names(rankedVec) <- loading.pos.xyz$ids;
   }else{
-    dataSet <- qs::qread(dataName);
+    dataSet <- readDataset(dataName);
     rankedVec <- dataSet$comp.res[,"coefficient"];
     names(rankedVec) <- dataSet$comp.res$ids;
   }

@@ -392,8 +392,8 @@ DeleteSample <- function(samplNm){
   rdtSet <- .get.rdt.set();
   rdtSet$dataSet$meta.info <- rdtSet$dataSet$meta.info[rownames(rdtSet$dataSet$meta.info)!=samplNm,,drop=F]
   sel.nms <- names(mdata.all)
-  for(nm in sel.nms){
-    dataSet <- qs::qread(nm);
+  for(dataName in sel.nms){
+    dataSet <- readDataset(dataName);
     dataSet$meta <-  rdtSet$dataSet$meta.info;
     dataSet$data.proc <- dataSet$data.proc[,colnames(dataSet$data.proc)!=samplNm]
   }
@@ -407,8 +407,8 @@ ResetMetaTab <- function(){
   rdtSet$dataSet <- rdtSet$dataSet.origin
 
   sel.nms <- names(mdata.all)
-  for(nm in sel.nms){
-    dataSet <- qs::qread(nm);
+  for(dataName in sel.nms){
+    dataSet <- readDataset(dataName);
     dataSet$data.proc <- dataSet$data.proc.origin;
     dataSet$meta <- rdtSet$dataSet.origin$meta.info;
     RegisterData(dataSet)
@@ -497,7 +497,7 @@ CheckEditRes <- function(){
   sel.nms <- names(mdata.all)
   data.list = list();
   for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+    dataSet <- readDataset(sel.nms[i])
     dataSet$meta <- rdtSet$dataSet$meta.info;
     dataSet$data.proc <- dataSet$data.proc[,colnames(dataSet$data.proc) %in% rownames(meta)]
     dataSet$data.proc <- dataSet$data.proc[,match(rownames(meta),colnames(dataSet$data.proc))]
@@ -523,7 +523,7 @@ UpdateSampInfo <-  function(rowNm,colNm,cell){
     sel.nms <- names(mdata.all)
     data.list = list();
     for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+    dataSet <- readDataset(sel.nms[i])
     nmidx<-which(colnames(dataSet$data.proc)==rowNm)
     colnames(dataSet$data.proc)[nmidx] <- cell
     RegisterData(dataSet);
