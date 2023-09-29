@@ -240,7 +240,10 @@ CovariateScatter.Anal <- function(dataName,
     sig.mat[,-ncol(sig.mat)] <- sapply(sig.mat[,-ncol(sig.mat)], function(x) signif(x, 5));
     rownames(sig.mat) <- make.names(rownames(rest)[inx.imp])
     # order the result simultaneously
+  }else{
+    return(c(0, 0));
   }
+
   AddMsg(paste(c("A total of", length(which(inx.imp == TRUE)), "significant features were found."), collapse=" "));
   rownames(both.mat) = both.mat[,1]
   both.mat <- both.mat[rownames(rest),]
