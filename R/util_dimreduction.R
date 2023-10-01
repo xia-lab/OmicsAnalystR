@@ -7,7 +7,8 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
-reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){  
+reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
+  save.image("mcia.RData");
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];

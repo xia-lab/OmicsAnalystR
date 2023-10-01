@@ -7,17 +7,17 @@ PerformHeatmapEnrichment <- function(file.nm, fun.type, IDs){
   }
   sym.vec <- doEntrez2SymbolMapping(gene.vec);
   names(gene.vec) <- sym.vec;
-  res <- PerformEnrichAnalysis(file.nm, fun.type, gene.vec);
+  res <- PerformEnrichAnalysis(file.nm, fun.type, gene.vec, "heatmap");
   return(res);
 }
 
 
-PerformScatterEnrichment <- function(file.nm, fun.type, IDs, netInv){
+PerformScatterOrNetEnrichment <- function(file.nm, fun.type, IDs, type){
   # prepare query
   id_type <<- "entrez";
   ora.vec <- unlist(strsplit(IDs, "; "));
   names(ora.vec) <- ora.vec;
-  res <- PerformEnrichAnalysis(file.nm, fun.type, ora.vec);
+  res <- PerformEnrichAnalysis(file.nm, fun.type, ora.vec, type);
   return(res);   
 }
 
@@ -134,7 +134,7 @@ PerformKeggEnrichment <- function(file.nm, fun.type, ids){
 
 # note: hit.query, resTable must synchronize
 # ora.vec should contains entrez ids, named by their gene symbols
-PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec){
+PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type){
   # prepare lib
   setres <- .loadEnrichLib(fun.type, data.org)
   current.geneset <- setres$current.geneset;
@@ -242,6 +242,11 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec){
   csv.nm <- paste(file.nm, ".csv", sep="");
   fast.write.csv(resTable, file=csv.nm, row.names=F);
   
+  #record table for report
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$enrTables[[type]] <- resTable;
+  saveSet(infoSet);
+
   return(1);
 }
 
