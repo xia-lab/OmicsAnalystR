@@ -1,5 +1,5 @@
 
-PerformHeatmapEnrichment <- function(file.nm, fun.type, IDs){
+PerformHeatmapEnrichment <- function(file.nm, fun.type, IDs, type="heatmap0"){
   if(IDs=="NA"){
 
   }else{
@@ -7,7 +7,7 @@ PerformHeatmapEnrichment <- function(file.nm, fun.type, IDs){
   }
   sym.vec <- doEntrez2SymbolMapping(gene.vec);
   names(gene.vec) <- sym.vec;
-  res <- PerformEnrichAnalysis(file.nm, fun.type, gene.vec, "heatmap");
+  res <- PerformEnrichAnalysis(file.nm, fun.type, gene.vec, type);
   return(res);
 }
 
