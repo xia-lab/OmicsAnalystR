@@ -199,6 +199,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet$var.exp <- var.exp;
   fileNm <- paste0("loading_result_", reductionOpt);
   reductionSet$loading.file.nm <- fileNm;
+  infoSet$imgSet$loading.pos.xyz <- loading.pos.xyz;
   fast.write.csv(loading.pos.xyz,file=fileNm);
   
   hit.inx <- match(featureNms, unname(enrich.nms1));

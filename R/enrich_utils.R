@@ -244,7 +244,10 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type){
   
   #record table for report
   infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$enrTables[[type]] <- resTable;
+  infoSet$imgSet$enrTables[[type]] <- list()
+  infoSet$imgSet$enrTables[[type]]$table <- resTable;
+  infoSet$imgSet$enrTables[[type]]$library <- fun.type
+  infoSet$imgSet$enrTables[[type]]$algo <- "Overrepresentation Analysis"
   saveSet(infoSet);
 
   return(1);
