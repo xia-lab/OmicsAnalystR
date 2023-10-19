@@ -312,6 +312,8 @@ CovariateScatter.Anal <- function(dataName,
     
   nonSig <- nrow(dataSet$comp.res) - sig.num;
 
+  comp_res_path <- paste0(names(dataSets)[i], "_data/", "comp_res.csv");
+  fast.write.csv(rest, file=paste0(dataName, "_data/", "comp_res.csv"))
   RegisterData(dataSet)
   return(c(sig.num, nonSig));
 }
