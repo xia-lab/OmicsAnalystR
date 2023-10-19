@@ -5,15 +5,15 @@
 ###################################################
 
 ComputeHeatmap <- function(fileNm, type){
-  sel.nms <- names(mdata.all);
+  infoSet <- readSet(infoSet, "infoSet");
   reductionSet <- .get.rdt.set();
   if(type == "NA"){
     reductionSet$clustVec <- "NA";
   }
   .set.rdt.set(reductionSet);
   res.list <- list()
-  for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+  for(i in 1:length(dataSets)){
+    dataSet <- readDataset(names(dataSets)[i])
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
   }
@@ -24,7 +24,8 @@ ComputeHeatmap <- function(fileNm, type){
   cat(json.mat);
   sink();
   current.msg <<- "Data is now ready for heatmap visualization!";
-  jsonNms$heatmap <<- fileNm
+  infoSet$paramSet$jsonNms$heatmap <- fileNm
+  saveSet(infoSet);
   return(1)
 }
 
@@ -136,7 +137,7 @@ ComputePathHeatmapTable <- function(dataSet){
     grp.nm <- grps[i];
     meta.vec <- c(meta.vec, as.character(cls))
     # make sure each label are unqiue across multiple meta data
-    print(grp.nm);
+    #print(grp.nm);
     if( meta.types[grp.nm] == "disc"){
       ncls <- paste(grp.nm, as.numeric(cls)+99); # note, here to retain ordered factor
       disc.inx[c((nrow(meta)*(i-1)+1): (nrow(meta)*i))] <- T;
@@ -204,7 +205,7 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -249,7 +250,7 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- t(dat$data.proc)
   }
   reductionSet <- .get.rdt.set();
@@ -286,11 +287,11 @@ GetClusterMembers<-function(clust){
     reductionSet <- .get.rdt.set();
     clustVec <- reductionSet$clustVec;
     sampleNames <- rownames(reductionSet$dataSet$meta.info);
-    print(sampleNames);
-    print(colnames(dataSet$proc));
+    #print(sampleNames);
+    #print(colnames(dataSet$proc));
     match.inx <- clustVec == clust;
     members <- sampleNames[match.inx];
-    print(members);
+    #print(members);
     return(cbind(paste0("Cluster ", clust), paste(unique(members), collapse="; ")));
 }
 
@@ -432,7 +433,7 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -491,7 +492,7 @@ ComputeSilhouette <-function(type){
   
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   
@@ -579,7 +580,10 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
   }
   dev.off();
-  
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$diagnostic_components <- imgNm;
+  saveSet(infoSet, "infoSet");
   return(1);
 }
 
@@ -593,7 +597,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   sel.nms <- names(mdata.all)
   data.list <- list()
   for(i in 1:length(sel.nms)){
-    dat = qs::qread(sel.nms[i])
+    dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
   reductionSet <- .get.rdt.set();
@@ -604,7 +608,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   
   fig.list <- list()
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     x <- dataSet$data.proc
     pca <- prcomp(t(na.omit(x)));
     imp.pca<-summary(pca)$importance;
@@ -726,5 +730,10 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                        color = colors,
                        display_numbers=displayText);
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$metaHeatmap <- imgName;
+  saveSet(infoSet, "infoSet");
+
   return(.set.mSet(mSetObj));
 }

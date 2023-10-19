@@ -22,7 +22,7 @@ CovariateScatter.Anal <- function(dataName,
                                   thresh=0.05,
                                   contrast.cls = "anova"){
 
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   rdtSet <- .get.rdt.set();
   msg.lm <- ""
   # load libraries
@@ -33,13 +33,16 @@ CovariateScatter.Anal <- function(dataName,
   if(!exists('adj.vec')){
     adj.bool = F;
     vars <- analysis.var;
+    covariates.vec <- "NA" #for report generation purpose only
   }else{
     if(length(adj.vec) > 0){
       adj.bool = T;
       vars <- c(analysis.var, adj.vec)
+      covariates.vec <- adj.vec;
     }else{
       adj.bool = F;
       vars <- analysis.var;
+      covariates.vec <- "NA"
     }
   }
 
@@ -240,7 +243,10 @@ CovariateScatter.Anal <- function(dataName,
     sig.mat[,-ncol(sig.mat)] <- sapply(sig.mat[,-ncol(sig.mat)], function(x) signif(x, 5));
     rownames(sig.mat) <- make.names(rownames(rest)[inx.imp])
     # order the result simultaneously
+  }else{
+    return(c(0, 0));
   }
+
   AddMsg(paste(c("A total of", length(which(inx.imp == TRUE)), "significant features were found."), collapse=" "));
   rownames(both.mat) = both.mat[,1]
   both.mat <- both.mat[rownames(rest),]
@@ -279,6 +285,18 @@ CovariateScatter.Anal <- function(dataName,
     );
   }
   
+  dataSet$design <- design;
+  dataSet$contrast.type <- analysis.type;
+  dataSet$comp.res <- rest;
+  dataSet$de.method <- "limma"
+  dataSet$comp.type <- "default"
+  dataSet$fit.obj <- fit;
+
+  dataSet$pval <- thresh;
+  dataSet$fc.val <- 1;
+  dataSet$analysis.var <- analysis.var;
+  dataSet$de.adj <- covariates.vec;
+
   # for detail table
   dataSet$analSet$cov <- cov; 
   # for plotting adjp vs p
@@ -313,7 +331,7 @@ invert_named_vector <- function(input_named_vec) {
 
 
 PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="png", dpi=72){
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   both.mat <- dataSet$cov.mat
   both.mat <- both.mat[order(-both.mat[,"pval.adj"]),]
   logp_val <- dataSet$cov$thresh
@@ -399,7 +417,7 @@ AddMsg <- function(msg){
 #'@export
 #'
 PlotMultiFacCmpdSummary <- function(dataName,imgName,name, id, meta, version, format="png", dpi=72, width=NA){
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   rdtSet <- .get.rdt.set();
 
   if(.on.public.web){

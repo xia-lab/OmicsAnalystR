@@ -45,7 +45,8 @@ GetUniqueMetaNames <-function(metadata){
 # some windows 10 files "Line ending is \r\r\n. .... appears to add the extra \r in text mode on Windows"
 # in such as, use the slower read.table method
 .readDataTable <- function(fileName){
-  msgSet <- readSet(msgSet, "msgSet");
+  infoSet <- readSet(infoSet, "infoSet");
+  msgSet <- infoSet$msgSet; 
   if(length(grep('\\.zip$',fileName,perl=TRUE))>0){
     fileName <- unzip(fileName);
     if(length(fileName) > 1){
@@ -93,7 +94,8 @@ GetUniqueMetaNames <-function(metadata){
 }
 
 .readMetaData <- function(metafileName,datOrig,metaContain) {
-  msgSet <- readSet(msgSet, "msgSet");
+  infoSet <- readSet(infoSet, "infoSet");
+  msgSet <- infoSet$msgSet; 
   na.msg = ""
   if(is.null(msg.vec)){
     msg <-""
@@ -390,8 +392,8 @@ DeleteSample <- function(samplNm){
   rdtSet <- .get.rdt.set();
   rdtSet$dataSet$meta.info <- rdtSet$dataSet$meta.info[rownames(rdtSet$dataSet$meta.info)!=samplNm,,drop=F]
   sel.nms <- names(mdata.all)
-  for(nm in sel.nms){
-    dataSet <- qs::qread(nm);
+  for(dataName in sel.nms){
+    dataSet <- readDataset(dataName);
     dataSet$meta <-  rdtSet$dataSet$meta.info;
     dataSet$data.proc <- dataSet$data.proc[,colnames(dataSet$data.proc)!=samplNm]
   }
@@ -405,8 +407,8 @@ ResetMetaTab <- function(){
   rdtSet$dataSet <- rdtSet$dataSet.origin
 
   sel.nms <- names(mdata.all)
-  for(nm in sel.nms){
-    dataSet <- qs::qread(nm);
+  for(dataName in sel.nms){
+    dataSet <- readDataset(dataName);
     dataSet$data.proc <- dataSet$data.proc.origin;
     dataSet$meta <- rdtSet$dataSet.origin$meta.info;
     RegisterData(dataSet)
@@ -495,7 +497,7 @@ CheckEditRes <- function(){
   sel.nms <- names(mdata.all)
   data.list = list();
   for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+    dataSet <- readDataset(sel.nms[i])
     dataSet$meta <- rdtSet$dataSet$meta.info;
     dataSet$data.proc <- dataSet$data.proc[,colnames(dataSet$data.proc) %in% rownames(meta)]
     dataSet$data.proc <- dataSet$data.proc[,match(rownames(meta),colnames(dataSet$data.proc))]
@@ -521,7 +523,7 @@ UpdateSampInfo <-  function(rowNm,colNm,cell){
     sel.nms <- names(mdata.all)
     data.list = list();
     for(i in 1:length(sel.nms)){
-    dataSet <- qs::qread(sel.nms[i])
+    dataSet <- readDataset(sel.nms[i])
     nmidx<-which(colnames(dataSet$data.proc)==rowNm)
     colnames(dataSet$data.proc)[nmidx] <- cell
     RegisterData(dataSet);

@@ -1,6 +1,5 @@
 
-my.convert.igraph <- function(net.nm, filenm, idType="NA"){
-  netUploadU <<-0
+my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   reductionSet <- .get.rdt.set();
   g <- ppi.comps[[net.nm]];
   
@@ -16,7 +15,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
     if(!(is.null(reductionSet$taxlvl)) & reductionSet$taxlvl != "Feature"){
       
       micidx <-reductionSet$micidx 
-      dataSet = qs::qread(sel.nms[micidx])
+      dataSet = readDataset(sel.nms[micidx])
       dat1 = dataSet$data.proc.taxa[[reductionSet$taxlvl]]
       meta1 = dataSet$meta
       comp.res1 = dataSet$comp.res.taxa[[reductionSet$taxlvl]]
@@ -30,7 +29,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
       seeds <- rownames(dataSet$sig.mat.tax[[reductionSet$taxlvl]]) 
       
       residx <-reductionSet$residx 
-      dataSet2 = qs::qread(sel.nms[residx])
+      dataSet2 = readDataset(sel.nms[residx])
       dat2 = dataSet2$data.proc
       meta2 = dataSet2$meta
       comp.res1 = rbind(comp.res1, dataSet2$comp.res)
@@ -48,7 +47,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
       
       for(i in 1:length(sel.nms)){
         if(i == 1){
-          dataSet = qs::qread(sel.nms[i]);
+          dataSet = readDataset(sel.nms[i]);
           dat1 = dataSet$data.proc;
           meta1 = dataSet$meta;
           comp.res1 = dataSet$comp.res;
@@ -60,7 +59,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
           expr.vec[comp.inx] = as.numeric(comp.res1[which(rownames(comp.res1) %in% names(expr.vec)), "coefficient"]);
           seeds <- rownames(dataSet$sig.mat);
         }else{
-          dataSet2 = qs::qread(sel.nms[i]);
+          dataSet2 = readDataset(sel.nms[i]);
           dat2 = dataSet2$data.proc;
           meta2 = dataSet2$meta;
           comp.res1 = rbind(comp.res1, dataSet2$comp.res);
@@ -195,7 +194,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   if(!(is.null(reductionSet$taxlvl)) & reductionSet$taxlvl != "Feature"){
     
     
-    dataSet <- qs::qread(sel.nms[[reductionSet$micidx]]);   
+    dataSet <- readDataset(sel.nms[[reductionSet$micidx]]);   
     dat.nms <- unique(dataSet$taxa_table[,reductionSet$taxlvl]);
     inx <- which(V(g)$name %in% dat.nms);
     inxNum <- V(g)$name %in% dat.nms;
@@ -204,7 +203,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
     names(numOfTypes)[reductionSet$micidx] <- sel.nms[[reductionSet$micidx]];
     V(g)$layers[inx] <- sel.nms[[reductionSet$micidx]];
     
-    dataSet <- qs::qread(sel.nms[[reductionSet$residx]]);   
+    dataSet <- readDataset(sel.nms[[reductionSet$residx]]);   
     dat.nms <- unique(unname(dataSet$enrich_ids));
     inx <- which(V(g)$name %in% dat.nms);
     inxNum <- V(g)$name %in% dat.nms;
@@ -230,7 +229,7 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
     
     for( i in 1:length(sel.nms)){
       
-      dataSet <- qs::qread(sel.nms[[i]]);   
+      dataSet <- readDataset(sel.nms[[i]]);   
       dat.nms <- unique(unname(dataSet$enrich_ids));
       inx <- which(V(g)$name %in% dat.nms)
       inxNum <- V(g)$name %in% dat.nms
@@ -320,16 +319,18 @@ my.convert.igraph <- function(net.nm, filenm, idType="NA"){
   require(rjson);
   #formattin json file because of rjson
   edges.list <- apply(edge.mat, 1, as.list)
-  netData <- list(nodes=nodes, edges=edges.list, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm=table.nmu, nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
+  netData <- list(nodes=nodes, edges=edges.list, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm="", nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
   
   if(!is.null(E(g)$correlation)){
     netData[["maxCorrelation"]] <- max(E(g)$correlation)
     netData[["minCorrelation"]] <- min(abs(E(g)$correlation))
   }
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$paramSet$jsonNms$network <- fileNm
+  saveSet(infoSet);
   
-  jsonNms$network <<- filenm
-  
-  sink(filenm);
+  sink(fileNm);
   cat(rjson::toJSON(netData));
   sink();
   return(1);

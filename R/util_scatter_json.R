@@ -8,13 +8,14 @@
 ###################################################
 
 my.json.scatter <- function(filenm){
+  infoSet <- readSet(infoSet, "infoSet");
   omicstype.vec <- list();
   sig.mats <- list();
   seeds <- vector()
   sel.nms <- names(mdata.all)[mdata.all==1];
 
   for(i in 1:length(sel.nms)){
-    dataSet = qs::qread(sel.nms[i])
+    dataSet = readDataset(sel.nms[i])
     sig.mats[[dataSet$type]] <- dataSet$sig.mat
     omicstype.vec <- c(omicstype.vec, dataSet$type)
     if(i == 1){
@@ -153,7 +154,7 @@ my.json.scatter <- function(filenm){
       );
     }
 
-    netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=reductionOptGlobal , objectsLoading=aLoading$objects, sigMat=sig.mats);
+    netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=infoSet$paramSet$reductionOptGlobal , objectsLoading=aLoading$objects, sigMat=sig.mats);
   
   # user can compare dimred results to single-omics PCA
   # do not include PCA
@@ -205,7 +206,6 @@ my.json.scatter <- function(filenm){
   }
   
   netData[["misc"]] <- reductionSet$misc
-  jsonNms$scatter <<- filenm;
   
   sink(filenm);
   cat(rjson::toJSON(netData));
@@ -225,11 +225,11 @@ my.json.scatter <- function(filenm){
 
 
 ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
-
+  infoSet <- readSet(infoSet, "infoSet");
   level <- as.numeric(level)
   names = strsplit(names.vec, "; ")[[1]]
   reductionSet <- .get.rdt.set();
-  if(reductionOptGlobal %in% c("diablo") || omics != "NA"){
+  if(infoSet$paramSet$reductionOptGlobal %in% c("diablo") || omics != "NA"){
     if(grepl("pca_", omics, fixed=TRUE)){
         pca.scatter <- qs::qread("pca.scatter.qs");
         pos.xyz<-pca.scatter[[ omics ]]$score/1000
@@ -237,7 +237,7 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
         omics.inx = 1;
         sel.nms <- names(mdata.all)[mdata.all==1];
         for(i in 1:length(sel.nms)){
-        dataSet <- qs::qread(sel.nms[i]);
+        dataSet <- readDataset(sel.nms[i]);
             if(omics == dataSet$type){
                 omics.inx = i;
             }

@@ -18,7 +18,7 @@
 #'
 AnnotateMicrobiomeData <- function(dataName,org,feattype){
   library("tidyverse")
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   data <- qs::qread(dataSet$data.raw.path);
   #  mic.vec <- rownames(data);
   
@@ -77,7 +77,9 @@ AnnotateMicrobiomeData <- function(dataName,org,feattype){
   qs::qsave(data, dataSet$data.annotated.path);
   dataSet$enrich_ids <- rownames(data);
   names(dataSet$enrich_ids) = rownames(data);
-  dataSet$m2m <- 1
+  if(feattype != "otu"){
+    dataSet$m2m <- 1
+  }
   RegisterData(dataSet);
   return(1)
 }
@@ -99,13 +101,13 @@ AnnotateGeneData <- function(dataName, org, idtype){
     return(0)
   }
   
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   data.raw <- qs::qread(dataSet$data.raw.path);
   gene.vec <- rownames(data.raw);
   
   #record the info
   data.org <<- org
-  dataSet$q.type.gene <- idtype;
+  dataSet$idType <- idtype;
   dataSet$gene.org <- org;
   dataSet$gene <- gene.vec;
   
@@ -202,9 +204,9 @@ AnnotateGeneData <- function(dataName, org, idtype){
 #'@export
 #'
 AnnotateMetaboliteData <- function(dataName, idtype){
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   dataSet$name <- dataName
-  
+  dataSet$idType <- idtype;
   data <- qs::qread(dataSet$data.raw.path);
   qvec <- rownames(data);
   
@@ -219,7 +221,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   # do some sanity check
   todo.inx <- which(is.na(dataSet$name.map$hit.inx));
   resint <- 1;
-  print(length(todo.inx)/length(dataSet$name.map$hit.inx));
+  #print(length(todo.inx)/length(dataSet$name.map$hit.inx));
   if(length(todo.inx)/length(dataSet$name.map$hit.inx) > 0.5){
     msg <- c("Over half of the compound IDs could not be matched to our database. Please make 
              sure that correct compound IDs or common compound names are used.");
@@ -255,7 +257,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
 #'
 SkippingAnnotation <- function(dataName, idtype){
   
-  dataSet <- qs::qread(dataName);
+  dataSet <- readDataset(dataName);
   
   data <- qs::qread(dataSet$data.raw.path);
   qvec <- rownames(data);

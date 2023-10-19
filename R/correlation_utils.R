@@ -6,7 +6,6 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
-  
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -14,8 +13,8 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   sel.nms <- names(mdata.all)[sel.inx];
   if(type %in% c("default","custom")){
     for(i in 1:length(sel.nms)){
-      nm = sel.nms[i];
-      dataSet <- qs::qread(nm);
+      dataName = sel.nms[i];
+      dataSet <- readDataset(dataName);
       
       if(i==1){
         all.mat <- dataSet$data.proc
@@ -46,7 +45,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       if(exists("m2m",dataSet)){ 
         
         all.mat.taxa <- dataSet$data.proc.taxa
-        
+
         if(type == "default"){
           sig.mat.taxa <- dataSet$sig.mat.tax
         }else{
@@ -74,8 +73,8 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
     sel.dats <- list();
     reductionSet$corr.axis.nms <- list();
     for(i in 1:length(sel.nms)){
-      nm = sel.nms[i]
-      dataSet <- qs::qread(nm);
+      dataName = sel.nms[i]
+      dataSet <- readDataset(dataName);
       
       inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
       loading.df <- reductionSet$loading.pos.xyz[inx, ]
@@ -116,7 +115,8 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       sel.dats[[i]] <- dat
     }
   }
-  reductionSet$selDatsCorr <- sel.dats
+  reductionSet$selDatsCorr <- sel.dats;
+  reductionSet$feat.sel.type <- type;
   .set.rdt.set(reductionSet);
   return(1)
 }
@@ -127,12 +127,12 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
   reductionSet <- .get.rdt.set();
   reductionSet$threshold.inter <- threshold.inter
   reductionSet$threshold.intra <- threshold.intra
+  reductionSet$crossOmicsOnly <- crossOmicsOnly;
 
   load_igraph();
   if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
-    #print("filter");
     sel.nms <- names(mdata.all)[mdata.all == 1];
-    dataSetList <- lapply(sel.nms, qs::qread);
+    dataSetList <- lapply(sel.nms, readDataset);
     labels <- unlist(lapply(dataSetList, function(x) x$enrich_ids))
     types <- unlist(lapply(dataSetList, function(x) rep(x$type, length(x$enrich_ids))))
     type_df <- data.frame(name=c(labels),
@@ -257,11 +257,11 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       micidx <- reductionSet$micidx
       residx <- reductionSet$residx
       
-      dataSet <- qs::qread(sel.nms[micidx]);
+      dataSet <- readDataset(sel.nms[micidx]);
       
       labels <- unique(dataSet$taxa_table[,taxlvl])
       labels <- setNames(labels, labels)
-      dataSet <- qs::qread(sel.nms[residx]);
+      dataSet <- readDataset(sel.nms[residx]);
       labels <- c(labels, dataSet$enrich_ids);
       
       corr.mat <- reductionSet$corr.mat.taxa[[taxlvl]]
@@ -413,8 +413,8 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   
   m2midx<-0
   for(i in 1:length(sel.nms)){
-    nm = sel.nms[i]
-    dataSet <- qs::qread(nm);
+    dataName = sel.nms[i]
+    dataSet <- readDataset(dataName);
     labels <- c(labels, dataSet$enrich_ids);
     if(exists("m2m",dataSet)){
       labels.taxa <- lapply(dataSet$data.taxa, function(x) rownames(x))
@@ -425,7 +425,8 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   }
   
   reductionSet <- .get.rdt.set();
-  
+  reductionSet$cor.stat <- cor.stat;
+  reductionSet$cor.method <- cor.method;
   sel.dats <- reductionSet$selDatsCorr;
   
   load_igraph();
@@ -545,6 +546,10 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
   print(p1)
   dev.off();
   
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$correlation_distribution <- imgNm;
+  saveSet(infoSet);
+
 }
 
 
@@ -571,6 +576,10 @@ PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
     theme(plot.title = element_text(hjust = 0.5))
   print(p)
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$degree_distribution <- imgNm;
+  saveSet(infoSet);
 }
 
 PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
@@ -599,6 +608,10 @@ PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
     theme(plot.title = element_text(hjust = 0.5))
   print(p)
   dev.off();
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$betweenness_distribution <- imgNm;
+  saveSet(infoSet);
 }
 
 GetNetworkTopology <- function(netnm){

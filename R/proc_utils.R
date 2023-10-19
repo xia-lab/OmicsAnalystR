@@ -403,13 +403,13 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
 }
 
 SanityCheckMeta <- function(){
-    save.image("san.RData");
+    infoSet <- readSet(infoSet, "infoSet");
     rdtSet <- .get.rdt.set();
     sel.nms <- names(mdata.all)
     data.list = list();
 
     for(i in 1:length(sel.nms)){
-        dataSet <- qs::qread(sel.nms[i])
+        dataSet <- readDataset(sel.nms[i])
         data.list[[i]] <- dataSet$meta;
         mdata.all[[i]] <- 1;
     }
@@ -420,7 +420,7 @@ SanityCheckMeta <- function(){
     rdtSet$dataSet$meta.info <- meta.info;
     rdtSet$dataSet.origin <- rdtSet$dataSet;
     for(i in 1:length(sel.nms)){
-        dataSet <- qs::qread(sel.nms[i])
+        dataSet <- readDataset(sel.nms[i])
         dataSet$meta <- rdtSet$dataSet$meta.info;
         dataSet$data.proc <- dataSet$data.proc.origin <- dataSet$data.proc[,samples_intersect];
         RegisterData(dataSet);
@@ -430,8 +430,10 @@ SanityCheckMeta <- function(){
     disc.vec <- paste(names(rdtSet$dataSet$disc.inx)[which(rdtSet$dataSet$disc.inx)],collapse=", ")  
     cont.vec <- paste(names(rdtSet$dataSet$cont.inx)[which(rdtSet$dataSet$cont.inx)],collapse=", ")  
     na.vec <- na.check(meta.info)
-    return(c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
-         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec ));
+    infoSet$paramSet$summaryVecMeta <- c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
+         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec )
+    saveSet(infoSet);
+    return(infoSet$paramSet$summaryVecMeta);
 }
 
 intersect_rownames <- function(df_list) {
