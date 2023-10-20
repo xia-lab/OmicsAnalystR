@@ -1,6 +1,5 @@
 
 my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
-  save.image("convertigraph.RData");
   reductionSet <- .get.rdt.set();
   g <- ppi.comps[[net.nm]];
   V(g)$type <- V(g)$name;
