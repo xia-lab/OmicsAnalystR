@@ -1,8 +1,8 @@
 
 my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
+  save.image("convertigraph.RData");
   reductionSet <- .get.rdt.set();
   g <- ppi.comps[[net.nm]];
-  
   V(g)$type <- V(g)$name;
   expr.vec <- rep(0, length(V(g)$name))
   names(expr.vec) = V(g)$name
@@ -161,7 +161,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
     mol.types <- V(g)$moltype; 
   }
   mol.types <- rep(names(data.list)[1],length(node.exp)); 
-  mir.inx <- nms %in% enrich.nms2
+  mir.inx <- nms %in% as_edgelist(g)[,2]
   shapes[mir.inx] <- "square";
   mol.types[mir.inx] <- names(data.list)[2]
   
@@ -171,6 +171,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   for(i in 1:length(unique(mol.types))){
     duplicated.types[duplicated.types == names(freq[i])]=order(freq)[i];
   }
+
   
   node.cols <- topo.colsb;
   ntype <- names(freq);
