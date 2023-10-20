@@ -52,8 +52,8 @@ Init.Data <- function(){
   module.count <<- 0;
   if(file.exists("/home/glassfish/sqlite/")){
     sqlite.path <<- "/home/glassfish/sqlite/";  #public server
-  }else if(file.exists("/Users/xia/Dropbox/sqlite/")){
-    sqlite.path <<- "/Users/xia/Dropbox/sqlite/";  #xia local
+  }else if(file.exists("/Users/xialab/Dropbox/sqlite/")){
+    sqlite.path <<- "/Users/xialab/Dropbox/sqlite/";  #xia local
   }else if(file.exists("/Users/jeffxia/Dropbox/sqlite/")){
     sqlite.path <<- "/Users/jeffxia/Dropbox/sqlite/";  #xia local 2
   }else if(file.exists("/home/zgy/sqlite")){
