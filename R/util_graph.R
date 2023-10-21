@@ -2,7 +2,6 @@
 my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   reductionSet <- .get.rdt.set();
   g <- ppi.comps[[net.nm]];
-  V(g)$type <- V(g)$name;
   expr.vec <- rep(0, length(V(g)$name))
   names(expr.vec) = V(g)$name
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -83,7 +82,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   # annotation
   nms <- V(g)$name;
   hit.inx <- match(nms, enrich.nms1);
-  lbls <- names(enrich.nms1[hit.inx]);
+  lbls <- V(g)$label;
   
   # setup shape (gene circle, other squares)
   shapes <- rep("circle", length(nms));
@@ -154,13 +153,10 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   }
   
   # now update for bipartite network
-  if(is.null(V(g)$moltype)){
-    mol.types <- rep("NA",length(node.exp)); 
-  }else{
-    mol.types <- V(g)$moltype; 
-  }
-  mol.types <- rep(names(data.list)[1],length(node.exp)); 
-  mir.inx <- nms %in% as_edgelist(g)[,2]
+  mol.types <- rep("NA",length(node.exp)); 
+  #mol.types <- rep(names(data.list)[1],length(node.exp)); 
+  mol.types <- V(g)$type;
+  mir.inx <- V(g)$type %in% unique(V(g)$type)[2]
   shapes[mir.inx] <- "square";
   mol.types[mir.inx] <- names(data.list)[2]
   
@@ -186,8 +182,8 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   
   colVec <- color.vec;
   
-  V(g)$moltype <- mol.types;
-  V(g)$layers <- as.numeric(as.factor(mol.types));
+  V(g)$moltype <- V(g)$type;
+  V(g)$layers <- as.numeric(as.factor(V(g)$type));
   numOfTypes <- vector();
   
   
@@ -271,7 +267,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
     
     nodes[[i]] <- list(
       id=nms[i],
-      featureId=nms[i],
+      featureId=V(g)$featureId[i],
       idnb = i, 
       label=lbls[i],
       x = pos.xy[i,1],

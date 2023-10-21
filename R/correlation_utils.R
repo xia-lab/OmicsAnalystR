@@ -36,8 +36,9 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       inxAll = which(rownames(all.mat) %in% rownames(sig.mat));
       inx = which(rownames(dataSet$data.proc) %in% rownames(sig.mat));
       
-      all.mat <- all.mat[inxAll, ]
-      dat <- dataSet$data.proc[inx, ]
+      all.mat <- all.mat[inxAll, ];
+      dat <- dataSet$data.proc[inx, ];
+      rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
       sel.dats[[i]] <- dat
       labels <- c(labels, rownames(dat));
       
@@ -111,7 +112,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       
       dat <- dataSet$data.proc
       dat <- dat[rownames(dat) %in% toKeep, ]
-      
+      rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
       sel.dats[[i]] <- dat
     }
   }
@@ -121,16 +122,17 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   return(1)
 }
 
+
 DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.5, 
                                 threshold.intra=0.9, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
-  
+save.image("filter.RData");
   reductionSet <- .get.rdt.set();
   reductionSet$threshold.inter <- threshold.inter
   reductionSet$threshold.intra <- threshold.intra
   reductionSet$crossOmicsOnly <- crossOmicsOnly;
-
+  
   load_igraph();
-  if(updateRes == "false" | !(exists("selDatsCorr.taxa",reductionSet))){
+  if(!(exists("selDatsCorr.taxa",reductionSet))){
     sel.nms <- names(mdata.all)[mdata.all == 1];
     dataSetList <- lapply(sel.nms, readDataset);
     labels <- unlist(lapply(dataSetList, function(x) x$enrich_ids))
@@ -141,23 +143,17 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     # Create a lookup table
     type_lookup <- setNames(type_df$type, type_df$name)
     
-    
-    #if(networkInfer != "NA"){
-    #  library(parmigene);
-    #  switch(networkInfer,
-    #         "aracne" = reductionSet$corr.mat <- aracne.m(reductionSet$corr.mat),
-    #         "clr" = reductionSet$corr.mat <- clr(reductionSet$corr.mat),
-    #         "mrnet" = reductionSet$corr.mat <- mrnet(reductionSet$corr.mat)
-    #  )
-    #}
-    
     corr.mat <- qs::qread(reductionSet$corr.mat.path);
     sel.dats <- reductionSet$selDatsCorr;
     rowlen <- nrow(corr.mat);
     g <- igraph::graph_from_adjacency_matrix(corr.mat,mode = "undirected", diag = FALSE, weighted = 'correlation')
     
     # Assign types to nodes using the lookup table
-    V(g)$type <- type_lookup[V(g)$name]
+    toMatch <- unlist(lapply(dataSetList, function(x) x$type));
+    pattern <- paste0("^(.*)((", paste(toMatch, collapse = "|"), "))$")
+    V(g)$type <- gsub(pattern, "\\2", V(g)$name);
+    V(g)$label <- gsub(pattern, "", V(g)$name);
+    print(unique(V(g)$label));
     
     edge_list <- igraph::as_data_frame(simplify(g, remove.loops = TRUE,edge.attr.comb="max"), "edges")
     v1 <- V(g)$name[V(g)$type == unique(types)[1]]
@@ -168,11 +164,11 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     inter_g <- delete_edges(g, E(g)[intra_inx])
     intra_g <- delete_edges(g, E(g)[inter_inx])
     
-
+    
     # for histogram only
     reductionSet$corr.graph.path <- "corr.graph.qs";
     qs::qsave(list(corr.graph.inter=inter_g, corr.graph.intra=intra_g), "corr.graph.qs")
-
+    
     cor.list <- list(all = NULL, inter = NULL, intra = NULL)
     
     if (corSign == "both") {
@@ -201,13 +197,12 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     
     reductionSet$cor.list.path <- "cor.list.qs";
     qs::qsave(cor.list, file="cor.list.qs");
-    
     if (crossOmicsOnly == "true") {
       cor_edge_list <- cor.list$inter
     } else {
       cor_edge_list <- dplyr::bind_rows(cor.list$inter, cor.list$intra)
     }
-
+    
     # filter interomics only
     numToKeep <- as.numeric(numToKeep)
     if (numToKeep > length(unique(cor_edge_list$correlation))) {
@@ -221,18 +216,18 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       new_g <- igraph::graph_from_data_frame(cor_edge_list, directed = FALSE)
       new_g <- igraph::simplify(new_g, edge.attr.comb = "mean")
       
-      #if (nrow(cor_edge_list) < 3) {
-      #  msg.vec <<- paste0("Less than 3 correlations have been identified using an inter-omics correlation threshold of ", threshold.inter, 
-      #                    " and intra-omics correlation threshold of ", threshold.intra)
-      #}
-      
+      pattern <- paste0("^(.*)((", paste(toMatch, collapse = "|"), "))$")
+      V(new_g)$type <- gsub(pattern, "\\2", V(new_g)$name);
+      toMatch2 <- unlist(lapply(dataSetList, function(x) paste0("_", x$type)));
+      pattern2 <- paste0("(", paste(toMatch2, collapse = "|"), ")$")
+      V(new_g)$featureId <- gsub(pattern2, "", V(new_g)$name);
       type.list <- list();
       for(i in 1:length(sel.nms)){
         type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
       }
       reductionSet$taxlvl <-"Feature"
       .set.rdt.set(reductionSet);
-
+      
       intres <- ProcessGraphFile(new_g, labels, type.list);
       return(intres);
     } else {
@@ -250,8 +245,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       cor_edge_list_intra <- reductionSet$corr.mat.intra.taxa[[taxlvl]] 
       
     }else{
-      
-      
+      print("correlation2")
       sel.inx <- mdata.all==1;
       sel.nms <- names(mdata.all)[sel.inx];
       micidx <- reductionSet$micidx
@@ -337,10 +331,10 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
     cor_edge_list <- cor_edge_list_inter
     
     
-    if(crossOmicsOnly == "true"){
-      cor_edge_list <- cor_edge_list_intra
-    }else{
-      cor_edge_list <- rbind(cor_edge_list, cor_edge_list_intra)
+    if (crossOmicsOnly == "true") {
+      cor_edge_list <- cor_edge_list_inter
+    } else {
+      cor_edge_list <- dplyr::bind_rows(cor_edge_list_inter, cor_edge_list_intra)
     }
     
     #filter interomics only
@@ -428,7 +422,6 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   reductionSet$cor.stat <- cor.stat;
   reductionSet$cor.method <- cor.method;
   sel.dats <- reductionSet$selDatsCorr;
-  
   load_igraph();
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
