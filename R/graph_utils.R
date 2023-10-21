@@ -106,12 +106,9 @@ ComputeSubnetStats <- function(comps){
            dataSet <- readDataset(sel.nms[[i]]);
           lbl = dataSet$readableType;
         
-        
-        nms <- unique(unname(dataSet$enrich_ids));
-        if(sum(nms %in% nd.queries)>0 && !grepl(lbl, nd.res)){
-          nd.res <- paste0(lbl,": ", sum(nms %in% nd.queries), "; ", nd.res)
+        if(sum(V(g)$type == dataSet$type) && !grepl(lbl, nd.res)){
+          nd.res <- paste0(lbl,": ", sum(V(g)$type == dataSet$type), "; ", nd.res)
         }
-        
         
       }
       net.stats[j,] <- c(nd.res ,ecount(g),0);
@@ -469,7 +466,7 @@ GetNetsQueryNum <- function(){
 }
 
 ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJson = F){  
-
+  save.image("graph.RData");
   overall.graph <<- graph
   nms <- V(graph)$name;
   if(length(nms)<1){
@@ -478,14 +475,13 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
   }
   lblsNm <- names(labels)
   names(lblsNm) <- unname(labels)
-  
-  lbls <- unname(lblsNm[nms]);
+  print(V(graph)$featureId);
+  lbls <- unname(lblsNm[V(graph)$featureId]);
   node.data = data.frame(nms, lbls);
-
   graph = set_vertex_attr(graph, "label", value=lbls)
   seed.proteins <<- nms;
   
-  if(!is.null(typeList)){
+  if(!is.null(typeList) && is.null(V(graph)$type)){
     typeVec <- rep("NA", length(nms))
     inx.list <- list();
     if(!is.null(typeList)){
@@ -516,6 +512,7 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
   #ppi.comps[["overall"]] <- graph
   ppi.comps <<- ppi.comps
   g <- ppi.comps[[net.nm]];
+print(V(g)$label);
   ppi.net <<- list(db.type="abc",
                    db.type="ppi", 
                    order=1, 
