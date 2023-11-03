@@ -41,7 +41,7 @@ Init.Data <- function(){
   dataSet$misc <- list();
   dataSet$de.method <- "NA";
   dataSet$idType <- "NA";
-
+  
   anal.type <<- "multiomics";
   dataSet <<- dataSet;
   mdata.all <<- list(); 

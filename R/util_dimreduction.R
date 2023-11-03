@@ -440,46 +440,45 @@ function(dataset, pos=FALSE,  trans=FALSE){
 
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-  load_cairo();
-  library(see)
-  load_ggplot();
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx]
-  dpi<-as.numeric(dpi)
-  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  reductionSet <- .get.rdt.set();
-  
-  df <- reductionSet$var.exp;
-  df <- reshape2::melt(df)
-  colnames(df) <- c("Component", "Dataset", "value")
-  df$Component <- gsub("Factor","", df$Component);
-  for(i in 1:length(sel.nms)){
-    dataSet <- readDataset(sel.nms[i]);
-    df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
-  }
-  min_r2 = 0
-  max_r2 = max(df$value)
-  
-  p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
-    geom_line(aes(color=Dataset),linewidth=2) +
-    scale_fill_okabeito() +
-    scale_color_okabeito() +
-    labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
-    theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
-  
-  
-  Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
-  print(p1)
-  dev.off();
+    load_cairo();
+    library(see)
+    load_ggplot();
+    sel.inx <- mdata.all==1;
+    sel.nms <- names(mdata.all)[sel.inx]
+    dpi<-as.numeric(dpi)
+    imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$dimred_varexp <- imgNm;
-  saveSet(infoSet);
+    reductionSet <- .get.rdt.set();
+
+    df <- reductionSet$var.exp;
+    df <- reshape2::melt(df)
+    colnames(df) <- c("Component", "Dataset", "value")
+    df$Component <- gsub("Factor","", df$Component);
+    for(i in 1:length(sel.nms)){
+      dataSet <- readDataset(sel.nms[i]);
+      df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
+    }
+    min_r2 = 0
+    max_r2 = max(df$value)
+
+    p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
+      geom_line(aes(color=Dataset),linewidth=2) +
+      scale_fill_okabeito() +
+      scale_color_okabeito() +
+      labs(x="Component #", y="Var. (%)", title="") + theme_minimal(base_size=15) +
+      theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
+
+
+    Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
+    print(p1)
+    dev.off();
+
+    infoSet <- readSet(infoSet, "infoSet");
+    infoSet$imgSet$dimred_varexp <- imgNm;
+    saveSet(infoSet);
 }
 
-PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  
+PlotDimredFactorsPlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   load_cairo();
   load_ggplot();
   library(GGally)
@@ -510,7 +509,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   inx <- which(colnames(meta.info) == meta)
   cls <- meta.info[, inx];
   cls.type <- reductionSet$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
-  
+  base_size=15;
   if (cls.type == "disc"){ ## code to execute if metadata class is discrete
     
     # make plot
@@ -521,14 +520,15 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
                  columnLabels = pclabels, mapping = aes(color = cls))
     
     auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) + 
-      theme_bw() + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
+      theme_bw(base_size=base_size) + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) + 
       scale_fill_okabeito() + 
       scale_color_okabeito() +
       guides(col = guide_legend(nrow = 1))
-    p <- p + theme_bw() + 
+    p <- p + theme_bw(base_size=base_size) + 
       scale_fill_okabeito() + 
       scale_color_okabeito() +
-      theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"))
+      theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"));
+
     mylegend <- grab_legend(auxplot)
     
   } else { ## code to excute if metadata class is continuous
@@ -544,11 +544,11 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
                  columnLabels = pclabels)
     
     auxplot <- ggplot(data.frame(cls = num.cls), aes(x=cls, y=cls, color=cls)) + 
-      theme_bw() + geom_point(size = 6) + 
-      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
+      theme_bw(base_size=base_size) + geom_point(size = 6) + 
+      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) + 
       guides(col = guide_legend(nrow = 1))
     
-    p <- p + theme_bw() + theme(plot.margin = unit(c(0.25, 0.25, 0.8, 0.25), "in"))
+    p <- p + theme_bw(base_size=base_size) + theme(plot.margin = unit(c(0.25, 0.25, 0.8, 0.25), "in"))
     mylegend <- grab_legend(auxplot)
     
   }
@@ -560,7 +560,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   grid.draw(mylegend)
   upViewport()
   dev.off()
-
+  
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$dimred_factors <- imgNm;
   saveSet(infoSet);
