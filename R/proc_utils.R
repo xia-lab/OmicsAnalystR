@@ -431,7 +431,7 @@ SanityCheckMeta <- function(){
     cont.vec <- paste(names(rdtSet$dataSet$cont.inx)[which(rdtSet$dataSet$cont.inx)],collapse=", ")  
     na.vec <- na.check(meta.info)
     infoSet$paramSet$summaryVecMeta <- c(ncol(meta.info),length(which(rdtSet$dataSet$disc.inx)),disc.vec,
-         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec )
+         length(which(rdtSet$dataSet$cont.inx)),cont.vec,names(meta.info)[1],length(unique(meta.info[,1])),paste(unique(meta.info[,1]),collapse=", "),na.vec );
     saveSet(infoSet);
     return(infoSet$paramSet$summaryVecMeta);
 }

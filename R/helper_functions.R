@@ -129,6 +129,15 @@ GetMultiSummary <- function(){
   dat.nms <- paste(dat.nms, collapse="; ");
   cls.lbls <- unique(cls.lbls);
   cls.lbls <- paste(cls.lbls, collapse="; ");
-  res <- c(sampleNum, featureNumAnn, dat.nms, cls.lbls, featureNumFilter);
-  return(res)
+  res <- list(
+    sampleNum = sampleNum,
+    featureNumAnn = featureNumAnn,
+    dat.nms = dat.nms,
+    cls.lbls = cls.lbls,   
+    featureNumFilter = featureNumFilter
+  )
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$paramSet$summaryUploadedData <- res;
+  saveSet(infoSet);
+  return(unlist(res))
 }
