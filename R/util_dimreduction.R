@@ -8,7 +8,6 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
-  save.image("mcia.RData");
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -117,7 +116,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
     diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta];
-    
+    reductionSet$diabloMeta <- diabloMeta;
+    reductionSet$diabloPar <- diabloPar;
     if(diablo.meta.type == "disc"){
       Y <- reductionSet$meta[,diabloMeta];
       

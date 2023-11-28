@@ -125,7 +125,6 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
 
 DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.5, 
                                 threshold.intra=0.9, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
-save.image("filter.RData");
   reductionSet <- .get.rdt.set();
   reductionSet$threshold.inter <- threshold.inter
   reductionSet$threshold.intra <- threshold.intra

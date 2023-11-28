@@ -466,7 +466,6 @@ GetNetsQueryNum <- function(){
 }
 
 ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJson = F){  
-  save.image("graph.RData");
   overall.graph <<- graph
   nms <- V(graph)$name;
   if(length(nms)<1){
