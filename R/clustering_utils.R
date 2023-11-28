@@ -734,6 +734,5 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$metaHeatmap <- imgName;
   saveSet(infoSet, "infoSet");
-
-  return(.set.mSet(mSetObj));
+  return(1);
 }
