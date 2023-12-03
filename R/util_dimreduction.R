@@ -74,7 +74,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     }
 
     if(.on.public.web){
-        infoSet$paramSet$reductionOptGlobal <- reductionOpt;
+        reductionSet$reductionOpt <- reductionOpt;
         saveSet(infoSet);
         reductionSet$enrich.nms1 <- enrich.nms1;
         qs::qsave(reductionSet, "rdt.set.qs");
@@ -194,21 +194,21 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
 
-  reductionSet$pos.xyz <- pos.xyz;
-  reductionSet$loading.pos.xyz <- loading.pos.xyz;
-  reductionSet$var.exp <- var.exp;
+  reductionSet[[reductionOpt]]$pos.xyz <- pos.xyz;
+  reductionSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
+  reductionSet[[reductionOpt]]$var.exp <- var.exp;
   fileNm <- paste0("loading_result_", reductionOpt);
-  reductionSet$loading.file.nm <- fileNm;
-  infoSet$imgSet$loading.pos.xyz <- loading.pos.xyz;
+  reductionSet[[reductionSet$reductionOpt]]$loading.file.nm <- fileNm;
+  infoSet$imgSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   fast.write.csv(loading.pos.xyz,file=fileNm);
   
   hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
-  reductionSet$loading.enrich <- loadingSymbols
-  reductionSet$loading.names <- featureNms
+  reductionSet[[reductionOpt]]$loading.enrich <- loadingSymbols
+  reductionSet[[reductionOpt]]$loading.names <- featureNms
   reductionSet$omicstype <- names(data.list)
 
-  infoSet$paramSet$reductionOptGlobal <- reductionOpt;
+  reductionSet$reductionOpt <- reductionOpt;
   saveSet(infoSet);
   .set.rdt.set(reductionSet);
   
@@ -440,6 +440,7 @@ function(dataset, pos=FALSE,  trans=FALSE){
 
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
+    infoSet <- readSet(infoSet, "infoSet");
     load_cairo();
     library(see)
     load_ggplot();
@@ -450,7 +451,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 
     reductionSet <- .get.rdt.set();
 
-    df <- reductionSet$var.exp;
+    df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
     df <- reshape2::melt(df)
     colnames(df) <- c("Component", "Dataset", "value")
     df$Component <- gsub("Factor","", df$Component);
@@ -473,12 +474,12 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
     print(p1)
     dev.off();
 
-    infoSet <- readSet(infoSet, "infoSet");
-    infoSet$imgSet$dimred_varexp <- imgNm;
+    infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
     saveSet(infoSet);
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
+  infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();
   library(GGally)
@@ -501,7 +502,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   # draw plot
   Cairo::Cairo(file = imgNm, unit="in", dpi=dpi, width=10, height=10, type=format, bg="white");
   
-  data <- as.data.frame(reductionSet$pos.xyz[,1:pc.num]);
+  data <- as.data.frame(reductionSet[[reductionSet$reductionOpt]]$pos.xyz[,1:pc.num]);
   meta.info <- reductionSet$meta;
   meta.info <- meta.info[match(rownames(data), rownames(meta.info)),,drop=F]
   
@@ -561,7 +562,6 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   upViewport()
   dev.off()
   
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$dimred_factors <- imgNm;
+  infoSet$imgSet[[paste0("dimred_factors_", reductionSet$reductionOpt)]]<- imgNm;
   saveSet(infoSet);
 }

@@ -145,7 +145,7 @@ PerformClusteringScatter <- function(filenm, type, nclust){
   library(rgl)
   library(cluster)
   reductionSet <- .get.rdt.set();
-  pos.xyz = reductionSet$pos.xyz;
+  pos.xyz = reductionSet[[reductionSet$reductionOpt ]]$pos.xyz;
   if(type == "density"){
     library(ADPclust)
     if(init == "true"){
@@ -180,7 +180,7 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
   library(rgl)
   library(cluster)
   reductionSet <- .get.rdt.set();
-  pos.xyz = reductionSet$pos.xyz
+  pos.xyz = reductionSet[[reductionSet$reductionOpt ]]$pos.xyz;
     metadf = reductionSet$newmeta
 
   selMetas = unique(metadf[,meta])
@@ -266,7 +266,7 @@ PerformCustomClustering <- function(filenm, type, ids){
   
   idsvec <- strsplit(ids, "; ")[[1]];
   reductionSet <- .get.rdt.set();
-  pos.xyz = reductionSet$pos.xyz
+  pos.xyz = reductionSet[[reductionSet$reductionOpt]]$pos.xyz;
   metadf = reductionSet$newmeta
   
   clustersHolder = list()
