@@ -8,12 +8,14 @@
 ###################################################
 
 my.json.scatter <- function(filenm){
-  infoSet <- readSet(infoSet, "infoSet");
+  infoSet <- readSet(infoSet, "infoSet");  
+  reductionSet <- .get.rdt.set();
+
   omicstype.vec <- list();
   sig.mats <- list();
   seeds <- vector()
   sel.nms <- names(mdata.all)[mdata.all==1];
-
+  
   for(i in 1:length(sel.nms)){
     dataSet = readDataset(sel.nms[i])
     sig.mats[[dataSet$type]] <- dataSet$sig.mat
@@ -27,11 +29,11 @@ my.json.scatter <- function(filenm){
     sel.meta <-dataSet$sel.meta;
   }
   
-  reductionSet <- .get.rdt.set();
+  reductionOpt <- reductionSet$reductionOpt;
   Sys.setenv(RGL_USE_NULL = TRUE)
   library(rgl)
   load_igraph();
-  pos.xyz <- reductionSet$pos.xyz
+  pos.xyz = reductionSet[[reductionOpt]]$pos.xyz;
   pos.xyz <- unitAutoScale(pos.xyz);
   nodes <- vector(mode="list");
   names <- c(rownames(pos.xyz))
@@ -55,11 +57,11 @@ my.json.scatter <- function(filenm){
   }
   color = col
   nodeSize = 18;
-
+  
   if(length(names)>200){
     nodeSize = 16;
   }
- 
+  
   for(i in 1:length(names)){
     nodes[[i]] <- list(
       id=names[i],
@@ -84,82 +86,82 @@ my.json.scatter <- function(filenm){
     );
   }
   modules = "NA"
-
+  
   # save node table
   ellipse ="NA"
-
+  
   library(rjson)
-    
-    loading.data.orig = reductionSet$loading.pos.xyz
-    loading.data <- unitAutoScale(loading.data.orig[,c(1,2,3)]);
-    cluster = reductionSet$loadingCluster
-    aLoading=list();
-    aLoading$objects = "NA";
-
-    names = reductionSet$loading.enrich
-    ids = reductionSet$loading.names
-    rownames(loading.data) = names
-    de = reductionSet$comp.res[which(reductionSet$comp.res[,"ids"] %in% ids),]
-    de[de == "NaN"] = 1
-    pv = as.numeric(de[,"P.Value"])
-    pv_no_zero = pv[pv != 0]
-    minval = min(pv_no_zero)
-    pv[pv == 0] = minval/2
-    pvals <<- -log10(pv);
-    type.vec <- pvals;
-    if(reductionSet$comp.res.inx[1] != "NA"){
-      for(i in 1:length(unique(reductionSet$comp.res.inx))){
-        inx = reductionSet$comp.res.inx == i
-        type.vec[inx] <- omicstype.vec[[i]]
-      }
+  
+  loading.data.orig = reductionSet[[reductionOpt]]$loading.pos.xyz
+  loading.data <- unitAutoScale(loading.data.orig[,c(1,2,3)]);
+  cluster = reductionSet$loadingCluster
+  aLoading=list();
+  aLoading$objects = "NA";
+  
+  names = reductionSet[[reductionOpt]]$loading.enrich
+  ids = reductionSet[[reductionOpt]]$loading.names
+  rownames(loading.data) = names
+  de = reductionSet$comp.res[which(reductionSet$comp.res[,"ids"] %in% ids),]
+  de[de == "NaN"] = 1
+  pv = as.numeric(de[,"P.Value"])
+  pv_no_zero = pv[pv != 0]
+  minval = min(pv_no_zero)
+  pv[pv == 0] = minval/2
+  pvals <<- -log10(pv);
+  type.vec <- pvals;
+  if(reductionSet$comp.res.inx[1] != "NA"){
+    for(i in 1:length(unique(reductionSet$comp.res.inx))){
+      inx = reductionSet$comp.res.inx == i
+      type.vec[inx] <- omicstype.vec[[i]]
     }
-    ids_and_omicstype = paste0(reductionSet$loading.names, "_", type.vec);
-
-    colors<- ComputeColorGradient(pvals, "black", F, F);
-    colorb <- colors;
-    sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 25));
-    loading.nodes <- vector(mode="list"); #is node2 loading?
-
-
-    seed.inx <- names %in% unique(seeds);
-    seed_arr <- rep("notSeed",length(names));
-    seed_arr[seed.inx] <- "seed";
-
-    for(i in 1:length(pvals)){
-      loading.nodes[[i]] <- list(
-        id=ids_and_omicstype[i],
-        featureId=ids[i],
-        label=names[i],
-        size=sizes[i],
-        cluster=1,
-        omicstype=type.vec[i],
-        fx = unname(loading.data[i,1])*1000,
-        fy = unname(loading.data[i,2])*1000,
-        fz = unname(loading.data[i,3])*1000,
-        origX = loading.data.orig[i,1],
-        origY = loading.data.orig[i,2],
-        origZ = loading.data.orig[i,3],
-        seedArr = seed_arr[i],
-        colorb=colorb[i],
-        colorw=colorb[i],
-        topocolb="#ffa500",
-        topocolw="#ffa500",
-        expcolb="#ffa500",
-        expcolw="#ffa500",
-        attributes=list(
-          expr = 1,
-          degree=1,
-          between=1
-        )
-      );
-    }
-
-    netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=infoSet$paramSet$reductionOptGlobal , objectsLoading=aLoading$objects, sigMat=sig.mats);
+  }
+  ids_and_omicstype = paste0(reductionSet[[reductionOpt]]$loading.names, "_", type.vec);
+  
+  colors<- ComputeColorGradient(pvals, "black", F, F);
+  colorb <- colors;
+  sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 25));
+  loading.nodes <- vector(mode="list"); #is node2 loading?
+  
+  
+  seed.inx <- names %in% unique(seeds);
+  seed_arr <- rep("notSeed",length(names));
+  seed_arr[seed.inx] <- "seed";
+  
+  for(i in 1:length(pvals)){
+    loading.nodes[[i]] <- list(
+      id=ids_and_omicstype[i],
+      featureId=ids[i],
+      label=names[i],
+      size=sizes[i],
+      cluster=1,
+      omicstype=type.vec[i],
+      fx = unname(loading.data[i,1])*1000,
+      fy = unname(loading.data[i,2])*1000,
+      fz = unname(loading.data[i,3])*1000,
+      origX = loading.data.orig[i,1],
+      origY = loading.data.orig[i,2],
+      origZ = loading.data.orig[i,3],
+      seedArr = seed_arr[i],
+      colorb=colorb[i],
+      colorw=colorb[i],
+      topocolb="#ffa500",
+      topocolw="#ffa500",
+      expcolb="#ffa500",
+      expcolw="#ffa500",
+      attributes=list(
+        expr = 1,
+        degree=1,
+        between=1
+      )
+    );
+  }
+  
+  netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=reductionSet$reductionOpt , objectsLoading=aLoading$objects, sigMat=sig.mats);
   
   # user can compare dimred results to single-omics PCA
   # do not include PCA
   if( 1 == 2){
-  pca.scatter <- qs::qread("pca.scatter.qs");
+    pca.scatter <- qs::qread("pca.scatter.qs");
     for(i in 1:length(omicstype.vec)){
       pos<-pca.scatter[[paste0("pca_", omicstype.vec[i])]]$score
       
@@ -196,13 +198,13 @@ my.json.scatter <- function(filenm){
           pca_loading[[count]][["fx"]] = loading.data[inx,2]
           pca_loading[[count]][["fx"]] = loading.data[inx,3]
           count = count +1;
-
+          
         }
       }
       nm <- paste0("pca_", omicstype.vec[[i]], "_loading")
       netData[[nm]] <- pca_loading;
     }
-  reductionSet$misc$pct2 <- c(reductionSet$misc$pct2, pca.scatter$pct2);
+    reductionSet$misc$pct2 <- c(reductionSet$misc$pct2, pca.scatter$pct2);
   }
   
   netData[["misc"]] <- reductionSet$misc
@@ -210,16 +212,16 @@ my.json.scatter <- function(filenm){
   sink(filenm);
   cat(rjson::toJSON(netData));
   sink();
-
-  reductionSet$pos.xyz <- pos.xyz;
+  
+  reductionSet[[reductionSet$reductionOpt]]$pos.xyz <- pos.xyz;
   loading.data.orig <- as.data.frame(loading.data.orig)
   loading.data.orig$omicstype <- type.vec;
-  reductionSet$loading.pos.xyz.orig <- loading.data.orig;
+  reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz.orig <- loading.data.orig;
   fileName <- paste0("loading_",reductionSet$reductionOpt, ".csv")
   fast.write.csv(loading.data.orig,file=fileName);
-
+  
   .set.rdt.set(reductionSet);
-
+  
   return(1);
 }
 
@@ -229,30 +231,31 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
   level <- as.numeric(level)
   names = strsplit(names.vec, "; ")[[1]]
   reductionSet <- .get.rdt.set();
-  if(infoSet$paramSet$reductionOptGlobal %in% c("diablo") || omics != "NA"){
+  reductionOpt <- reductionSet$reductionOpt;
+  if(reductionSet$reductionOpt %in% c("diablo") || omics != "NA"){
     if(grepl("pca_", omics, fixed=TRUE)){
-        pca.scatter <- qs::qread("pca.scatter.qs");
-        pos.xyz<-pca.scatter[[ omics ]]$score/1000
+      pca.scatter <- qs::qread("pca.scatter.qs");
+      pos.xyz<-pca.scatter[[ omics ]]$score/1000
     }else{
-        omics.inx = 1;
-        sel.nms <- names(mdata.all)[mdata.all==1];
-        for(i in 1:length(sel.nms)){
+      omics.inx = 1;
+      sel.nms <- names(mdata.all)[mdata.all==1];
+      for(i in 1:length(sel.nms)){
         dataSet <- readDataset(sel.nms[i]);
-            if(omics == dataSet$type){
-                omics.inx = i;
-            }
+        if(omics == dataSet$type){
+          omics.inx = i;
         }
-        if(omics.inx == 1){
-            pos.xyz = reductionSet$pos.xyz
-        }else{
-            pos.xyz = reductionSet$pos.xyz2
-        }
+      }
+      if(omics.inx == 1){
+        pos.xyz = reductionSet[[reductionOpt]]$pos.xyz
+      }else{
+        pos.xyz = reductionSet[[reductionOpt]]$pos.xyz2
+      }
     }
-
+    
   }else{
-  pos.xyz = reductionSet$pos.xyz
+    pos.xyz = reductionSet[[reductionOpt]]$pos.xyz
   }
-
+  
   inx = rownames(pos.xyz) %in% names;
   coords = as.matrix(pos.xyz[inx,c(1:3)])
   mesh = list()

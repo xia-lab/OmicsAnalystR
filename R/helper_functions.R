@@ -52,45 +52,49 @@ UpdateFeatureName <-function(dataName, old.nm, new.nm){
 GetLoadingFileName <-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- readDataset(dataName);
-  reductionSet$loading.file.nm;
+  reductionSet[[reductionSet$reductionOpt]]$loading.file.nm;
 }
 
 GetLoadingMat<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- readDataset(dataName);
   omicstype <- dataSet$type
-  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
+  loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
+  inx <- loading.pos.xyz$type %in% omicstype;
   drops <- c("ids","label", "type")
-  return(CleanNumber(as.matrix(reductionSet$loading.pos.xyz[inx,!(names(reductionSet$loading.pos.xyz) %in% drops)])));
+  return(CleanNumber(as.matrix(loading.pos.xyz[inx,!(names(loading.pos.xyz) %in% drops)])));
 }
 
 GetLoadingIds<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- readDataset(dataName);
   omicstype <- dataSet$type;
-  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
-  reductionSet$loading.pos.xyz$ids[inx];
+  loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
+  inx <- loading.pos.xyz$type %in% omicstype;
+  loading.pos.xyz$ids[inx];
 }
 
 GetLoadingSymbols<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- readDataset(dataName);
   omicstype <- dataSet$type
-  inx <- reductionSet$loading.pos.xyz$type %in% omicstype;
-  reductionSet$loading.pos.xyz$label[inx];
+  loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
+  inx <- loading.pos.xyz$type %in% omicstype;
+  loading.pos.xyz$label[inx];
 }
 
 GetLoadingColNames<-function(dataName){
   reductionSet<-.get.rdt.set();
   dataSet <- readDataset(dataName);
   drops <- c("ids","label", "type")
-  colnames(reductionSet$loading.pos.xyz[!(names(reductionSet$loading.pos.xyz) %in% drops)]);
+  loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
+  colnames(loading.pos.xyz[!(names(loading.pos.xyz) %in% drops)]);
 }
 
 GetVarianceArr<-function(dataName){
   reductionSet <- .get.rdt.set();
   dataSet <- readDataset(dataName);
-  df <- reductionSet$var.exp;
+  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   varArr <- df[,dataSet$type];
   varArr <- signif(varArr,4)*100;
   return(varArr);
@@ -140,4 +144,9 @@ GetMultiSummary <- function(){
   infoSet$paramSet$summaryUploadedData <- res;
   saveSet(infoSet);
   return(unlist(res))
+}
+
+SetReductionOpt <- function(opt){
+  reductionSet<-.get.rdt.set();
+  reductionSet$reductionOpt <- opt;
 }
