@@ -39,6 +39,11 @@ CovariateScatter.Anal <- function(dataName,
       adj.bool = T;
       vars <- c(analysis.var, adj.vec)
       covariates.vec <- adj.vec;
+      if(length(adj.vec) == 1){
+        if(adj.vec == ""){
+            adj.bool = F;
+        }
+      }
     }else{
       adj.bool = F;
       vars <- analysis.var;
