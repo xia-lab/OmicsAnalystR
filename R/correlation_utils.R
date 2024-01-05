@@ -76,9 +76,9 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
     for(i in 1:length(sel.nms)){
       dataName = sel.nms[i]
       dataSet <- readDataset(dataName);
-      
-      inx = which(reductionSet$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
-      loading.df <- reductionSet$loading.pos.xyz[inx, ]
+
+      inx = which(reductionSet[[type]]$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
+      loading.df <- reductionSet[[type]]$loading.pos.xyz[inx, ]
       
       if(retainedNumber > nrow(loading.df)){
         numToKeep <- nrow(loading.df);
@@ -125,7 +125,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
 
 DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.5, 
                                 threshold.intra=0.9, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
-save.image("filter.RData");
+
   reductionSet <- .get.rdt.set();
   reductionSet$threshold.inter <- threshold.inter
   reductionSet$threshold.intra <- threshold.intra
