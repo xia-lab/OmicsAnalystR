@@ -1,5 +1,6 @@
 
 my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
+  library(igraph);
   reductionSet <- .get.rdt.set();
   g <- ppi.comps[[net.nm]];
   expr.vec <- rep(0, length(V(g)$name))

@@ -474,7 +474,6 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
   }
   lblsNm <- names(labels)
   names(lblsNm) <- unname(labels)
-  print(V(graph)$featureId);
   lbls <- unname(lblsNm[V(graph)$featureId]);
   node.data = data.frame(nms, lbls);
   graph = set_vertex_attr(graph, "label", value=lbls)
@@ -511,7 +510,6 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
   #ppi.comps[["overall"]] <- graph
   ppi.comps <<- ppi.comps
   g <- ppi.comps[[net.nm]];
-print(V(g)$label);
   ppi.net <<- list(db.type="abc",
                    db.type="ppi", 
                    order=1, 

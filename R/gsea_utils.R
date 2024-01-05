@@ -18,7 +18,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
   require("fgsea");
   
   if(input.type == "loading"){
-    loading.pos.xyz <- rdtSet$loading.pos.xyz.orig;
+    loading.pos.xyz <- rdtSet[[reductionSet$reductionOpt]]$loading.pos.xyz.orig;
     loading.pos.xyz <- loading.pos.xyz[loading.pos.xyz$omicstype == omics.type,]
     rankedVec <- loading.pos.xyz[,loading.comp];
     names(rankedVec) <- loading.pos.xyz$ids;

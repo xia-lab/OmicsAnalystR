@@ -585,7 +585,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
   }
   dev.off();
-
+  
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$diagnostic_components <- imgNm;
   saveSet(infoSet, "infoSet");

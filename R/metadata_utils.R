@@ -578,6 +578,7 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
   metaData <- rdtSet$dataSet$meta.info
+  
   meta.types <- rdtSet$dataSet$meta.types
   disc.inx <- which(meta.types == "disc")
   cont.inx <- which(meta.types == "cont")
@@ -623,6 +624,10 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat
   
   ggheatmap <- ggheatmap + geom_text(aes(Var2, Var1, label = value), color = "black", size = textSize);
   
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$metadata_heatmap <- imgName;
+  saveSet(infoSet, "infoSet");
+
   if(interactive){
     library(plotly);
         m <- list(
