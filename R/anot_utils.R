@@ -75,6 +75,7 @@ AnnotateMicrobiomeData <- function(dataName,org,feattype){
   }
 
   qs::qsave(data, dataSet$data.annotated.path);
+  fast.write.csv(data,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   dataSet$enrich_ids <- rownames(data);
   names(dataSet$enrich_ids) = rownames(data);
   if(feattype != "otu"){
@@ -190,6 +191,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }
   msg.vec <<- msg;
   qs::qsave(data.annotated, dataSet$data.annotated.path);
+  fast.write.csv(data.annotated,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   RegisterData(dataSet);
   return(1)
 }
@@ -241,6 +243,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
   data <- as.data.frame(data)
   qs::qsave(data, dataSet$data.annotated.path);
+  fast.write.csv(data,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   RegisterData(dataSet);
   msg.vec <<- msg
   
@@ -265,7 +268,7 @@ SkippingAnnotation <- function(dataName, idtype){
   dataSet$enrich_ids <- rownames(data)
   names(dataSet$enrich_ids) <- rownames(data)
   qs::qsave(data, dataSet$data.annotated.path);
-  
+  fast.write.csv(data,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   RegisterData(dataSet);
   
   

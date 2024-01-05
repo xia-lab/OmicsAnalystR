@@ -239,6 +239,9 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   #save results
   res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
+
+  reductionSet$clustResTable <- res.table;
+
   write.csv(res.table, "spectrum_clustering_results.csv");
 
   .set.rdt.set(reductionSet);
@@ -276,6 +279,7 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
 
   res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
   write.csv(res.table, "perturbation_clustering_results.csv");
+  reductionSet$clustResTable <- res.table;
 
   .set.rdt.set(reductionSet);
   return(1)
@@ -471,6 +475,7 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=group);
   write.csv(res.table, "snf_clustering_results.csv");
+  reductionSet$clustResTable <- res.table;
 
   .set.rdt.set(reductionSet);
   return(1)
@@ -580,7 +585,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
   }
   dev.off();
-
+  
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$diagnostic_components <- imgNm;
   saveSet(infoSet, "infoSet");
@@ -734,6 +739,5 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$metaHeatmap <- imgName;
   saveSet(infoSet, "infoSet");
-
-  return(.set.mSet(mSetObj));
+  return(1);
 }

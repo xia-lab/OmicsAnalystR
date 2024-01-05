@@ -153,7 +153,7 @@ FilterDataByVariance <- function(data, filterPercent){
 #'@export
 #'
 
-PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
+PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
   load_cairo();
   load_ggplot();
   dpi<-as.numeric(dpi)
@@ -164,7 +164,8 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
   
   pca.list<- list()
   pct <- list();
-  
+  all_data <- list()
+
   for(i in 1:length(sel.nms)){
     dataSet = readDataset(sel.nms[i])
     x <- dataSet$data.proc
@@ -184,18 +185,20 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
     pca.rest <- pca.res
     pca.rest$Conditions <- Factor
     pca.rest$names <- rownames(pca.res)
+    pca.rest$dataset <- dataSet$name # This is the new column specifying the dataset/source
+    all_data[[i]] <- pca.rest
+
+    #pcafig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
+    #  geom_point(size=3, alpha=0.5) + 
+    #  xlim(xlim) + 
+    #  ylim(ylim) + 
+    #  xlab(xlabel) + 
+    #  ylab(ylabel) +
+    #  ggtitle(dataSet$name)+
+    #  theme_bw()+
+    #  theme(text=element_text(size=13), plot.title = element_text(hjust = 0.5));
     
-    pcafig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
-      geom_point(size=3, alpha=0.5) + 
-      xlim(xlim) + 
-      ylim(ylim) + 
-      xlab(xlabel) + 
-      ylab(ylabel) +
-      ggtitle(dataSet$name)+
-      theme_bw()+
-      theme(text=element_text(size=13), plot.title = element_text(hjust = 0.5));
-    
-    fig.list[[i]] <- pcafig
+    #fig.list[[i]] <- pcafig
     
     #computing 3d pca
     #pos.xyz = data.frame(x=pca$x[,1], y=pca$x[,2], z=pca$x[,3]);
@@ -218,23 +221,46 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1"){
     #pct2Nm <- paste0("pca_", dataSet$type)
     #pct[[pct2Nm]] <- unname(round(imp.pca[2,],3))[c(1:3)]*100;
   }
+
   pca.list$pct2 <- pct;
   qs::qsave(pca.list, file="pca.scatter.qs");
   
-  h<-6*round(length(fig.list)/2)
-  Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
-  library("ggpubr")
-  p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2))
-  print(p1)
-  dev.off();
-
+  #h<-6*round(length(sel.nms)/2)
+  h<-6
+  #library("ggpubr")
+  #p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2))
+  combined_data <- do.call(rbind, all_data)
+  
+  p1 <- ggplot(combined_data, aes(x=PC1, y=PC2, color=Conditions)) +
+    geom_point(size=3, alpha=0.5) + 
+    facet_wrap(~ dataset, scales = "free") + # Use facet_wrap or facet_grid
+    theme_bw() +
+    theme(text=element_text(size=13))
 
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$qc_multi_pca <- imgNm;
   saveSet(infoSet);
+
+  if(interactive){
+    library(plotly);
+        m <- list(
+                l = 50,
+                r = 50,
+                b = 20,
+                t = 20,
+                pad = 0.5
+            )
+
+    ggp_build <- layout(ggplotly(p1), autosize = FALSE, width = 1000, height = 600, margin = m)
+    return(ggp_build);
+  }else{
+  Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
+  print(p1)
+  dev.off();
+  }
 }
 
-PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
+PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
   load_cairo();
   load_ggplot();
   dpi <- as.numeric(dpi)
@@ -262,19 +288,34 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1"){
   
   type<-merged.df$type
   merged.df$ind <- paste0(merged.df$ind, "_", merged.df$type)
-  
-  Cairo(file=imgNm, width=10, height=6, type=format, bg="white", dpi=dpi, unit="in");
-  g =ggplot(merged.df, aes(x=values)) + 
+    g =ggplot(merged.df, aes(x=values)) + 
     geom_line(aes(color=Dataset, group=ind), stat="density", alpha=0.1) + 
     geom_line(aes(color=Dataset), stat="density", alpha=0.7, size=3) +
     theme_bw() +
     theme(text=element_text(size=13))
-  print(g)
-  dev.off();
 
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$qc_multi_density <- imgNm;
   saveSet(infoSet);
+
+  if(interactive){
+    library(plotly);
+        m <- list(
+                l = 50,
+                r = 50,
+                b = 20,
+                t = 20,
+                pad = 0.5
+            )
+
+    ggp_build <- layout(ggplotly(g), autosize = FALSE, width = 1000, height = 600, margin = m)
+    return(ggp_build);
+  }else{
+  Cairo(file=imgNm, width=10, height=6, type=format, bg="white", dpi=dpi, unit="in");
+  print(g)
+  dev.off();
+
+  }
 } 
 
 CheckMetaIntegrity <- function(){

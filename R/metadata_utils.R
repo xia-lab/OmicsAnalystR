@@ -573,12 +573,12 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName, dpi=96, imgFormat="png"){
-  
+PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat="png", interactive=F){
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
   metaData <- rdtSet$dataSet$meta.info
+  
   meta.types <- rdtSet$dataSet$meta.types
   disc.inx <- which(meta.types == "disc")
   cont.inx <- which(meta.types == "cont")
@@ -619,15 +619,34 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName, dpi=96, imgFormat="p
     scale_fill_gradient2(low = muted("blue"), mid="white", high = muted("red"), midpoint = 0,
                          limit = c(-1,1), space = "Lab", name="Correlation") + theme_minimal()+ 
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
-          axis.title.x = element_blank(), axis.title.y = element_blank(),axis.text.y = element_blank(), axis.text.y.right = element_text(),
+          axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.y.right = element_text(),
           legend.direction = "vertical", legend.position="left")+ coord_fixed();
   
   ggheatmap <- ggheatmap + geom_text(aes(Var2, Var1, label = value), color = "black", size = textSize);
   
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$metadata_heatmap <- imgName;
+  saveSet(infoSet, "infoSet");
+
+  if(interactive){
+    library(plotly);
+        m <- list(
+                l = 50,
+                r = 50,
+                b = 20,
+                t = 20,
+                pad = 0.5
+            )
+
+    ggp_build <- layout(ggplotly(ggheatmap), autosize = FALSE, width = 800, height = 600, margin = m)
+    return(ggp_build);
+  }else{
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=imgFormat, bg="white");
   print(ggheatmap);
   dev.off();
   return(1);
+
+  }
 }
 
 # Get lower triangle of the correlation matrix

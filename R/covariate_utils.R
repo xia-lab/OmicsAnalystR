@@ -39,6 +39,11 @@ CovariateScatter.Anal <- function(dataName,
       adj.bool = T;
       vars <- c(analysis.var, adj.vec)
       covariates.vec <- adj.vec;
+      if(length(adj.vec) == 1){
+        if(adj.vec == ""){
+            adj.bool = F;
+        }
+      }
     }else{
       adj.bool = F;
       vars <- analysis.var;
@@ -312,6 +317,8 @@ CovariateScatter.Anal <- function(dataName,
     
   nonSig <- nrow(dataSet$comp.res) - sig.num;
 
+  comp_res_path <- paste0(names(dataSets)[i], "_data/", "comp_res.csv");
+  fast.write.csv(rest, file=paste0(dataName, "_data/", "comp_res.csv"))
   RegisterData(dataSet)
   return(c(sig.num, nonSig));
 }

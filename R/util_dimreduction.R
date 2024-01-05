@@ -8,7 +8,6 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
-  save.image("mcia.RData");
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -75,7 +74,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     }
 
     if(.on.public.web){
-        infoSet$paramSet$reductionOptGlobal <- reductionOpt;
+        reductionSet$reductionOpt <- reductionOpt;
         saveSet(infoSet);
         reductionSet$enrich.nms1 <- enrich.nms1;
         qs::qsave(reductionSet, "rdt.set.qs");
@@ -117,7 +116,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
     diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta];
-    
+    reductionSet$diabloMeta <- diabloMeta;
+    reductionSet$diabloPar <- diabloPar;
     if(diablo.meta.type == "disc"){
       Y <- reductionSet$meta[,diabloMeta];
       
@@ -194,21 +194,21 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
 
-  reductionSet$pos.xyz <- pos.xyz;
-  reductionSet$loading.pos.xyz <- loading.pos.xyz;
-  reductionSet$var.exp <- var.exp;
+  reductionSet[[reductionOpt]]$pos.xyz <- pos.xyz;
+  reductionSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
+  reductionSet[[reductionOpt]]$var.exp <- var.exp;
   fileNm <- paste0("loading_result_", reductionOpt);
-  reductionSet$loading.file.nm <- fileNm;
-  infoSet$imgSet$loading.pos.xyz <- loading.pos.xyz;
+  reductionSet[[reductionSet$reductionOpt]]$loading.file.nm <- fileNm;
+  infoSet$imgSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   fast.write.csv(loading.pos.xyz,file=fileNm);
   
   hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
-  reductionSet$loading.enrich <- loadingSymbols
-  reductionSet$loading.names <- featureNms
+  reductionSet[[reductionOpt]]$loading.enrich <- loadingSymbols
+  reductionSet[[reductionOpt]]$loading.names <- featureNms
   reductionSet$omicstype <- names(data.list)
 
-  infoSet$paramSet$reductionOptGlobal <- reductionOpt;
+  reductionSet$reductionOpt <- reductionOpt;
   saveSet(infoSet);
   .set.rdt.set(reductionSet);
   
@@ -440,46 +440,46 @@ function(dataset, pos=FALSE,  trans=FALSE){
 
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-  load_cairo();
-  library(see)
-  load_ggplot();
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx]
-  dpi<-as.numeric(dpi)
-  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  reductionSet <- .get.rdt.set();
-  
-  df <- reductionSet$var.exp;
-  df <- reshape2::melt(df)
-  colnames(df) <- c("Component", "Dataset", "value")
-  df$Component <- gsub("Factor","", df$Component);
-  for(i in 1:length(sel.nms)){
-    dataSet <- readDataset(sel.nms[i]);
-    df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
-  }
-  min_r2 = 0
-  max_r2 = max(df$value)
-  
-  p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
-    geom_line(aes(color=Dataset),linewidth=2) +
-    scale_fill_okabeito() +
-    scale_color_okabeito() +
-    labs(x="Component #", y="Var. (%)", title="") + theme_minimal() +
-    theme(legend.text=element_text(size=11), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
-  
-  
-  Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
-  print(p1)
-  dev.off();
+    infoSet <- readSet(infoSet, "infoSet");
+    load_cairo();
+    library(see)
+    load_ggplot();
+    sel.inx <- mdata.all==1;
+    sel.nms <- names(mdata.all)[sel.inx]
+    dpi<-as.numeric(dpi)
+    imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$dimred_varexp <- imgNm;
-  saveSet(infoSet);
+    reductionSet <- .get.rdt.set();
+
+    df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+    df <- reshape2::melt(df)
+    colnames(df) <- c("Component", "Dataset", "value")
+    df$Component <- gsub("Factor","", df$Component);
+    for(i in 1:length(sel.nms)){
+      dataSet <- readDataset(sel.nms[i]);
+      df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
+    }
+    min_r2 = 0
+    max_r2 = max(df$value)
+
+    p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
+      geom_line(aes(color=Dataset),linewidth=2) +
+      scale_fill_okabeito() +
+      scale_color_okabeito() +
+      labs(x="Component #", y="Var. (%)", title="") + theme_minimal(base_size=15) +
+      theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
+
+
+    Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
+    print(p1)
+    dev.off();
+
+    infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
+    saveSet(infoSet);
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  
+  infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();
   library(GGally)
@@ -502,7 +502,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   # draw plot
   Cairo::Cairo(file = imgNm, unit="in", dpi=dpi, width=10, height=10, type=format, bg="white");
   
-  data <- as.data.frame(reductionSet$pos.xyz[,1:pc.num]);
+  data <- as.data.frame(reductionSet[[reductionSet$reductionOpt]]$pos.xyz[,1:pc.num]);
   meta.info <- reductionSet$meta;
   meta.info <- meta.info[match(rownames(data), rownames(meta.info)),,drop=F]
   
@@ -510,7 +510,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   inx <- which(colnames(meta.info) == meta)
   cls <- meta.info[, inx];
   cls.type <- reductionSet$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
-  
+  base_size=15;
   if (cls.type == "disc"){ ## code to execute if metadata class is discrete
     
     # make plot
@@ -521,14 +521,15 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
                  columnLabels = pclabels, mapping = aes(color = cls))
     
     auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) + 
-      theme_bw() + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
+      theme_bw(base_size=base_size) + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) + 
       scale_fill_okabeito() + 
       scale_color_okabeito() +
       guides(col = guide_legend(nrow = 1))
-    p <- p + theme_bw() + 
+    p <- p + theme_bw(base_size=base_size) + 
       scale_fill_okabeito() + 
       scale_color_okabeito() +
-      theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"))
+      theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"));
+
     mylegend <- grab_legend(auxplot)
     
   } else { ## code to excute if metadata class is continuous
@@ -544,11 +545,11 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
                  columnLabels = pclabels)
     
     auxplot <- ggplot(data.frame(cls = num.cls), aes(x=cls, y=cls, color=cls)) + 
-      theme_bw() + geom_point(size = 6) + 
-      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=11)) + 
+      theme_bw(base_size=base_size) + geom_point(size = 6) + 
+      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) + 
       guides(col = guide_legend(nrow = 1))
     
-    p <- p + theme_bw() + theme(plot.margin = unit(c(0.25, 0.25, 0.8, 0.25), "in"))
+    p <- p + theme_bw(base_size=base_size) + theme(plot.margin = unit(c(0.25, 0.25, 0.8, 0.25), "in"))
     mylegend <- grab_legend(auxplot)
     
   }
@@ -560,8 +561,7 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   grid.draw(mylegend)
   upViewport()
   dev.off()
-
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$dimred_factors <- imgNm;
+  
+  infoSet$imgSet[[paste0("dimred_factors_", reductionSet$reductionOpt)]]<- imgNm;
   saveSet(infoSet);
 }
