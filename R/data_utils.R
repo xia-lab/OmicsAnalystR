@@ -50,7 +50,9 @@ Init.Data <- function(){
   lib.path <<- "../../data/";
   data.org <<- NULL;
   module.count <<- 0;
-  if(file.exists("/home/glassfish/sqlite/")){
+  if(file.exists("/data/sqlite/")){
+    sqlite.path <<- "/data/sqlite/";  #vip server
+  } else if(file.exists("/home/glassfish/sqlite/")){
     sqlite.path <<- "/home/glassfish/sqlite/";  #public server
   }else if(file.exists("/Users/xialab/Dropbox/sqlite/")){
     sqlite.path <<- "/Users/xialab/Dropbox/sqlite/";  #xia local
