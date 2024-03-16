@@ -5,14 +5,14 @@
 ###################################################
 
 .get.rdt.set <- function(){
-   return(result.set);
-  #return(qs::qread("rdt.set.qs"));
+  # return(result.set);
+  return(qs::qread("rdt.set.qs"));
 }
 
 .set.rdt.set <- function(my.set){
-  result.set <<- my.set;
+  #result.set <<- my.set;
+  qs::qsave(my.set, file="rdt.set.qs");
   return(1);
-  #qs::qsave(my.set, file="rdt.set.qs");
 }
 
 #'Initialize resources for analysis

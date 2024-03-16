@@ -9,7 +9,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   data <- list()
   labels <- vector();
   for(i in 1:length(sel.nms)){
-    dataSet = readDataset(sel.nms[i])
+    dataSet <- readDataset(sel.nms[i])
     dat <- dataSet$data.proc
     df <- data.frame(dat, stringsAsFactors = FALSE)
     df <- t(df)

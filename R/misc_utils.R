@@ -370,7 +370,6 @@ cleanMem <- function(n=8) { for (i in 1:n) gc() }
   vec <- is.na(obj.dim)[, 1] & (obj.type != "function")
   obj.dim[vec, 1] <- napply(names, length)[vec]
   out <- data.frame(obj.type, obj.size, obj.prettysize, obj.dim)
-  print(lapply(dataSet, object.size));
   names(out) <- c("Type", "Size", "PrettySize", "Rows", "Columns")
   if (!missing(order.by))
     out <- out[order(out[[order.by]], decreasing=decreasing), ]
@@ -385,6 +384,9 @@ ShowMemoryUse <- function(..., n=40) {
   sink(); # make sure print to screen
   print(mem_used());
   print(sessionInfo());
+  print(lapply(dataSets, object.size));
+  #print(lapply(result.set, object.size));
+  print(lapply(infoSet, object.size));
   print(.ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n));
   print(warnings());
 }
