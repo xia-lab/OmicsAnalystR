@@ -850,7 +850,15 @@ readSet <- function(obj=NA, set=""){
      # if(path != ""){
      # obj <- load_qs(paste0(path, set, ".qs"));
      # }else{
-      obj <- qs:::qread(paste0(set, ".qs"));
+
+        if(file.exists(paste0(set, ".qs"))){
+        tryCatch({
+              obj <- qs::qread(paste0(set, ".qs"));
+            # If this line is reached, the file is likely a valid qs file
+        }, error = function(e) {
+          message("Error readSet QS file: ", e$message)
+        })
+      }
      # }
     #}
     return(obj);
@@ -962,18 +970,22 @@ get_pheatmap_dims <- function(dat, annotation, view.type, width, cellheight = 15
 }
 
 readDataset <- function(fileName=""){
+        obj <- NULL;
+
     if(globalConfig$anal.mode == "api"){
       if(exists('user.path')){
         path <- user.path;
         obj <- load_qs(paste0(path, fileName));
       }else{
-        obj <- qs:::qread(fileName);
+        obj <- qs::qread(fileName);
       }
     }else{
-        obj <- qs:::qread(fileName);
-       #obj <- dataSets[[fileName]];
+            if(exists("dataSets") && !is.null(dataSets) && !is.null(dataSets[[fileName]])) {
+                obj <- dataSets[[fileName]]
+            } else {
+                obj <- qs::qread(fileName)
+            }
     }
-
     return(obj);
 }
 

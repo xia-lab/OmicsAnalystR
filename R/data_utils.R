@@ -6,7 +6,11 @@
 
 .get.rdt.set <- function(){
   # return(result.set);
-  return(qs::qread("rdt.set.qs"));
+  if(exists("result.set")){
+    return(result.set);
+  }else{
+    return(qs::qread("rdt.set.qs"));
+  }
 }
 
 .set.rdt.set <- function(my.set){
