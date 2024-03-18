@@ -811,46 +811,46 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 
 saveSet <- function(obj=NA, set="", output=1){
     
-    if(globalConfig$anal.mode == "api"){ 
+    #if(globalConfig$anal.mode == "api"){ 
       qs:::qsave(obj, paste0(set, ".qs"));
-    }else{
-      if(set == ""){
-        set <- obj$objName;
-      }
-      if(set == "dataSet"){
-        dataSet <<- obj;
-      }else if(set == "analSet"){
-        analSet <<- obj;
-      }else if(set == "imgSet"){
-        imgSet <<- obj;
-      }else if(set == "paramSet"){
-        paramSet <<- obj;
-      }else if(set == "msgSet"){
-        msgSet <<- obj;
-      }else if(set == "cmdSet"){
-        cmdSet <<- obj;
-      }else if(set == "infoSet"){
-        infoSet <<- obj;
-      }
+    #}else{
+    #  if(set == ""){
+    #    set <- obj$objName;
+    #  }
+    #  if(set == "dataSet"){
+    #    dataSet <<- obj;
+    #  }else if(set == "analSet"){
+    #    analSet <<- obj;
+    #  }else if(set == "imgSet"){
+    #    imgSet <<- obj;
+    #  }else if(set == "paramSet"){
+    #    paramSet <<- obj;
+    #  }else if(set == "msgSet"){
+    #    msgSet <<- obj;
+    #  }else if(set == "cmdSet"){
+    #    cmdSet <<- obj;
+    #  }else if(set == "infoSet"){
+    #    infoSet <<- obj;
+    #  }
 
-    }
+    #}
       return(output);
 
 }
 
 readSet <- function(obj=NA, set=""){
-    if(globalConfig$anal.mode == "api"){
-      path <- "";
-      if(exists('user.path')){
-        path <- user.path;
-      }
+    #if(globalConfig$anal.mode == "api"){
+     # path <- "";
+     # if(exists('user.path')){
+     #   path <- user.path;
+     # }
 
-      if(path != ""){
-      obj <- load_qs(paste0(path, set, ".qs"));
-      }else{
+     # if(path != ""){
+     # obj <- load_qs(paste0(path, set, ".qs"));
+     # }else{
       obj <- qs:::qread(paste0(set, ".qs"));
-      }
-    }
+     # }
+    #}
     return(obj);
 }
 
@@ -968,7 +968,8 @@ readDataset <- function(fileName=""){
         obj <- qs:::qread(fileName);
       }
     }else{
-       obj <- dataSets[[fileName]];
+        obj <- qs:::qread(fileName);
+       #obj <- dataSets[[fileName]];
     }
 
     return(obj);
