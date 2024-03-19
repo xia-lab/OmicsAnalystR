@@ -852,13 +852,13 @@ readSet <- function(obj=NA, set=""){
      # }else{
 
         if(file.exists(paste0(set, ".qs"))){
-        tryCatch({
-              obj <- qs::qread(paste0(set, ".qs"));
-            # If this line is reached, the file is likely a valid qs file
-        }, error = function(e) {
-          message("Error readSet QS file: ", e$message)
-        })
-      }
+            tryCatch({
+                  obj <- qs::qread(paste0(set, ".qs"));
+                # If this line is reached, the file is likely a valid qs file
+            }, error = function(e) {
+              message("Error readSet QS file: ", e$message)
+            })
+        }
      # }
     #}
     return(obj);
@@ -981,8 +981,10 @@ readDataset <- function(fileName=""){
       }
     }else{
             if(exists("dataSets") && !is.null(dataSets) && !is.null(dataSets[[fileName]])) {
+                print("datasetsobject");
                 obj <- dataSets[[fileName]]
             } else {
+                print("readdataset.qs");
                 obj <- qs::qread(fileName)
             }
     }

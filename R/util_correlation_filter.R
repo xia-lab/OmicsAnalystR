@@ -28,7 +28,6 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     pattern <- paste0("^(.*)((", paste(toMatch, collapse = "|"), "))$")
     V(g)$type <- gsub(pattern, "\\2", V(g)$name);
     V(g)$label <- gsub(pattern, "", V(g)$name);
-    print(unique(V(g)$label));
     
     edge_list <- igraph::as_data_frame(simplify(g, remove.loops = TRUE,edge.attr.comb="max"), "edges")
     v1 <- V(g)$name[V(g)$type == unique(types)[1]]
