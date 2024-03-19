@@ -12,8 +12,10 @@ ComputeHeatmap <- function(fileNm, type){
   }
   .set.rdt.set(reductionSet);
   res.list <- list()
-  for(i in 1:length(dataSets)){
-    dataSet <- readDataset(names(dataSets)[i])
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+  for(i in 1:length(sel.nms)){
+    dataSet <- readDataset(sel.nms[i])
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
   }
