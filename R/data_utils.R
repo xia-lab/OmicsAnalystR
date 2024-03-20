@@ -5,14 +5,19 @@
 ###################################################
 
 .get.rdt.set <- function(){
-   return(result.set);
-  #return(qs::qread("rdt.set.qs"));
+  # return(result.set);
+  if(exists("result.set") && !is.null(result.set)){
+
+    return(result.set);
+  }else{
+    return(qs::qread("rdt.set.qs"));
+  }
 }
 
 .set.rdt.set <- function(my.set){
-  result.set <<- my.set;
+  #result.set <<- my.set;
+  qs::qsave(my.set, file="rdt.set.qs");
   return(1);
-  #qs::qsave(my.set, file="rdt.set.qs");
 }
 
 #'Initialize resources for analysis
@@ -50,7 +55,9 @@ Init.Data <- function(){
   lib.path <<- "../../data/";
   data.org <<- NULL;
   module.count <<- 0;
-  if(file.exists("/home/glassfish/sqlite/")){
+  if(file.exists("/data/sqlite/")){
+    sqlite.path <<- "/data/sqlite/";  #vip server
+  } else if(file.exists("/home/glassfish/sqlite/")){
     sqlite.path <<- "/home/glassfish/sqlite/";  #public server
   }else if(file.exists("/Users/xialab/Dropbox/sqlite/")){
     sqlite.path <<- "/Users/xialab/Dropbox/sqlite/";  #xia local
@@ -205,8 +212,9 @@ RegisterData <- function(dataSet, output=1){
   mdata.all[[dataName]] <<- 1;
 
   if(.on.public.web){
-    dataSets[[dataName]] <- dataSet;
-    dataSets <<- dataSets;
+    #dataSets[[dataName]] <- dataSet;
+    #dataSets <<- dataSets;
+    qs::qsave(dataSet, file=dataName);
     return(output);
   }else{
     if(paramSet$api.bool){

@@ -370,7 +370,6 @@ cleanMem <- function(n=8) { for (i in 1:n) gc() }
   vec <- is.na(obj.dim)[, 1] & (obj.type != "function")
   obj.dim[vec, 1] <- napply(names, length)[vec]
   out <- data.frame(obj.type, obj.size, obj.prettysize, obj.dim)
-  print(lapply(dataSet, object.size));
   names(out) <- c("Type", "Size", "PrettySize", "Rows", "Columns")
   if (!missing(order.by))
     out <- out[order(out[[order.by]], decreasing=decreasing), ]
@@ -385,6 +384,9 @@ ShowMemoryUse <- function(..., n=40) {
   sink(); # make sure print to screen
   print(mem_used());
   print(sessionInfo());
+  print(lapply(dataSets, object.size));
+  #print(lapply(result.set, object.size));
+  print(lapply(infoSet, object.size));
   print(.ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n));
   print(warnings());
 }
@@ -811,46 +813,54 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 
 saveSet <- function(obj=NA, set="", output=1){
     
-    if(globalConfig$anal.mode == "api"){ 
+    #if(globalConfig$anal.mode == "api"){ 
       qs:::qsave(obj, paste0(set, ".qs"));
-    }else{
-      if(set == ""){
-        set <- obj$objName;
-      }
-      if(set == "dataSet"){
-        dataSet <<- obj;
-      }else if(set == "analSet"){
-        analSet <<- obj;
-      }else if(set == "imgSet"){
-        imgSet <<- obj;
-      }else if(set == "paramSet"){
-        paramSet <<- obj;
-      }else if(set == "msgSet"){
-        msgSet <<- obj;
-      }else if(set == "cmdSet"){
-        cmdSet <<- obj;
-      }else if(set == "infoSet"){
-        infoSet <<- obj;
-      }
+    #}else{
+    #  if(set == ""){
+    #    set <- obj$objName;
+    #  }
+    #  if(set == "dataSet"){
+    #    dataSet <<- obj;
+    #  }else if(set == "analSet"){
+    #    analSet <<- obj;
+    #  }else if(set == "imgSet"){
+    #    imgSet <<- obj;
+    #  }else if(set == "paramSet"){
+    #    paramSet <<- obj;
+    #  }else if(set == "msgSet"){
+    #    msgSet <<- obj;
+    #  }else if(set == "cmdSet"){
+    #    cmdSet <<- obj;
+    #  }else if(set == "infoSet"){
+    #    infoSet <<- obj;
+    #  }
 
-    }
+    #}
       return(output);
 
 }
 
 readSet <- function(obj=NA, set=""){
-    if(globalConfig$anal.mode == "api"){
-      path <- "";
-      if(exists('user.path')){
-        path <- user.path;
-      }
+    #if(globalConfig$anal.mode == "api"){
+     # path <- "";
+     # if(exists('user.path')){
+     #   path <- user.path;
+     # }
 
-      if(path != ""){
-      obj <- load_qs(paste0(path, set, ".qs"));
-      }else{
-      obj <- qs:::qread(paste0(set, ".qs"));
-      }
-    }
+     # if(path != ""){
+     # obj <- load_qs(paste0(path, set, ".qs"));
+     # }else{
+
+        if(file.exists(paste0(set, ".qs"))){
+            tryCatch({
+                  obj <- qs::qread(paste0(set, ".qs"));
+                # If this line is reached, the file is likely a valid qs file
+            }, error = function(e) {
+              message("Error readSet QS file: ", e$message)
+            })
+        }
+     # }
+    #}
     return(obj);
 }
 
@@ -960,17 +970,24 @@ get_pheatmap_dims <- function(dat, annotation, view.type, width, cellheight = 15
 }
 
 readDataset <- function(fileName=""){
+        obj <- NULL;
+
     if(globalConfig$anal.mode == "api"){
       if(exists('user.path')){
         path <- user.path;
         obj <- load_qs(paste0(path, fileName));
       }else{
-        obj <- qs:::qread(fileName);
+        obj <- qs::qread(fileName);
       }
     }else{
-       obj <- dataSets[[fileName]];
+            if(exists("dataSets") && !is.null(dataSets) && !is.null(dataSets[[fileName]])) {
+                print("datasetsobject");
+                obj <- dataSets[[fileName]]
+            } else {
+                print("readdataset.qs");
+                obj <- qs::qread(fileName)
+            }
     }
-
     return(obj);
 }
 

@@ -81,6 +81,11 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
         saveRDS(data.list, file = "mofaInput.rds");
         return(2);
     } else {
+
+        my_temp_dir <- tempfile(pattern = "MySession_")
+        dir.create(my_temp_dir)
+        Sys.setenv(TEMP = my_temp_dir, TMP = my_temp_dir, TMPDIR = my_temp_dir)
+
         library(MOFA2)
         MOFAobject <- create_mofa(data.list);
         data_opts <- get_default_data_options(MOFAobject);
@@ -219,7 +224,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 #used to get MOFA results
 GetRdtQs <- function(){
     res <- qs::qread("rdt.set.qs");
-    result.set <<- res;
+    ##result.set <<- res;
     return(1);
 }
 
@@ -438,44 +443,45 @@ function(dataset, pos=FALSE,  trans=FALSE){
         return(data.out)
 }
 
-
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-    infoSet <- readSet(infoSet, "infoSet");
-    load_cairo();
-    library(see)
-    load_ggplot();
-    sel.inx <- mdata.all==1;
-    sel.nms <- names(mdata.all)[sel.inx]
-    dpi<-as.numeric(dpi)
-    imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  infoSet <- readSet(infoSet, "infoSet");
+  load_cairo();
+  library(see)
+  load_ggplot();
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx]
+  dpi<-as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  
+  reductionSet <- .get.rdt.set();
 
-    reductionSet <- .get.rdt.set();
+  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+  df <- reshape2::melt(df)
 
-    df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-    df <- reshape2::melt(df)
-    colnames(df) <- c("Component", "Dataset", "value")
-    df$Component <- gsub("Factor","", df$Component);
-    for(i in 1:length(sel.nms)){
-      dataSet <- readDataset(sel.nms[i]);
-      df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
-    }
-    min_r2 = 0
-    max_r2 = max(df$value)
+  colnames(df) <- c("Component", "Dataset", "value")
+  df$Component <- gsub("Factor","", df$Component);
+  for(i in 1:length(sel.nms)){
+    dataSet <- readDataset(sel.nms[i]);
 
-    p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
-      geom_line(aes(color=Dataset),linewidth=2) +
-      scale_fill_okabeito() +
-      scale_color_okabeito() +
-      labs(x="Component #", y="Var. (%)", title="") + theme_minimal(base_size=15) +
-      theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
-
-
-    Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
-    print(p1)
-    dev.off();
-
-    infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
-    saveSet(infoSet);
+    df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
+  }
+  min_r2 = 0
+  max_r2 = max(df$value)
+  
+  p1 <- ggplot(df, aes_string(y="value", x="Component", group="Dataset")) + 
+    geom_line(aes(color=Dataset),linewidth=2) +
+    scale_fill_okabeito() +
+    scale_color_okabeito() +
+    labs(x="Component #", y="Var. (%)", title="") + theme_minimal(base_size=15) +
+    theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
+  
+  
+  Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
+  print(p1)
+  dev.off();
+  
+  infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
+  saveSet(infoSet);
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
