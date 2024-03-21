@@ -8,6 +8,7 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
+
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -67,27 +68,23 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
   } else if (reductionOpt == "mofa") {
+
+    if(!exists("run_mofa")){ # public web on same user dir
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_mofa.Rc");    
+    }
+
     # set up model
     data.list <- lapply(data.list, as.matrix)
     for(i in c(1:length(omics.type))){
       rownames(data.list[[i]]) <- paste0(rownames(data.list[[i]]), "_", omics.type[i])
     }
 
-    if(.on.public.web){
-        reductionSet$reductionOpt <- reductionOpt;
-        saveSet(infoSet);
-        reductionSet$enrich.nms1 <- enrich.nms1;
-        qs::qsave(reductionSet, "rdt.set.qs");
-        saveRDS(data.list, file = "mofaInput.rds");
-        return(2);
-    } else {
-
         my_temp_dir <- tempfile(pattern = "MySession_")
         dir.create(my_temp_dir)
         Sys.setenv(TEMP = my_temp_dir, TMP = my_temp_dir, TMPDIR = my_temp_dir)
 
-        library(MOFA2)
-        MOFAobject <- create_mofa(data.list);
+        #library(MOFA2)
+        MOFAobject <- create_mofa_from_matrix(data.list);
         data_opts <- get_default_data_options(MOFAobject);
         model_opts <- get_default_model_options(MOFAobject);
         model_opts$num_factors <- 5;
@@ -100,7 +97,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
           training_options = train_opts
         );
 
-        model <- run_mofa(MOFAobject, save_data = FALSE, use_basilisk = TRUE, outfile="mofa_model.hdf5");
+        model <- run_mofa(MOFAobject, save_data = FALSE, outfile="mofa_model.hdf5");
 
         factors <- get_factors(model, as.data.frame = T);
         pos.xyz <- reshape2::dcast(factors, sample ~ factor, value.var = "value")
@@ -116,7 +113,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
         var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
         var.exp <- round(var.exp, digits = 3);
-    }
+    #}
     
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
