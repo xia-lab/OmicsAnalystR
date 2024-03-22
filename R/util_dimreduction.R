@@ -20,6 +20,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   
     dataSet = readDataset(sel.nms[i])
     omics.type <- c(omics.type, dataSet$type)
+    sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dataSet$data.proc), perl = TRUE)
+    rownames(dataSet$data.proc) <- sanitized_names;
     data.list[[dataSet$type]] <- dataSet$data.proc
 
     if(i == 1){       
@@ -84,10 +86,14 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
     #library(MOFA2);
     # set up model
-    data.list <- lapply(data.list, as.matrix)
-    for(i in c(1:length(omics.type))){
-      rownames(data.list[[i]]) <- paste0(rownames(data.list[[i]]), "_", omics.type[i])
-    }
+    # Sanitize the row names of each matrix to remove non-ASCII characters and append the omics type.
+    data.list <- lapply(data.list, function(matrix, omics) {
+      # Replace non-ASCII characters with an underscore or another ASCII character
+      sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(matrix), perl = TRUE)
+      # Append the omics type to the sanitized row names
+      rownames(matrix) <- paste0(sanitized_names, "_", omics)
+      return(as.matrix(matrix))  # Ensure the sanitized data is still in matrix form
+    }, omics.type)  # Use the corresponding omics.type for each matrix
 
     MOFAobject <- create_mofa_from_matrix(data.list);
     data_opts <- get_default_data_options(MOFAobject);

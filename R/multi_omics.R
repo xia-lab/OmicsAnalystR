@@ -237,9 +237,6 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
     theme_bw() +
     theme(text=element_text(size=13))
 
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$qc_multi_pca <- imgNm;
-  saveSet(infoSet);
 
   if(interactive){
     library(plotly);
@@ -257,6 +254,9 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
   Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$qc_multi_pca <- imgNm;
+  saveSet(infoSet);
   }
 }
 
@@ -294,9 +294,7 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1", interactive
     theme_bw() +
     theme(text=element_text(size=13))
 
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$qc_multi_density <- imgNm;
-  saveSet(infoSet);
+
 
   if(interactive){
     library(plotly);
@@ -314,7 +312,9 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1", interactive
   Cairo(file=imgNm, width=10, height=6, type=format, bg="white", dpi=dpi, unit="in");
   print(g)
   dev.off();
-
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$qc_multi_density <- imgNm;
+  saveSet(infoSet);
   }
 } 
 
