@@ -590,7 +590,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$diagnostic_components <- imgNm;
-  saveSet(infoSet, "infoSet");
+  saveSet(infoSet);
   return(1);
 }
 
@@ -740,6 +740,6 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
 
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$metaHeatmap <- imgName;
-  saveSet(infoSet, "infoSet");
+  saveSet(infoSet);
   return(1);
 }

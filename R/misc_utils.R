@@ -814,7 +814,7 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 saveSet <- function(obj=NA, set="", output=1){
     
     #if(globalConfig$anal.mode == "api"){ 
-      qs:::qsave(obj, paste0(set, ".qs"));
+      qs:::qsave(obj, paste0(obj$objName, ".qs"));
     #}else{
     #  if(set == ""){
     #    set <- obj$objName;
@@ -984,7 +984,6 @@ readDataset <- function(fileName=""){
                 print("datasetsobject");
                 obj <- dataSets[[fileName]]
             } else {
-                print("readdataset.qs");
                 obj <- qs::qread(fileName)
             }
     }
