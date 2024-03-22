@@ -272,7 +272,10 @@ get_default_training_options <- function(object) {
 #' # Run the MOFA model
 #' \dontrun{ MOFAmodel <- run_mofa(MOFAmodel, use_basilisk = TRUE) }
 run_mofa <- function(object, outfile = NULL, save_data = TRUE) {
-  
+  object <<- object;
+  outfile <<- outfile;
+  save_data <<- save_data;
+  save.image("mofa.RData");
   if (file.exists(outfile)){
     message(paste0("Warning: Output file ", outfile, " already exists, it will be replaced"))
   }

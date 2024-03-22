@@ -69,11 +69,20 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     rownames(var.exp) <- colnames(pos.xyz);
   } else if (reductionOpt == "mofa") {
 
+    if(.on.public.web){
+        reductionSet$reductionOpt <- reductionOpt;
+        saveSet(infoSet);
+        reductionSet$enrich.nms1 <- enrich.nms1;
+        qs::qsave(reductionSet, "rdt.set.qs");
+        saveRDS(data.list, file = "mofaInput.rds");
+        return(2);
+    } else {
     if(!exists("run_mofa")){ # public web on same user dir
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/mofa_core.Rc");   
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_mofa.Rc");    
     }
 
+    #library(MOFA2);
     # set up model
     data.list <- lapply(data.list, as.matrix)
     for(i in c(1:length(omics.type))){
@@ -108,7 +117,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     loading.pos.xyz$type <- omics.vec;
     var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
     var.exp <- round(var.exp, digits = 3);
-
+    }
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
     diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta];
@@ -214,6 +223,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 #used to get MOFA results
 GetRdtQs <- function(){
     res <- qs::qread("rdt.set.qs");
+    print(names(res));
     ##result.set <<- res;
     return(1);
 }
