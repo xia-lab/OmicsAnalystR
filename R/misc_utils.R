@@ -386,7 +386,7 @@ ShowMemoryUse <- function(..., n=40) {
   print(sessionInfo());
   print(lapply(dataSets, object.size));
   #print(lapply(result.set, object.size));
-  print(lapply(infoSet, object.size));
+  #print(lapply(infoSet, object.size));
   print(.ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n));
   print(warnings());
 }
