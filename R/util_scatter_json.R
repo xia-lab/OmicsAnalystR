@@ -8,9 +8,10 @@
 ###################################################
 
 my.json.scatter <- function(filenm){
+  save.image("scatter.RData");
   infoSet <- readSet(infoSet, "infoSet");  
   reductionSet <- .get.rdt.set();
-
+  
   omicstype.vec <- list();
   sig.mats <- list();
   seeds <- vector()
@@ -98,8 +99,8 @@ my.json.scatter <- function(filenm){
   aLoading=list();
   aLoading$objects = "NA";
   
-  names = reductionSet[[reductionOpt]]$loading.enrich
-  ids = reductionSet[[reductionOpt]]$loading.names
+  names = reductionSet[[reductionOpt]]$loading.pos.xyz$label
+  ids = reductionSet[[reductionOpt]]$loading.pos.xyz$ids
   rownames(loading.data) = names
   de = reductionSet$comp.res[which(reductionSet$comp.res[,"ids"] %in% ids),]
   de[de == "NaN"] = 1
@@ -109,13 +110,14 @@ my.json.scatter <- function(filenm){
   pv[pv == 0] = minval/2
   pvals <<- -log10(pv);
   type.vec <- pvals;
+  reductionSet$comp.res.inx <- reductionSet$comp.res.inx[which(reductionSet$comp.res[,"ids"] %in% ids)]
   if(reductionSet$comp.res.inx[1] != "NA"){
     for(i in 1:length(unique(reductionSet$comp.res.inx))){
       inx = reductionSet$comp.res.inx == i
       type.vec[inx] <- omicstype.vec[[i]]
     }
   }
-  ids_and_omicstype = paste0(reductionSet[[reductionOpt]]$loading.names, "_", type.vec);
+  ids_and_omicstype = paste0(reductionSet[[reductionOpt]]$loading.pos.xyz$ids, "_", type.vec);
   
   colors<- ComputeColorGradient(pvals, "black", F, F);
   colorb <- colors;
@@ -215,7 +217,6 @@ my.json.scatter <- function(filenm){
   
   reductionSet[[reductionSet$reductionOpt]]$pos.xyz <- pos.xyz;
   loading.data.orig <- as.data.frame(loading.data.orig)
-  loading.data.orig$omicstype <- type.vec;
   reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz.orig <- loading.data.orig;
   fileName <- paste0("loading_",reductionSet$reductionOpt, ".csv")
   fast.write.csv(loading.data.orig,file=fileName);

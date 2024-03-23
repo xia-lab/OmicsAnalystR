@@ -206,7 +206,7 @@ generate_continuous_colors <- function(n, primary_color="green", filenm=NULL) {
 }
 
 unitAutoScale <- function(df){
-    df <- as.data.frame(df)
+  df <- as.data.frame(df)
     row.nms <- rownames(df);
     col.nms <- colnames(df);
     df<-apply(df, 2, AutoNorm);
@@ -214,7 +214,7 @@ unitAutoScale <- function(df){
     colnames(df) <- col.nms;
     maxVal <- max(abs(df))
     df<- df/maxVal
-    return(df)
+  return(df)
 }
 
 
@@ -814,7 +814,7 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 saveSet <- function(obj=NA, set="", output=1){
     
     #if(globalConfig$anal.mode == "api"){ 
-      qs:::qsave(obj, paste0(set, ".qs"));
+      qs:::qsave(obj, paste0(obj$objName, ".qs"));
     #}else{
     #  if(set == ""){
     #    set <- obj$objName;
@@ -984,7 +984,6 @@ readDataset <- function(fileName=""){
                 print("datasetsobject");
                 obj <- dataSets[[fileName]]
             } else {
-                print("readdataset.qs");
                 obj <- qs::qread(fileName)
             }
     }

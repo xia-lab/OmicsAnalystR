@@ -623,10 +623,6 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat
           legend.direction = "vertical", legend.position="left")+ coord_fixed();
   
   ggheatmap <- ggheatmap + geom_text(aes(Var2, Var1, label = value), color = "black", size = textSize);
-  
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$metadata_heatmap <- imgName;
-  saveSet(infoSet, "infoSet");
 
   if(interactive){
     library(plotly);
@@ -641,6 +637,9 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat
     ggp_build <- layout(ggplotly(ggheatmap), autosize = FALSE, width = 800, height = 600, margin = m)
     return(ggp_build);
   }else{
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$metadata_heatmap <- imgName;
+  saveSet(infoSet);
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=imgFormat, bg="white");
   print(ggheatmap);
   dev.off();
