@@ -8,7 +8,7 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
-
+    
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -221,15 +221,14 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet$reductionOpt <- reductionOpt;
   saveSet(infoSet);
   .set.rdt.set(reductionSet);
-  
+
   return(1)
 }
 
 
 #used to get MOFA results
 GetRdtQs <- function(){
-    res <- qs::qread("rdt.set.qs");
-    print(names(res));
+    res <- qs::qread("rdt.set.qs");    
     ##result.set <<- res;
     return(1);
 }

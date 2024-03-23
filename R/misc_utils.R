@@ -206,7 +206,7 @@ generate_continuous_colors <- function(n, primary_color="green", filenm=NULL) {
 }
 
 unitAutoScale <- function(df){
-    df <- as.data.frame(df)
+  df <- as.data.frame(df)
     row.nms <- rownames(df);
     col.nms <- colnames(df);
     df<-apply(df, 2, AutoNorm);
@@ -214,7 +214,7 @@ unitAutoScale <- function(df){
     colnames(df) <- col.nms;
     maxVal <- max(abs(df))
     df<- df/maxVal
-    return(df)
+  return(df)
 }
 
 

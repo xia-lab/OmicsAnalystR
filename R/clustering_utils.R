@@ -240,7 +240,8 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   #save results
-  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
+  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
+  reductionSet$dataSet$meta.info$Cluster <- clust;
 
   reductionSet$clustResTable <- res.table;
 
