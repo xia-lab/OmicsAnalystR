@@ -350,7 +350,7 @@ LoadHMDDLib <- function(){
   current.universe <<- unique(unlist(current.geneset));
 }
 
-cleanMem <- function(n=8) { for (i in 1:n) gc() }
+cleanMem <- function(n=3) { for (i in 1:n) gc(); }
 
 ###########
 # improved list of objects

@@ -19,6 +19,7 @@ ComputeHeatmap <- function(fileNm, type){
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
   }
+  cleanMem();
   require(rjson);
   res.list
   json.mat <- rjson::toJSON(res.list);

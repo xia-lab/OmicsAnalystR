@@ -43,8 +43,6 @@ doGeneIDMapping <- function(q.vec, org, type){
 }
 
 
-cleanMem <- function(n=10) { for (i in 1:n) gc() }
-
 doEntrez2SymbolMapping <- function(entrez.vec){
     gene.map <-  queryGeneDB("entrez", data.org);
     gene.map[] <- lapply(gene.map, as.character)
