@@ -344,6 +344,14 @@ GetMetaCell <- function(ridx=1,cidx=1){
   return(rdtSet$dataSet$meta.info[ridx,cidx]);
 }
 
+# Note R is column as a vector, operate on row 
+# will lead to different factors, need to transpose
+GetMetaRow <- function(ridx=1){
+  rdtSet <- .get.rdt.set();
+  my.meta.info <- t(rdtSet$dataSet$meta.info);
+  return(as.character(my.meta.info[, ridx])); # now column operation
+}
+
 removeXPrefix <- function(df) {
   for (col in 1:ncol(df)) {
     values <- df[[col]]
