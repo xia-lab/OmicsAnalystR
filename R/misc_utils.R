@@ -206,7 +206,7 @@ generate_continuous_colors <- function(n, primary_color="green", filenm=NULL) {
 }
 
 unitAutoScale <- function(df){
-    df <- as.data.frame(df)
+  df <- as.data.frame(df)
     row.nms <- rownames(df);
     col.nms <- colnames(df);
     df<-apply(df, 2, AutoNorm);
@@ -214,7 +214,7 @@ unitAutoScale <- function(df){
     colnames(df) <- col.nms;
     maxVal <- max(abs(df))
     df<- df/maxVal
-    return(df)
+  return(df)
 }
 
 
@@ -350,7 +350,9 @@ LoadHMDDLib <- function(){
   current.universe <<- unique(unlist(current.geneset));
 }
 
-cleanMem <- function(n=8) { for (i in 1:n) gc() }
+cleanMem <- function() { 
+    gc(); 
+}
 
 ###########
 # improved list of objects
@@ -386,7 +388,7 @@ ShowMemoryUse <- function(..., n=40) {
   print(sessionInfo());
   print(lapply(dataSets, object.size));
   #print(lapply(result.set, object.size));
-  print(lapply(infoSet, object.size));
+  #print(lapply(infoSet, object.size));
   print(.ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n));
   print(warnings());
 }
@@ -814,7 +816,7 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 saveSet <- function(obj=NA, set="", output=1){
     
     #if(globalConfig$anal.mode == "api"){ 
-      qs:::qsave(obj, paste0(set, ".qs"));
+      qs:::qsave(obj, paste0(obj$objName, ".qs"));
     #}else{
     #  if(set == ""){
     #    set <- obj$objName;
@@ -984,7 +986,6 @@ readDataset <- function(fileName=""){
                 print("datasetsobject");
                 obj <- dataSets[[fileName]]
             } else {
-                print("readdataset.qs");
                 obj <- qs::qread(fileName)
             }
     }

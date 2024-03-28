@@ -19,6 +19,7 @@ ComputeHeatmap <- function(fileNm, type){
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
   }
+  cleanMem();
   require(rjson);
   res.list
   json.mat <- rjson::toJSON(res.list);
@@ -240,7 +241,8 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   #save results
-  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
+  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
+  reductionSet$dataSet$meta.info$Cluster <- clust;
 
   reductionSet$clustResTable <- res.table;
 
@@ -590,7 +592,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$diagnostic_components <- imgNm;
-  saveSet(infoSet, "infoSet");
+  saveSet(infoSet);
   return(1);
 }
 
@@ -740,6 +742,6 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
 
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$metaHeatmap <- imgName;
-  saveSet(infoSet, "infoSet");
+  saveSet(infoSet);
   return(1);
 }

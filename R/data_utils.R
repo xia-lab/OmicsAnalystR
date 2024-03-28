@@ -189,6 +189,7 @@ SanityCheckData <- function(dataName){
   
   current.msg <<- msg;
   dataSet$minConc <- minConc;
+  rownames(dataSet$data.proc) <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dataSet$data.proc), perl = TRUE)
   dataSet$data.proc <- int.mat;
   dataSet$cls <- cls.lbl
   RegisterData(dataSet);
