@@ -303,9 +303,10 @@ run_mofa <- function(object, outfile = NULL, save_data = TRUE) {
   if (!requireNamespace("reticulate", quietly = TRUE)) {
     stop("Package \"reticulate\" is required but is not installed.", call. = FALSE)
   }
+  library(reticulate);
   
   # Initiate reticulate
-  mofa <- import("mofapy2")
+  mofa <- reticulate::import("mofapy2")
   
   # Call entry point
   mofa_entrypoint <- mofa$run.entry_point$entry_point()
@@ -320,17 +321,17 @@ run_mofa <- function(object, outfile = NULL, save_data = TRUE) {
 
   # Set samples metadata
   if (.hasSlot(object, "samples_metadata")) {
-    mofa_entrypoint$data_opts$samples_metadata <- r_to_py(lapply(object@data_options$groups,
+    mofa_entrypoint$data_opts$samples_metadata <- reticulate::r_to_py(lapply(object@data_options$groups,
                                                                  function(g) object@samples_metadata[object@samples_metadata$group == g,]))
   }
 
   # Set features metadata
   if (.hasSlot(object, "features_metadata")) {
-    mofa_entrypoint$data_opts$features_metadata <- r_to_py(unname(lapply(object@data_options$views,
+    mofa_entrypoint$data_opts$features_metadata <- reticulate::r_to_py(unname(lapply(object@data_options$views,
                                                                          function(m) object@features_metadata[object@features_metadata$view == m,])))
   }
 
-  # r_to_py will convert a list with a single name to a string,
+  # reticulate::r_to_py will convert a list with a single name to a string,
   # hence those are to be wrapped in `list()`
   maybe_list <- function(xs) {
 	  if (length(xs) > 1) {
@@ -342,18 +343,18 @@ run_mofa <- function(object, outfile = NULL, save_data = TRUE) {
   
   # Set the data
   mofa_entrypoint$set_data_matrix(
-    data = r_to_py( unname(lapply(object@data, function(x) unname( lapply(x, function(y) r_to_py(t(y)) ))) ) ),
+    data = reticulate::r_to_py( unname(lapply(object@data, function(x) unname( lapply(x, function(y) reticulate::r_to_py(t(y)) ))) ) ),
     likelihoods = unname(object@model_options$likelihoods),
-    views_names = r_to_py(as.list(object@data_options$views)),
-    groups_names = r_to_py(as.list(object@data_options$groups)),
-    samples_names = r_to_py(lapply(unname(lapply(object@data[[1]], colnames)), maybe_list)),
-    features_names = r_to_py(lapply(unname(lapply(object@data, function(x) rownames(x[[1]]))), maybe_list))
+    views_names = reticulate::r_to_py(as.list(object@data_options$views)),
+    groups_names = reticulate::r_to_py(as.list(object@data_options$groups)),
+    samples_names = reticulate::r_to_py(lapply(unname(lapply(object@data[[1]], colnames)), maybe_list)),
+    features_names = reticulate::r_to_py(lapply(unname(lapply(object@data, function(x) rownames(x[[1]]))), maybe_list))
   )
 
   # Set covariates
   if (.hasSlot(object, "covariates") && !is.null(object@covariates)) {
-    sample_cov_to_py <- r_to_py(unname(lapply(object@covariates, function(x) unname(r_to_py(t(x))))))
-    cov_names_2_py <- r_to_py(covariates_names(object))
+    sample_cov_to_py <- reticulate::r_to_py(unname(lapply(object@covariates, function(x) unname(reticulate::r_to_py(t(x))))))
+    cov_names_2_py <- reticulate::r_to_py(covariates_names(object))
     mofa_entrypoint$set_covariates(sample_cov_to_py, cov_names_2_py)
   }
   
@@ -409,7 +410,7 @@ run_mofa <- function(object, outfile = NULL, save_data = TRUE) {
       warping_ref         = warping_ref-1, # 0-based python indexing
       warping_open_begin  = object@mefisto_options$warping_open_begin,
       warping_open_end    = object@mefisto_options$warping_open_end,
-      warping_groups      = r_to_py(object@mefisto_options$warping_groups)
+      warping_groups      = reticulate::r_to_py(object@mefisto_options$warping_groups)
     )
   }
   
@@ -426,7 +427,7 @@ run_mofa <- function(object, outfile = NULL, save_data = TRUE) {
       if(is.null(dim(new_values))){
         new_values <- matrix(new_values, nrow = 1)
       }
-      mofa_entrypoint$predict_factor(new_covariates = r_to_py(t(new_values)))
+      mofa_entrypoint$predict_factor(new_covariates = reticulate::r_to_py(t(new_values)))
     }
   }
   
