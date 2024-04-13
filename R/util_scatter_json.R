@@ -8,7 +8,7 @@
 ###################################################
 
 my.json.scatter <- function(filenm){
-  save.image("scatter.RData");
+  #save.image("scatter.RData");
   infoSet <- readSet(infoSet, "infoSet");  
   reductionSet <- .get.rdt.set();
   
