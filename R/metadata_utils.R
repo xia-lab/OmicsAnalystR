@@ -96,7 +96,8 @@ GetUniqueMetaNames <-function(metadata){
 .readMetaData <- function(metafileName,datOrig,metaContain) {
   infoSet <- readSet(infoSet, "infoSet");
   msgSet <- infoSet$msgSet; 
-  na.msg = ""
+  na.msg <- na.msg1 <- "";
+
   if(is.null(msg.vec)){
     msg <-""
   }else{
