@@ -423,55 +423,151 @@ AddMsg <- function(msg){
 #'License: GPL-3 License
 #'@export
 #'
-PlotMultiFacCmpdSummary <- function(dataName,imgName,name, id, meta, version, format="png", dpi=72, width=NA){
-  dataSet <- readDataset(dataName);
-  rdtSet <- .get.rdt.set();
+PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 72, width = NA) {
+  dataSet <- readDataset(dataName)
+  rdtSet <- .get.rdt.set()
 
-  if(.on.public.web){
+  if (.on.public.web) {
     load_ggplot()
   }
-  
-  if(is.na(width)){
-    w <- 7.5;
-  }else{
-    w <- width;
+
+  if (is.na(width)) {
+    w <- 7.5
+  } else {
+    w <- width
   }
   meta.info <- rdtSet$dataSet$meta.info
-  sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)),meta]
+  
+  # Select the primary metadata
+  sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), meta]
+  
+  # Fix potential issues with empty or misaligned data
+  if (length(sel.cls) == 0) {
+    stop("Meta information could not be found for the selected columns.")
+  }
+
   cls.type <- unname(rdtSet$dataSet$meta.types[meta])
-  xlab = meta;
-  h <- 6;
-  imgName <- paste(imgName, "dpi", dpi, ".", format, sep="");
+
+  xlab = meta
+  h <- 6
+  imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
   
   inx <- which(rownames(dataSet$data.proc) == id)
-
-  if(cls.type == "cont"){
-    df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = as.numeric(as.character(sel.cls)))
-  }else{
-    df.norm <- data.frame(value=as.vector(t(dataSet$data.proc)[, inx]), name = sel.cls)
-  }
-  col <- unique(GetColorSchema(sel.cls));
   
-  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
-  if(cls.type == "disc"){
-    p <- ggplot2::ggplot(df.norm, aes(x=name, y=value, fill=name)) + geom_boxplot(outlier.shape = NA, outlier.colour=NA) + theme_bw() + geom_jitter(size=1) 
-    p <- p + scale_fill_manual(values=col) + theme(axis.text.x = element_text(angle=90, hjust=1))
-    p <- p + ggtitle(name) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
-    p <- p + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
-    p <- p + theme(plot.margin = margin(t=0.15, r=0.25, b=0.15, l=0.25, "cm"), axis.text = element_text(size=10)) 
-  }else{
-    p <- ggplot2::ggplot(df.norm, aes(x=name, y=value)) 
-    p <- p + geom_point(size=2) + theme_bw()  + geom_smooth(method=lm,se=T)     
-    p <- p + theme(axis.text.x = element_text(angle=90, hjust=1)) + guides(size="none")
-    p <- p + ggtitle(name) + theme(plot.title = element_text(size = 11, hjust=0.5, face = "bold")) + ylab("Abundance") + xlab(meta)
-    p <- p + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
-    p <- p + theme(plot.margin = margin(t=0.15, r=0.25, b=0.15, l=0.25, "cm"), axis.text = element_text(size=10)) 
+  if (length(inx) == 0) {
+    stop("ID not found in the dataset.")
   }
+
+    sel.cls2 <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), meta2]  
+
+  if (!is.na(meta2) && meta2 != "" && meta2 != "NA" && length(sel.cls2) != 0) {
+
+    cls.type2 <- unname(rdtSet$dataSet$meta.types[meta2])
+    
+    # Prepare the data frame based on meta and meta2
+    df.norm <- data.frame(value = as.vector(t(dataSet$data.proc)[, inx]), 
+                          meta_val = if (cls.type == "cont") as.numeric(as.character(sel.cls)) else sel.cls,
+                          meta2_val = if (cls.type2 == "cont") as.numeric(as.character(sel.cls2)) else sel.cls2)
+    
+    # Check if any NA values are introduced
+    if (any(is.na(df.norm))) {
+      warning("NA values were introduced in the data. Check the conversion of metadata types.")
+    }
+
+    # Get color schema for both meta and meta2
+    col <- unique(GetColorSchema(sel.cls))
+    col2 <- unique(GetColorSchema(sel.cls2))
+
+    Cairo::Cairo(file = imgName, unit = "in", dpi = dpi, width = w, height = h, type = format, bg = "white")
+    
+       if (cls.type == "disc" && cls.type2 == "disc") {
+        # Both meta and meta2 are discrete
+        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value, fill = meta2_val)) +
+            geom_boxplot(outlier.shape = NA, outlier.colour = NA) + theme_bw() + geom_jitter(size = 1) +
+            scale_fill_manual(values = col2) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+            labs(fill = meta2) +  # Label the fill legend as the name of meta2
+            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+            ylab("Abundance") + xlab(paste(meta, "vs", meta2)) +
+            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+
+    } else if (cls.type == "cont" && cls.type2 == "cont") {
+        # Both meta and meta2 are continuous
+        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value, color = meta2_val)) +
+            geom_point(size = 2) + theme_bw() + geom_smooth(method = lm, se = T) +
+            scale_color_gradient(low = "lightblue", high = "darkblue") +  # Blue gradient from low to high values
+            labs(color = meta2) +  # Label the color legend as the name of meta2
+            theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+            ylab("Abundance") + xlab(paste(meta, "vs", meta2)) +
+            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+
+    } else if (cls.type == "disc" && cls.type2 == "cont") {
+        # meta is discrete, meta2 is continuous -> Boxplot with points colored by meta2
+        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value)) +
+            geom_boxplot(outlier.shape = NA, outlier.colour = NA, fill = "lightgrey") + theme_bw() +
+            geom_jitter(aes(color = meta2_val), size = 2) +  # Color points by continuous meta2
+            scale_color_gradient(low = "lightblue", high = "darkblue") +  # Blue gradient for continuous values
+            labs(color = meta2) +  # Label the color legend as the name of meta2
+            theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+            ylab("Abundance") + xlab(meta) +
+            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+
+    } else if (cls.type == "cont" && cls.type2 == "disc") {
+        # meta is continuous, meta2 is discrete -> Line plot colored by meta2
+        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value)) +
+            geom_point(aes(color = meta2_val), size = 2) + theme_bw() +  # Color points by meta2 (discrete)
+            geom_smooth(method = lm, se = T, color = "black") +  # Overall trend line, no grouping by meta2
+            scale_color_manual(values = col2) +  # Color points by discrete meta2
+            labs(color = meta2) +  # Label the color legend as the name of meta2
+            theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+            ylab("Abundance") + xlab(meta) +
+            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+    }
+
+
+
+
+  } else {
+    # Original approach (when meta2 is not provided)
+    df.norm <- data.frame(value = as.vector(t(dataSet$data.proc)[, inx]), 
+                          name = if (cls.type == "cont") as.numeric(as.character(sel.cls)) else sel.cls)
+    
+    col <- unique(GetColorSchema(sel.cls))
+
+    Cairo::Cairo(file = imgName, unit = "in", dpi = dpi, width = w, height = h, type = format, bg = "white")
+
+    if (cls.type == "disc") {
+      p <- ggplot2::ggplot(df.norm, aes(x = name, y = value, fill = name)) +
+        geom_boxplot(outlier.shape = NA, outlier.colour = NA) + theme_bw() + geom_jitter(size = 1) +
+        scale_fill_manual(values = col) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+        ylab("Abundance") + xlab(meta) +
+        theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+        theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+    } else {
+      p <- ggplot2::ggplot(df.norm, aes(x = name, y = value)) +
+        geom_point(size = 2) + theme_bw() + geom_smooth(method = lm, se = T, linewidth = 1) + # Use linewidth instead of size
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) + guides(size = "none") +
+        ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+        ylab("Abundance") + xlab(meta) +
+        theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+        theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+    }
+  }
+
   print(p)
   dev.off()
-  if(.on.public.web){
-    return(imgName);
-  }else{
-    return(.set.rdt.set(rdtSet));
+
+  if (.on.public.web) {
+    return(imgName)
+  } else {
+    return(.set.rdt.set(rdtSet))
   }
 }
+

@@ -6,17 +6,19 @@
 
 .get.rdt.set <- function(){
   # return(result.set);
-  if(exists("result.set") && !is.null(result.set)){
-
-    return(result.set);
+  if(.on.public.web){
+    return(rdt.set);
   }else{
     return(qs::qread("rdt.set.qs"));
   }
 }
 
 .set.rdt.set <- function(my.set){
-  #result.set <<- my.set;
+  if(.on.public.web){
+  rdt.set <<- my.set;
+}else{
   qs::qsave(my.set, file="rdt.set.qs");
+}
   return(1);
 }
 
@@ -50,6 +52,7 @@ Init.Data <- function(){
   anal.type <<- "multiomics";
   dataSet <<- dataSet;
   mdata.all <<- list(); 
+  mmeta.all <<- list(); 
   msg.vec <<- vector(mode="character");
   current.msg <<- "";
   lib.path <<- "../../data/";
@@ -883,4 +886,35 @@ GetRCommandHistory <- function(){
     return("No commands found");
   }
   return(cmdSet$cmdVec);
+}
+
+process_metadata <- function(df) {
+  library(caret)
+  
+  # Initialize the processed_df with the same number of rows as the input dataframe
+  processed_df <- data.frame(matrix(ncol = 0, nrow = nrow(df)))
+  
+  # Loop through each column of the data frame
+  for (col_name in colnames(df)) {
+    
+    # Check if the column is a factor or character (categorical)
+    if (is.factor(df[[col_name]]) || is.character(df[[col_name]])) {
+      # One-hot encode categorical variables
+      one_hot_encoded <- model.matrix(~ df[[col_name]] - 1, data = df)
+      colnames(one_hot_encoded) <- paste0(col_name, "_", colnames(one_hot_encoded))
+      # Append to processed dataframe
+      processed_df <- cbind(processed_df, one_hot_encoded)
+    
+    # If the column is numeric (continuous)
+    } else if (is.numeric(df[[col_name]])) {
+      # Handle missing values by imputing them with the mean
+      df[[col_name]][is.na(df[[col_name]])] <- mean(df[[col_name]], na.rm = TRUE)
+      
+      # Normalize continuous variables (Z-score normalization)
+      normalized_column <- scale(df[[col_name]])
+      processed_df[[col_name]] <- normalized_column
+    }
+  }
+  
+  return(processed_df)
 }
