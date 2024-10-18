@@ -174,7 +174,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
 
 PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",includeRowNames=T, imgName, format="png", dpi=96, width=NA){
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
-  rdtSet <- .get.mSet(rdtSet);
+  rdtSet <- .get.rdt.set();
 
   metaData <- rdtSet$dataSet$meta.info;
   smp.nms <- rownames(metaData);
@@ -289,4 +289,82 @@ scale_rows = function(x){
   m = apply(x, 1, mean, na.rm = T)
   s = apply(x, 1, sd, na.rm = T)
   return((x - m) / s)
+}
+
+PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
+
+  rdtSet <- .get.rdt.set();
+
+  # Get metadata information from rdtSet
+  meta.info <- rdtSet$dataSet$meta.info
+  meta.types <- rdtSet$dataSet$meta.types
+  
+  # Select metadata columns from meta.info
+  meta1_data <- meta.info[, meta1]
+  meta2_data <- meta.info[, meta2]
+  
+  # Get the types of the metadata
+  meta1_type <- unname(meta.types[meta1])
+  meta2_type <- unname(meta.types[meta2])
+
+  # Ensure the correct data types for each metadata
+  if (meta1_type == "cont") {
+    meta1_data <- as.numeric(as.character(meta1_data))
+  } else {
+    meta1_data <- as.factor(meta1_data)
+  }
+
+  if (meta2_type == "cont") {
+    meta2_data <- as.numeric(as.character(meta2_data))
+  } else {
+    meta2_data <- as.factor(meta2_data)
+  }
+
+  # Prepare the data for plotting
+  data <- data.frame(meta1 = meta1_data, meta2 = meta2_data)
+
+  # Continuous vs Continuous (Scatter plot with regression line)
+  if (meta1_type == "cont" && meta2_type == "cont") {
+    # Scatter plot with a regression line
+    p <- ggplot(data, aes(x = meta1, y = meta2)) +
+      geom_point(size = 2) +
+      geom_smooth(method = "lm", se = FALSE, color = "blue") +
+      labs(title = paste("Scatter plot of", meta1, "vs", meta2),
+           x = meta1, y = meta2) +
+      theme_minimal()
+    
+  # Discrete vs Continuous (Box plot colored by disc, points colored by cont)
+  } else if ((meta1_type == "disc" && meta2_type == "cont") || (meta1_type == "cont" && meta2_type == "disc")) {
+    
+    # Identify which one is continuous and which one is discrete
+    if (meta1_type == "disc") {
+      disc_var <- "meta1"
+      cont_var <- "meta2"
+    } else {
+      disc_var <- "meta2"
+      cont_var <- "meta1"
+    }
+
+    p <- ggplot(data, aes_string(x = disc_var, y = cont_var, fill = disc_var)) +
+      geom_boxplot(outlier.shape = NA) +
+      geom_jitter(aes_string(color = cont_var), size = 2, width = 0.2) +
+      scale_color_gradient(low = "lightblue", high = "darkblue") +
+      labs(title = paste("Box plot of", meta1, "vs", meta2),
+           x = disc_var, y = cont_var, color = cont_var, fill = disc_var) +
+      theme_minimal()
+    
+  # Discrete vs Discrete (Bar plot)
+  } else if (meta1_type == "disc" && meta2_type == "disc") {
+    p <- ggplot(data, aes(x = as.factor(meta1), fill = as.factor(meta2))) +
+      geom_bar(position = "dodge") +
+      labs(title = paste("Bar plot of", meta1, "vs", meta2),
+           x = meta1, fill = meta2) +
+      theme_minimal()
+  }
+
+  # Handle rendering the plot
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=8, height=6, type=format, bg="white")
+  print(p)
+  dev.off()
 }
