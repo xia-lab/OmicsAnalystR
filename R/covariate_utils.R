@@ -410,36 +410,29 @@ AddMsg <- function(msg){
   }
 }
 
-
-#'Plot compound summary for multi-linear regression tool
-#'@param cmpdNm Input the name of the compound to plot
-#'@param format Input the format of the image to create
-#'@param dpi Input the dpi of the image to create
-#'@param width Input the width of the image to create
-#'@param meta Input the metadata to visualize
-#'@param version version
-#'@author Jessica Ewald\email{jessica.ewald@mcgill.ca}
-#'McGill University, Canada
-#'License: GPL-3 License
-#'@export
-#'
-PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 72, width = NA) {
-  dataSet <- readDataset(dataName)
+PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 72, plotType = "boxplot") {
   rdtSet <- .get.rdt.set()
+
+  # Set the dataset based on dataName
+  if (dataName == "varPart") {
+    # For variance partitioning, load the normalized dataset
+    dat <- rdtSet$dataSet$norm
+  } else {
+    # Load data for normal conditions (non-varPart)
+    dataSet <- readDataset(dataName)
+    dat <- dataSet$data.proc
+  }
 
   if (.on.public.web) {
     load_ggplot()
   }
 
-  if (is.na(width)) {
-    w <- 7.5
-  } else {
-    w <- width
-  }
+  w <- 7.5
+  
   meta.info <- rdtSet$dataSet$meta.info
   
   # Select the primary metadata
-  sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), meta]
+  sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dat)), meta]
   
   # Fix potential issues with empty or misaligned data
   if (length(sel.cls) == 0) {
@@ -452,20 +445,19 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
   h <- 6
   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
   
-  inx <- which(rownames(dataSet$data.proc) == id)
+  inx <- which(rownames(dat) == id)
   
   if (length(inx) == 0) {
     stop("ID not found in the dataset.")
   }
 
-    sel.cls2 <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), meta2]  
+  sel.cls2 <- meta.info[which(rownames(meta.info) %in% colnames(dat)), meta2]
 
   if (!is.na(meta2) && meta2 != "" && meta2 != "NA" && length(sel.cls2) != 0) {
-
     cls.type2 <- unname(rdtSet$dataSet$meta.types[meta2])
     
     # Prepare the data frame based on meta and meta2
-    df.norm <- data.frame(value = as.vector(t(dataSet$data.proc)[, inx]), 
+    df.norm <- data.frame(value = as.vector(t(dat)[, inx]), 
                           meta_val = if (cls.type == "cont") as.numeric(as.character(sel.cls)) else sel.cls,
                           meta2_val = if (cls.type2 == "cont") as.numeric(as.character(sel.cls2)) else sel.cls2)
     
@@ -480,62 +472,78 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
 
     Cairo::Cairo(file = imgName, unit = "in", dpi = dpi, width = w, height = h, type = format, bg = "white")
     
-       if (cls.type == "disc" && cls.type2 == "disc") {
-        # Both meta and meta2 are discrete
-        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value, fill = meta2_val)) +
-            geom_boxplot(outlier.shape = NA, outlier.colour = NA) + theme_bw() + geom_jitter(size = 1) +
-            scale_fill_manual(values = col2) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-            labs(fill = meta2) +  # Label the fill legend as the name of meta2
-            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
-            ylab("Abundance") + xlab(paste(meta, "vs", meta2)) +
-            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
-            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+    if (cls.type == "disc" && cls.type2 == "disc") {
+      # Both meta and meta2 are discrete
+      p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value, fill = meta2_val));
+       # Add either boxplot or violin plot based on plotType argument
+      if (plotType == "boxplot") {
+        p <- p + geom_boxplot(outlier.shape = NA, outlier.colour = NA)
+      } else if (plotType == "violin") {
+        p <- p + geom_violin(trim = FALSE)
+      }
+
+       p <- p+theme_bw() + geom_jitter(size = 1) +
+        scale_fill_manual(values = col2) +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        labs(fill = meta2) +
+        ggtitle(name) +
+        theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+        ylab("Abundance") + xlab(paste(meta, "vs", meta2)) +
+        theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+        theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
 
     } else if (cls.type == "cont" && cls.type2 == "cont") {
-        # Both meta and meta2 are continuous
-        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value, color = meta2_val)) +
-            geom_point(size = 2) + theme_bw() + geom_smooth(method = lm, se = T) +
-            scale_color_gradient(low = "lightblue", high = "darkblue") +  # Blue gradient from low to high values
-            labs(color = meta2) +  # Label the color legend as the name of meta2
-            theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
-            ylab("Abundance") + xlab(paste(meta, "vs", meta2)) +
-            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
-            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+      # Both meta and meta2 are continuous
+      p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value, color = meta2_val)) +
+        geom_point(size = 2) + theme_bw() + geom_smooth(method = lm, se = TRUE) +
+        scale_color_gradient(low = "lightblue", high = "darkblue") +
+        labs(color = meta2) +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+        ylab("Abundance") + xlab(paste(meta, "vs", meta2)) +
+        theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+        theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
 
     } else if (cls.type == "disc" && cls.type2 == "cont") {
-        # meta is discrete, meta2 is continuous -> Boxplot with points colored by meta2
-        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value)) +
-            geom_boxplot(outlier.shape = NA, outlier.colour = NA, fill = "lightgrey") + theme_bw() +
-            geom_jitter(aes(color = meta2_val), size = 2) +  # Color points by continuous meta2
-            scale_color_gradient(low = "lightblue", high = "darkblue") +  # Blue gradient for continuous values
-            labs(color = meta2) +  # Label the color legend as the name of meta2
-            theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
-            ylab("Abundance") + xlab(meta) +
-            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
-            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value, fill = meta_val))  # Fill violin/boxplot with metadata colors
+
+        # Add either boxplot or violin plot based on plotType argument
+        if (plotType == "boxplot") {
+          p <- p + geom_boxplot(outlier.shape = NA, outlier.colour = NA)  # Boxplot with fill colors from metadata
+        } else if (plotType == "violin") {
+          p <- p + geom_violin(trim = FALSE)  # Violin plot with fill colors from metadata
+        }
+
+        p <- p + theme_bw() +
+          geom_jitter(aes(color = meta2_val), size = 2) +  # Jitter points colored by continuous metadata, grey to black
+          scale_color_gradient(low = "grey", high = "black") +  # Grey to black gradient for jitter points
+          scale_fill_manual(values = col) +  # Fill the violin/boxplot with metadata colors
+          labs(color = meta2, fill = meta) +  # Labels for color and fill
+          theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+          ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+          ylab("Abundance") + xlab(meta) +
+          theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+          theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+
+
 
     } else if (cls.type == "cont" && cls.type2 == "disc") {
-        # meta is continuous, meta2 is discrete -> Line plot colored by meta2
-        p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value)) +
-            geom_point(aes(color = meta2_val), size = 2) + theme_bw() +  # Color points by meta2 (discrete)
-            geom_smooth(method = lm, se = T, color = "black") +  # Overall trend line, no grouping by meta2
-            scale_color_manual(values = col2) +  # Color points by discrete meta2
-            labs(color = meta2) +  # Label the color legend as the name of meta2
-            theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-            ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
-            ylab("Abundance") + xlab(meta) +
-            theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
-            theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+      # meta is continuous, meta2 is discrete -> Line plot colored by meta2
+      p <- ggplot2::ggplot(df.norm, aes(x = meta_val, y = value)) +
+        geom_point(aes(color = meta2_val), size = 2) + theme_bw() +
+        geom_smooth(method = lm, se = TRUE, color = "black") +
+        scale_color_manual(values = col2) +
+        labs(color = meta2) +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+        ylab("Abundance") + xlab(meta) +
+        theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
+        theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
     }
-
-
-
 
   } else {
     # Original approach (when meta2 is not provided)
-    df.norm <- data.frame(value = as.vector(t(dataSet$data.proc)[, inx]), 
+    df.norm <- data.frame(value = as.vector(t(dat)[, inx]), 
                           name = if (cls.type == "cont") as.numeric(as.character(sel.cls)) else sel.cls)
     
     col <- unique(GetColorSchema(sel.cls))
@@ -543,16 +551,25 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
     Cairo::Cairo(file = imgName, unit = "in", dpi = dpi, width = w, height = h, type = format, bg = "white")
 
     if (cls.type == "disc") {
-      p <- ggplot2::ggplot(df.norm, aes(x = name, y = value, fill = name)) +
-        geom_boxplot(outlier.shape = NA, outlier.colour = NA) + theme_bw() + geom_jitter(size = 1) +
-        scale_fill_manual(values = col) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-        ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
+      p <- ggplot2::ggplot(df.norm, aes(x = name, y = value, fill = name));
+      # Add either boxplot or violin plot based on plotType argument
+      if (plotType == "boxplot") {
+        p <- p + geom_boxplot(outlier.shape = NA, outlier.colour = NA)
+      } else if (plotType == "violin") {
+        p <- p + geom_violin(trim = FALSE)
+      } 
+      p <- p + theme_bw() + geom_jitter(size = 1) +
+        scale_fill_manual(values = col) +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+        ggtitle(name) +
+        theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
         ylab("Abundance") + xlab(meta) +
         theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
         theme(plot.margin = margin(t = 0.15, r = 0.25, b = 0.15, l = 0.25, "cm"), axis.text = element_text(size = 10))
+
     } else {
       p <- ggplot2::ggplot(df.norm, aes(x = name, y = value)) +
-        geom_point(size = 2) + theme_bw() + geom_smooth(method = lm, se = T, linewidth = 1) + # Use linewidth instead of size
+        geom_point(size = 2) + theme_bw() + geom_smooth(method = lm, se = TRUE, linewidth = 1) +
         theme(axis.text.x = element_text(angle = 90, hjust = 1)) + guides(size = "none") +
         ggtitle(name) + theme(plot.title = element_text(size = 11, hjust = 0.5, face = "bold")) +
         ylab("Abundance") + xlab(meta) +
@@ -570,4 +587,3 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
     return(.set.rdt.set(rdtSet))
   }
 }
-

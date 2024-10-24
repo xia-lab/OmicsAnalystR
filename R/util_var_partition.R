@@ -11,7 +11,6 @@ PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
 }
 
 PerformVarPartOverview <- function(top_n = 1000, fileName = "variance_partition_plot", dpi = 300, format = "png") {
-  save.image("varpart.RData");
   library(variancePartition)
   library(limma)
   library(Cairo)
@@ -126,8 +125,6 @@ PerformVarPartOverview <- function(top_n = 1000, fileName = "variance_partition_
   fast.write.csv(varPart, file="varPart_results.csv")
   return(.set.rdt.set(rdtSet))
 }
-
-
 
 PrepareVarData <- function(type="NA"){
   #save.image("prepare.RData");
