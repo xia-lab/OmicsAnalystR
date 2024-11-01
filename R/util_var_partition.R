@@ -3,8 +3,16 @@ PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
   varPart <- rdtSet$analSet$varPart.df[,-1];
   vp <- sortCols(varPart);
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
-  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 8, height = 6, units = "in", bg = "white")
-  p<-plotPercentBars(vp[1:top_n, ])
+  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 10, height = 6, units = "in", bg = "white")
+  p<-plotPercentBars(vp[1:top_n, ]) +
+    theme(
+      plot.title = element_text(size = 16, face = "bold"),  
+      axis.title.x = element_text(size = 14),                
+      axis.title.y = element_text(size = 14),                
+      axis.text = element_text(size = 12),                   
+      legend.text = element_text(size = 12),                 
+      legend.title = element_text(size = 14)                
+    )
   print(p);
   dev.off();
   return(1)
