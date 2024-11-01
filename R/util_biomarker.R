@@ -885,14 +885,29 @@ PlotImpBiomarkers <- function(imgName, format = "png", dpi = 72, mdl.inx, measur
   points(x, y, pch = 22, bg = bg, cex = 3)
   text(x[1], axis.lims[4], target_group, srt = 45, adj = c(0.2, 0.5))
   
-  # Legend for color key
-  col <- colorRampPalette(RColorBrewer::brewer.pal(10, "RdYlBu"))(20)
-  x <- rep(x[1] + shift, length(col))
-  y <- seq(from = axis.lims[3] + 0.2 * diff(axis.lims[3:4]), 
-           to = axis.lims[3] + 0.8 * diff(axis.lims[3:4]), length = length(col))
-  points(x, y, pch = 15, col = rev(col), cex = 2)
-  text(x[1], max(y), "High")
-  text(x[1], min(y), "Low")
+  # Continuous gradient legend for "High" and "Low" as a gradient rectangle
+  gradient_col <- colorRampPalette(RColorBrewer::brewer.pal(10, "RdYlBu"))(100)
+  rect_x <- x[1] + shift
+  rect_y_bottom <- axis.lims[3] + 0.2 * diff(axis.lims[3:4])
+  rect_y_top <- axis.lims[3] + 0.8 * diff(axis.lims[3:4])
+  
+  # Draw multiple small rectangles to create the gradient effect
+  gradient_steps <- length(gradient_col)
+  rect_height <- (rect_y_top - rect_y_bottom) / gradient_steps
+  for (i in 1:gradient_steps) {
+    rect(
+      xleft = rect_x,
+      ybottom = rect_y_bottom + (i - 1) * rect_height,
+      xright = rect_x + shift / 4,
+      ytop = rect_y_bottom + i * rect_height,
+      col = gradient_col[i],
+      border = NA
+    )
+  }
+  
+  # Add labels for "High" and "Low"
+  text(rect_x + shift / 2, rect_y_top, "High", pos = 3)
+  text(rect_x + shift / 2, rect_y_bottom, "Low", pos = 1)
   
   # Reset graphical parameters
   par(op)
