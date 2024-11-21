@@ -31,8 +31,10 @@
 #'@export
 #'
 Init.Data <- function(){ 
-  #testing purposes
-
+  
+  if(!exists(".on.public.web")){
+    .on.public.web <<- FALSE;
+  }
   # to control parallel computing for some packages
   load_ggplot();
   Sys.setenv("OMP_NUM_THREADS" = 2); 
