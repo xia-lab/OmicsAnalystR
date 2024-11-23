@@ -993,7 +993,6 @@ readDataset <- function(fileName=""){
       }
     }else{
             if(exists("dataSets") && !is.null(dataSets) && !is.null(dataSets[[fileName]])) {
-                print("datasetsobject");
                 obj <- dataSets[[fileName]]
             } else {
                 obj <- qs::qread(fileName)
@@ -1106,4 +1105,15 @@ makeReadable <- function(str){
                     "panth" = "PANTHER Slim",
                     "motif_set" = "Motif",
                  str)
+}
+
+GetFactors <- function(selMeta="NA"){
+  rdtSet <- .get.rdt.set();
+  # Check if `selMeta` is provided and exists as a column in `meta.info`
+  if (selMeta != "NA" && selMeta %in% colnames(rdtSet$dataSet$meta.info)) {
+    return(unique(as.vector(rdtSet$dataSet$meta.info[[selMeta]])))
+  } else {
+    # Default to the first column if `selMeta` is "NA" or not in `meta.info`
+    return(unique(as.vector(rdtSet$dataSet$meta.info[[1]])))
+  }
 }
