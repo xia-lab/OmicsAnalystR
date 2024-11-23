@@ -9,6 +9,11 @@ UpdateDE<-function(dataName, fc.lvl, p.lvl = 0.05){
 
   res <- dataSet$comp.res
 
+  if(is.null(res)){
+    current.msg <<- "There is no result generated. Have you performed analysis?";
+    return (c(0, 0, 0));
+  }
+
   hit.inx <- as.numeric(res[, "P.Value"]) <= p.lvl & abs(as.numeric(res$coefficient)) >= fc.lvl #pval
   
   if(sum(hit.inx) == 0){

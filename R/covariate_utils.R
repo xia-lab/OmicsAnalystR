@@ -398,19 +398,6 @@ PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="pn
   return(RegisterData(dataSet));
 }
 
-
-# general message only print when running local
-AddMsg <- function(msg){
-  if(!exists("msg.vec")){
-    msg.vec <<- "";
-  }
-  msg.vec <<- c(msg.vec, msg);
-  if(!.on.public.web){
-    print(msg);
-  }
-}
-
-
 #'Plot compound summary for multi-linear regression tool
 #'@param cmpdNm Input the name of the compound to plot
 #'@param format Input the format of the image to create

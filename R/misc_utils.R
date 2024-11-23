@@ -4,6 +4,16 @@
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
+# general message only print when running local
+AddMsg <- function(msg){
+  if(!exists("msg.vec")){
+    msg.vec <<- "";
+  }
+  msg.vec <<- c(msg.vec, msg);
+  if(!.on.public.web){
+    print(msg);
+  }
+}
 
 # new range [a, b]
 rescale2NewRange <- function(qvec, a, b){
