@@ -9,14 +9,12 @@ print(method)
   rdtSet <- .get.rdt.set()
   meta <- rdtSet$dataSet$meta.info 
   feature_table <- t(dataSet$data.proc);
-  
-  if(method=="RDA"){
-    if (!(exists("includeMeta") && length(includeMeta) == 0  )) {
+     if (!(exists("includeMeta") && length(includeMeta) == 0  )) {
       meta = meta[,c(predictor,includeMeta)]
     }else{
       meta = meta[,predictor,drop=F]
     }
-
+  if(method=="RDA"){
     cls.type <-  rdtSet[["dataSet"]][["meta.types"]]
     idx <- which(cls.type[colnames(meta)]=="cont")
     if(length(idx)>0){
@@ -94,7 +92,7 @@ axis.title = element_text(size = 12, color = "black"),
       PC1 = scores[, choices[1]] / lam[1],
       PC2 = scores[, choices[2]] / lam[2] 
     )
-    
+    st=scores
     loadings <- pca$rotation
     var_data <- data.frame(
       PC1 = loadings[, choices[1]] * lam[1],
@@ -106,7 +104,7 @@ axis.title = element_text(size = 12, color = "black"),
     
     var_data$PC1 <- var_data$PC1 * scaling_factor
     var_data$PC2 <- var_data$PC2 * scaling_factor
-      
+
     data.dist <- dist(as.matrix(feature_table), method = 'euclidean');
     overall_test <- adonis2(data.dist ~ ., data = meta, permutations = 999)
 print(overall_test)
