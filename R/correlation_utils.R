@@ -6,6 +6,7 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
+  print(type)
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -179,6 +180,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   residx <- reductionSet$residx
   
   if(cor.method == "univariate"){
+    
     corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
     if(exists("selDatsCorr.taxa",reductionSet)){
       corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
@@ -375,4 +377,23 @@ expand.matrix <- function(A){
   B <- matrix(0,nrow = m, ncol = m)
   C <- matrix(0,nrow = n, ncol = n)
   cbind(rbind(B,t(A)),rbind(A,C))
+}
+
+
+
+###########generate chordgram
+GenerateChordGram <- function(thresh=0.5,imgName = "chordgram", format = "png", dpi = 300){
+  plotjs <- paste0(imgName, ".json");
+  reductionSet <- .get.rdt.set();
+  corr.mat <- qs::qread("corr.mat.qs");
+  corr.mat <- reshape2::melt(corr.mat)
+  sel.dats <- reductionSet$selDatsCorr;
+  #corr.mat <-   corr.mat[corr.mat$Var1!=corr.mat$Var2,]
+  corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
+  corr.mat <- corr.mat[abs(corr.mat$value)>thresh,]
+  reductionSet$chordGram <- corr.mat
+  library(jsonlite)
+  write_json(corr.mat,plotjs, pretty = TRUE)
+  .set.rdt.set(reductionSet);
+  return(1)
 }

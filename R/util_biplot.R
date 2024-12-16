@@ -107,7 +107,7 @@ axis.title = element_text(size = 12, color = "black"),
 
     data.dist <- dist(as.matrix(feature_table), method = 'euclidean');
     overall_test <- adonis2(data.dist ~ ., data = meta, permutations = 999)
-print(overall_test)
+
     if(is.na(overall_test$F[1])){
       stats <- "The model is overfitted with no unconstrained (residual) component."
     }else{
