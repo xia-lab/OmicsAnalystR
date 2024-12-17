@@ -28,7 +28,7 @@ CovariateScatter.Anal <- function(dataName,
   # load libraries
   library(limma)
   library(dplyr)
-  
+
   # get inputs
   if(!exists('adj.vec')){
     adj.bool = F;
