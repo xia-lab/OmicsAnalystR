@@ -625,7 +625,7 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat
   
   ggheatmap <- ggplot2::ggplot(data = melted_cormat, aes(Var2, Var1, fill = value)) +
     geom_tile(color = "white")+ scale_y_discrete("Var1", position="right") +
-    scale_fill_gradient2(low = muted("blue"), mid="white", high = muted("red"), midpoint = 0,
+    scale_fill_gradient2(low =  "blue", mid="white", high = "red", midpoint = 0,
                          limit = c(-1,1), space = "Lab", name="Correlation") + theme_minimal()+ 
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
           axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.y.right = element_text(),

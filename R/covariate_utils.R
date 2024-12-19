@@ -588,3 +588,46 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
     return(.set.rdt.set(rdtSet))
   }
 }
+
+
+
+
+SetSelectedMetaInfo <- function(dataName="", meta0, meta1, block1){
+print(c("SetSelectedMetaInfo",meta0,meta1))
+  rdtSet <- .get.rdt.set()
+ 
+  meta.info <- rdtSet$dataSet$meta.info
+  if(meta0 == "NA"){
+    return(0)
+  }else{
+    rmidx <- which(meta.info[, meta0]=="NA" | is.na(meta.info[, meta0]))
+    if(meta1 != "NA"){
+      rmidx <- c(rmidx,which(meta.info[, meta1]=="NA") | is.na(meta.info[, meta1]))
+    }
+    if(length(rmidx)>0){
+      meta <- meta.info[-rmidx,]
+      for(col in 1:ncol(meta)){
+        meta[,col]<- droplevels(meta[,col])
+      }
+      rdtSet$analSet$rmidx <- rmidx;
+    }else{
+      meta <- meta.info
+    }
+    cls <- meta[, meta0];
+    if(block1 != "NA"){
+      block <- meta[, block1];
+    }
+    if(meta1 != "NA"){
+      cls <- interaction(meta[, c(meta0, meta1)], sep = "_", lex.order = TRUE);
+    }
+    
+    if(length(levels(cls))>length(unique(cls))){
+      cls <- droplevels(cls)
+    }
+    rdtSet$analSet$combFac <- cls;
+    rdtSet$analSet$combFacdf <- meta;
+     .set.rdt.set(rdtSet)
+    return(levels(cls))
+  }
+}
+ 
