@@ -1085,9 +1085,15 @@ GetModelNames <- function(){
 
 GetGroups <- function(group){
   rdtSet <- .get.rdt.set();
-  unique(rdtSet$dataSet$meta.info[[group]])
+  levels(rdtSet$dataSet$meta.info[[group]])
 }
 
+GetGrpSampleNames <- function(grp){
+  rdtSet <- .get.rdt.set();
+  as.character(rownames(rdtSet$dataSet$meta.info)[rdtSet$dataSet$meta.info==grp])
+}
+
+ 
 GetTrainTestSplitMat <- function(y, propTraining = 2/3, nRuns = 30){
   
   nTotalSample <- length(y);

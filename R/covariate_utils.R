@@ -419,7 +419,7 @@ PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="pn
 #'License: GPL-3 License
 #'@export
 #'
-PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 72, width = NA) {
+PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 72, plotType = "violin") {
   dataSet <- readDataset(dataName)
   rdtSet <- .get.rdt.set()
 
