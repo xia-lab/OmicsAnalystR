@@ -1083,6 +1083,11 @@ GetModelNames <- function(){
   paste("Model", 1:length(test.nums), "(", test.nums, "features)");
 }
 
+GetGroups <- function(group){
+  rdtSet <- .get.rdt.set();
+  unique(rdtSet$dataSet$meta.info[[group]])
+}
+
 GetTrainTestSplitMat <- function(y, propTraining = 2/3, nRuns = 30){
   
   nTotalSample <- length(y);

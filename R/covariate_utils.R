@@ -236,9 +236,9 @@ CovariateScatter.Anal <- function(dataName,
   colnames(rest)[1] <- "coefficient"; 
   rest$ids <- rownames(rest);
 
-  names(fstat) <- names(p.value) <- names(fdr.p) <- rownames(dataSet$data.proc);
-  fdr.p <- rest[,"adj.P.Val"];
 
+  fdr.p <- rest[,"adj.P.Val"];
+  names(fstat) <- names(p.value) <- names(fdr.p) <- rownames(dataSet$data.proc);
   if(pval.type=="fdr"){
     inx.imp <- fdr.p <= thresh;
     # locate the cutoff on the sorted raw p value
