@@ -139,7 +139,7 @@ axis.title = element_text(size = 12, color = "black"),
   }
   
   # Plot the variance partitioning results and save the image
-  imgName = paste(fileName, "dpi72", ".", format, sep="");
+    imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
 
   Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 7, height = 5, units = "in", bg = "white")
   print(p)

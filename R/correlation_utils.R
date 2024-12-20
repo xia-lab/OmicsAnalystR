@@ -397,7 +397,7 @@ GenerateChordGram <- function(thresh=0.5,imgName = "chordgram", format = "png", 
   library(jsonlite)
   write_json(corr.mat,plotjs, pretty = TRUE)
   .set.rdt.set(reductionSet);
-  return(1)
+  return(nrow(corr.mat))
 }
 
 
@@ -550,8 +550,7 @@ print(c(dpi,"dpi"))
     theme(plot.margin = margin(15, 15, 15, 15))
  
   
-  imgName = paste(imgName, "dpi72", ".", format, sep="");
-  print(imgName)
+    imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   
   if(length(graph_res)>2){
    h=8
@@ -579,8 +578,7 @@ print(title)
   V(graph)$border.color <- V(graph)$color 
   V(graph)$degree <- degree(graph) 
   E(graph)$width <- E(graph)$weight 
-  print(E(graph)$width)
- print(E(graph)$color)
+ 
   # Plot the graph
   ggraph(graph, layout = "manual", x = layout_sub$x, y = layout_sub$y) +
     # Edges: color and width based on correlation and weight
