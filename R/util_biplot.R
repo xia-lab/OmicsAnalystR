@@ -1,6 +1,6 @@
 
 
-GenerateBiplot <- function(method="RDA",topN=10,predictor,dataName, fileName = "biplot", format = "png",dpi = 300) {
+GenerateBiplot <- function(method="RDA",topN=10,predictor,dataName, fileName = "biplot", format = "png",dpi = 300,colorGradient="d3") {
    library(vegan)
   library(ggplot2)
   library(ggrepel)
@@ -14,12 +14,56 @@ print(method)
     }else{
       meta = meta[,predictor,drop=F]
     }
+idx <- which(rdtSet$dataSet$meta.types[colnames(meta)]=="cont")
+  if(length(idx)>0){
+    meta[,idx] <- apply(meta[,idx,drop=F],2,as.numeric)
+  }
+  
+color_scale <- if (rdtSet$dataSet$meta.types[predictor] == "cont") {
+   if(colorGradient == "gray"){
+        colors <- grDevices::colorRampPalette(c("grey90", "grey10"), space="rgb")(256);
+    }else if(colorGradient == "byr"){
+        colors <- rev(grDevices::colorRampPalette(RColorBrewer::brewer.pal(10, "RdYlBu"))(256));
+    }else if(colorGradient == "viridis") {
+        colors <- rev(viridis::viridis(10))
+    }else if(colorGradient == "plasma") {
+        colors <- rev(viridis::plasma(10))
+    }else if(colorGradient == "npj"){
+        colors <- c("#00A087FF","white","#E64B35FF")
+    }else if(colorGradient == "aaas"){
+        colors <- c("#4DBBD5FF","white","#E64B35FF");
+    }else if(colorGradient == "d3"){
+        colors <- c("#2CA02CFF","white","#FF7F0EFF");
+    }else {
+         colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+    }
+} else {
+   if(colorGradient == "gray"){
+            colors <- c("grey90", "grey70", "grey50", "grey30", "grey10") 
+    }else if(colorGradient == "byr"){
+       colors <- RColorBrewer::brewer.pal(10, "RdYlBu") 
+    }else if(colorGradient == "viridis") {
+           colors <- viridis::viridis(10) 
+    }else if(colorGradient == "plasma") {
+        colors <-  viridis::plasma(10) 
+    }else if(colorGradient == "npj"){
+        colors <- ggsci::scale_color_npg("nrc")
+    }else if(colorGradient == "aaas"){
+        colors <- ggsci::scale_color_aaas("default")
+    }else if(colorGradient == "d3"){
+        colors <- ggsci::scale_color_d3("category10")
+    }else {
+         colors <- RColorBrewer::brewer.pal(10, "RdBu") 
+    }
+}
+ 
   if(method=="RDA"){
     cls.type <-  rdtSet[["dataSet"]][["meta.types"]]
     idx <- which(cls.type[colnames(meta)]=="cont")
     if(length(idx)>0){
       meta[,idx] <- apply(meta[,idx,drop=F],2,as.numeric)
     }
+ 
     rda_result=vegan::rda(feature_table~.,meta)#
     ii=summary(rda_result)  
     sp=as.data.frame(ii$species[,1:2])
@@ -38,10 +82,10 @@ print(method)
     sp=sp[rownames(sp) %in% top_features,]*scaling_factor
     scaling_factor <- max(abs(st$RDA1), abs(st$RDA2)) / max(abs(yz$RDA1),abs(yz$RDA2))
       yz=yz*scaling_factor
-   
+ 
       p <- ggplot() +
       geom_point(data = st, aes(x = RDA1, y = RDA2, color = meta[, predictor]), size = 3, alpha = 0.8) +
-      ggsci::scale_color_d3("category10") +  
+      color_scale + 
       labs(color = predictor) + 
       theme_minimal() +
       geom_segment(data = sp,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
@@ -113,10 +157,12 @@ axis.title = element_text(size = 12, color = "black"),
     }else{
       stats <- paste0('[PERMANOVA] F-value: ',round(overall_test$F[1],5),"; R-squared: ", signif(overall_test$R2, 5),";p-value: ",overall_test$`Pr(>F)`[1])
     }
-    
+    print(meta[, predictor])
+print(str(meta))
+print(predictor)
     p <- ggplot() +
       geom_point(data = ind_data, aes(x = PC1, y = PC2, color = meta[, predictor]), size = 3, alpha = 0.8) +
-      ggsci::scale_color_d3("category10") +  
+   color_scale + 
       labs(color = predictor) + 
       theme_minimal() +
       geom_segment(data = var_data,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
