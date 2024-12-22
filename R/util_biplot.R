@@ -14,6 +14,7 @@ print(method)
     }else{
       meta = meta[,predictor,drop=F]
     }
+
 idx <- which(rdtSet$dataSet$meta.types[colnames(meta)]=="cont")
   if(length(idx)>0){
     meta[,idx] <- apply(meta[,idx,drop=F],2,as.numeric)
@@ -33,7 +34,7 @@ color_scale <- if (rdtSet$dataSet$meta.types[predictor] == "cont") {
     }else if(colorGradient == "aaas"){
         colors <- c("#4DBBD5FF","white","#E64B35FF");
     }else if(colorGradient == "d3"){
-        colors <- c("#2CA02CFF","white","#FF7F0EFF");
+        colors <- scale_color_gradientn(colors = c("#2CA02CFF", "white", "#FF7F0EFF"));
     }else {
          colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
     }
@@ -114,10 +115,11 @@ axis.title = element_text(size = 12, color = "black"),
     library(factoextra) 
     library(dplyr)
     pca <- prcomp(feature_table, scale=F);
-    cls <- meta[,predictor];
+    cls <- rdtSet$dataSet$meta.info[,predictor];
     cls.type <-  rdtSet[["dataSet"]][["meta.types"]][[predictor]];
     if(class(cls)=="integer"){
       cls <- as.factor(as.numeric(levels(cls))[cls]);
+     meta[,predictor] <- as.numeric(meta[,predictor])
     }else{
       cls <- cls;
     }
@@ -157,12 +159,10 @@ axis.title = element_text(size = 12, color = "black"),
     }else{
       stats <- paste0('[PERMANOVA] F-value: ',round(overall_test$F[1],5),"; R-squared: ", signif(overall_test$R2, 5),";p-value: ",overall_test$`Pr(>F)`[1])
     }
-    print(meta[, predictor])
-print(str(meta))
-print(predictor)
+
     p <- ggplot() +
       geom_point(data = ind_data, aes(x = PC1, y = PC2, color = meta[, predictor]), size = 3, alpha = 0.8) +
-   color_scale + 
+      color_scale + 
       labs(color = predictor) + 
       theme_minimal() +
       geom_segment(data = var_data,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
