@@ -863,6 +863,7 @@ SetCustomSig <- function(dataName, ids){
 #'@param cmd Commands 
 #'@export
 RecordRCommand <- function(cmd){
+  print(c(cmd,"cmd"))
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$cmdSet$cmdVec <- c(infoSet$cmdSet$cmdVec, cmd);
   saveSet(infoSet);

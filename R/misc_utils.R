@@ -581,7 +581,7 @@ checkfac = function(fac) {
 ## fast T-tests/F-tests using genefilter
 PerformFastUnivTests <- function(data, cls, var.equal=TRUE, nonpar=F){
     print("Performing fast univariate tests ....2");
-
+  
     # note, feature in rows for gene expression
     data <- as.matrix(data);
     if(length(levels(cls)) > 2){

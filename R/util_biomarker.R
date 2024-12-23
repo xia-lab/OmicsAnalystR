@@ -6,7 +6,7 @@
 #'License: GNU GPL (>= 2)
 #'@export
 #'
-PrepareROCData <- function(sel.meta="NA"){
+PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   rdtSet <- .get.rdt.set();
   
   data.list <- list();
@@ -75,19 +75,37 @@ PrepareROCData <- function(sel.meta="NA"){
   
   # Merge all datasets
   merged_data <- do.call(rbind, data.list)
+
+   meta.info = rdtSet$dataSet$meta.info
+  if(factor2!="NA" &factor2!="all" ){
+  meta.info = rdtSet$dataSet$meta.info
+    sample_include = rownames(meta.info[which(meta.info[[sel.meta]]) %in% c(factor1,factor2),])
+ merged_data <- merged_data[,sample_include]
+   meta.info <- meta.info[rownames(meta.info %in% sample_include),,drop=F]
+   meta.info[[sel.meta]] <- droplevels(meta.info[[sel.meta]])
+  }
+if(factor2=="all"){
+meta.info[[sel.meta]] <- as.character(meta.info[[sel.meta]])
+idx = which(meta.info[[sel.meta]]!=factor1)
+meta.info[[sel.meta]][idx] <- "Others"
+meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,"Others"))
+}
   
+
   # Check if there are new samples to update `norm`
   new.inx <- is.na(rdtSet$dataSet$cls.all) | rdtSet$dataSet$cls.all == "";
   if(sum(new.inx) > 0){
     rdtSet$dataSet$new.samples <- TRUE;
     rdtSet$dataSet$new.data <- rdtSet$dataSet$norm.all[new.inx, , drop = F];
-    rdtSet$dataSet$norm <- merged_data;
-    rdtSet$dataSet$cls <- factor(rdtSet$dataSet$meta.info[,1])
+    rdtSet$dataSet$roc.norm <- merged_data;
+    rdtSet$dataSet$roc.cls.orig <- factor(rdtSet$dataSet$meta.info[,sel.meta])
+    rdtSet$dataSet$roc.cls <- meta.info[[sel.meta]]
   }else{
     rdtSet$dataSet$new.samples <- FALSE;
     rdtSet$dataSet$new.data <- NULL;
-    rdtSet$dataSet$norm <- merged_data;
-    rdtSet$dataSet$cls <- rdtSet$dataSet$meta.info[,1]; 
+    rdtSet$dataSet$roc.norm <- merged_data;
+    rdtSet$dataSet$roc.cls.orig <- factor(rdtSet$dataSet$meta.info[,sel.meta])
+    rdtSet$dataSet$roc.cls <- meta.info[[sel.meta]]
   }
   
   return(.set.rdt.set(rdtSet));
@@ -106,13 +124,13 @@ PrepareROCData <- function(sel.meta="NA"){
 #'@export
 #'
 CalculateFeatureRanking <- function(clust.num=5){
-  save.image("calculate.RData");
+  #save.image("calculate.RData");
   
   rdtSet <- .get.rdt.set()
   LRConverged <<- "FALSE"; 
   
-  x <- t(rdtSet$dataSet$norm);
-  y <- rdtSet$dataSet$cls;
+  x <- t(rdtSet$dataSet$roc.norm);
+  y <- rdtSet$dataSet$roc.cls;
   
   # Check if multiclass or binary
   if(length(levels(y)) > 2){
@@ -130,7 +148,7 @@ CalculateFeatureRanking <- function(clust.num=5){
     # Binary case: calculate AUC directly
     auc <- caTools::colAUC(x, y, plotROC=F)[1,]
   }
-  
+ 
   # Perform univariate tests
   if(.on.public.web & RequireFastUnivTests(rdtSet)){
     res <- PerformFastUnivTests(t(x), y);
@@ -142,7 +160,7 @@ CalculateFeatureRanking <- function(clust.num=5){
   # Fold change computation (pairwise or aggregated for multiclass)
   data <- x;
   class_means <- sapply(levels(y), function(cls) {
-    colMeans(data[which(rdtSet$dataSet$cls == cls), , drop=FALSE])
+    colMeans(data[which(rdtSet$dataSet$roc.cls == cls), , drop=FALSE])
   })
   
   # Compute pairwise fold changes
@@ -183,7 +201,7 @@ CalculateFeatureRanking <- function(clust.num=5){
 
 
 RequireFastUnivTests <- function(rdtSet){
-  if(nrow(rdtSet$dataSet$norm) < 1000){
+  if(nrow(rdtSet$dataSet$roc.norm) < 1000){
     return(FALSE);
   }else{
     return(TRUE);
@@ -285,19 +303,19 @@ Perform.UnivROC <- function(feat.nm,
                             dpi=72, isAUC, isOpt, 
                             optMethod, isPartial, measure, cutoff){
   
-  save.image("univroc.RData");
+  #save.image("univroc.RData");
   rdtSet <- .get.rdt.set();
   
   imgName <- rdtSet$dataSet$url.var.nms[feat.nm];
   imgName = paste("roc_univ_", imgName, "_", version, "_dpi", dpi, ".", format, sep="");
   
-  data_ori_norm <- rdtSet$dataSet$norm
-  if(!is.null(rdtSet$dataSet$norm.orig)){
-    data_ori_norm <- rdtSet$dataSet$norm.orig
+  data_ori_norm <- rdtSet$dataSet$roc.norm
+  if(!is.null(rdtSet$dataSet$roc.norm.orig)){
+    data_ori_norm <- rdtSet$dataSet$roc.norm.orig
   }
   
   x <- unname(unlist(data_ori_norm[feat.nm, ]));
-  y <- rdtSet$dataSet$cls;
+  y <- rdtSet$dataSet$roc.cls;
   opt.thresh = NA;
   
   # Check if y has more than two levels (multiclass)
@@ -435,16 +453,16 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
     load_ggplot()
   }
   
-  data_ori_norm <- rdtSet$dataSet$norm
-  if(!is.null(rdtSet$dataSet$norm.orig)){
-    data_ori_norm <- rdtSet$dataSet$norm.orig
+  data_ori_norm <- rdtSet$dataSet$roc.norm
+  if(!is.null(rdtSet$dataSet$roc.norm.orig)){
+    data_ori_norm <- rdtSet$dataSet$roc.norm.orig
   }
   
   imgName <- rdtSet$dataSet$url.var.nms[feat.nm];
   imgName = paste("roc_boxplot_", imgName, "_", version, "_dpi", dpi, ".", format, sep="");
   
   x <- unname(unlist(data_ori_norm[feat.nm,]));
-  y <- rdtSet$dataSet$cls;
+  y <- rdtSet$dataSet$roc.cls;
   scale <- dpi/72;
   w <- 200*scale;
   h <- 400*scale; 
@@ -513,18 +531,18 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
 
 
 GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
-  save.image("coords.RData");
+  #save.image("coords.RData");
   rdtSet <- .get.rdt.set();
   roc.obj <- rdtSet$analSet$roc.obj
   
-  if (length(unique(rdtSet$dataSet$cls)) > 2) {
+  if (length(unique(rdtSet$dataSet$roc.cls)) > 2) {
     # Multiclass case
     if (is.null(classLabel) || is.na(classLabel)) {
       stop("Please provide a class label to get ROC coordinates for a specific class.")
     }
     
     # Find the index of the class label
-    class_labels <- unique(rdtSet$dataSet$cls)
+    class_labels <- unique(rdtSet$dataSet$roc.cls)
     class_index <- which(class_labels == classLabel)
     
     if (length(class_index) == 0) {
@@ -615,8 +633,8 @@ PrepareROCDetails <- function(feat.nm){
   
   rdtSet <- .get.rdt.set();
   
-  x <- unname(unlist(rdtSet$dataSet$norm[feat.nm, ]));
-  y <- rdtSet$dataSet$cls;
+  x <- unname(unlist(rdtSet$dataSet$roc.norm[feat.nm, ]));
+  y <- rdtSet$dataSet$roc.cls;
   
   if (length(unique(y)) > 2) {
     # Multiclass case: Perform one-vs-rest ROC for each class
@@ -696,20 +714,15 @@ rdtSet <- .get.rdt.set();
   rdtSet$analSet$rank.method <- rank.method
   rdtSet$analSet$exp.lvNum <- lvNum
 
-  data <- t(rdtSet$dataSet$norm)
-  cls <- rdtSet$dataSet$cls
+  data <- t(rdtSet$dataSet$roc.norm)
+  cls <- rdtSet$dataSet$roc.cls
   nClasses <- length(unique(cls))
   isBinary <- nClasses == 2
-  
+ 
+target_group <- levels(cls)[1]
+other_group <- levels(cls)[2]
   # Convert to one-against-all if target_group is specified and data is multiclass
-  if (!isBinary) {
-    if(is.null(target_group)){
-        target_group <- unique(cls)[1];
-    }
-    cls <- ifelse(cls == target_group, target_group, "other")
-    cls <- factor(cls, levels = c(target_group, "other"))
-  }
-
+ 
   # Number of subsampling runs to produce smooth curve
   nRuns <- if (nrow(data) > 500) 10 else if (nrow(data) > 200) 20 else if (nrow(data) > 100) 30 else 50
 
@@ -725,6 +738,7 @@ rdtSet <- .get.rdt.set();
   testRuns <- splitMat$testing.mat
   
   for (irun in 1:nRuns) {
+ 
     trainingSampleRun <- trainRuns[irun, ]
     testSampleRun <- testRuns[irun, ]
     x.in <- data[trainingSampleRun, ]
@@ -753,11 +767,11 @@ rdtSet <- .get.rdt.set();
       auc.mat[irun, inum] <- slot(ROCR::performance(pred, "auc"), "y.values")[[1]]
       
       perf.outp[[inum]][[irun]] <- prob.out
-      pred.out <- as.factor(ifelse(prob.out > 0.5, target_group, "other"))
+      pred.out <- as.factor(ifelse(prob.out > 0.5, target_group, other_group))
       accu.mat[irun, inum] <- Get.Accuracy(table(pred.out, y.test))
     }
   }
-
+ 
   # Prepare results for plotting
   preds <- vector(length = length(nFeatures), mode = "list")
   act.vec <- unlist(actualCls)
@@ -785,11 +799,13 @@ rdtSet <- .get.rdt.set();
     auc.vec = auc.vec,
     auc.ci = auc.cis,
     best.model.inx = best.model.inx,
-    target_group = target_group
+    target_group = target_group,
+   other_group=other_group
   )
   
   return(.set.rdt.set(rdtSet))
 }
+
 PlotImpBiomarkers <- function(imgName, format = "png", dpi = 72, mdl.inx, measure = "freq", feat.num = 15) {
   rdtSet <- .get.rdt.set()
   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
@@ -800,16 +816,13 @@ PlotImpBiomarkers <- function(imgName, format = "png", dpi = 72, mdl.inx, measur
   Cairo::Cairo(file = imgName, unit = "in", dpi = dpi, width = w, height = h, type = format, bg = "white")
   
   # Use norm_explore if available, otherwise default to norm data
-  data <- if (is.null(rdtSet$dataSet$norm_explore)) t(rdtSet$dataSet$norm) else t(rdtSet$dataSet$norm_explore)
-  cls <- rdtSet$dataSet$cls
+  data <- if (is.null(rdtSet$dataSet$norm_explore)) t(rdtSet$dataSet$roc.norm) else t(rdtSet$dataSet$norm_explore)
+  cls <- rdtSet$dataSet$roc.cls
   
   target_group <- rdtSet$analSet$multiROC$target_group
+  other_group <- rdtSet$analSet$multiROC$other_group
   # Adjust for one-against-all if necessary
-  if (!is.null(target_group) && length(unique(cls)) > 2) {
-    cls <- ifelse(cls == target_group, target_group, "other")
-    cls <- factor(cls, levels = c(target_group, "other"))
-  }
-  
+ 
   if (nrow(data) != length(cls)) {
     stop("Mismatch between number of samples in data and cls. Ensure they have the same length.")
   }
@@ -1427,12 +1440,13 @@ Get.Fisher <- function(x, fac, var.equal=TRUE) {
 }
 
 PlotProbView <- function(imgName, format = "png", dpi = 72, mdl.inx, show, showPred) {
-save.image("probview.RData");
+#save.image("probview.RData");
   rdtSet <- .get.rdt.set()
-  smpl.nms <- rownames(t(rdtSet$dataSet$norm))
+  smpl.nms <- rownames(t(rdtSet$dataSet$roc.norm))
   prob.vec <- rep(0.5, length(smpl.nms))
   names(prob.vec) <- smpl.nms
   target_group <- as.character(rdtSet$analSet$multiROC$target_group)
+  other_group <- as.character(rdtSet$analSet$multiROC$other_group)
   if (mdl.inx == -1) {
     mdl.inx <- rdtSet$analSet$multiROC$best.model.inx
   }
@@ -1443,23 +1457,18 @@ save.image("probview.RData");
   ord.inx <- order(nms)
   prob.vec <- prob.vec[ord.inx]
   # Convert `cls` to character vector to prevent factor-related issues
-  cls <- as.character(rdtSet$dataSet$cls[ord.inx])
-  
+  cls <- rdtSet$dataSet$roc.cls[ord.inx]
+
   # Apply one-against-all transformation based on the target_group
-  if (!is.null(target_group) && target_group %in% cls) {
-    cls <- ifelse(cls == target_group, target_group, "other")  # Set non-target values to "other"
-    cls <- factor(cls, levels = c(target_group, "other"))  # Define factor levels only as needed
-  } else {
-    stop("Error: target_group is either not specified or not present in the class levels.")
-  }
-  
+ 
+
   # Check the transformed `cls` vector
   print(cls)  # Confirm it shows only "IGT" and "other"
   
-  
+ 
   # Proceed with plotting
-  pred.out <- factor(ifelse(prob.vec > 0.5, target_group, "other"), levels = c(target_group, "other"))
-  act.cls <- factor(cls, levels = c(target_group, "other"))
+  pred.out <- factor(ifelse(prob.vec > 0.5, target_group, other_group), levels = c(target_group, other_group))
+  act.cls <- factor(cls, levels = c(target_group, other_group))
   
   prob.res <- data.frame(Probability = prob.vec, Predicted = pred.out, Actual = act.cls)
   write.table(prob.res, file = "roc_pred_prob.csv", sep = ",", col.names = TRUE)
@@ -1490,7 +1499,7 @@ save.image("probview.RData");
   abline(v = 0.5, lty = 2, col = "grey")
   
   par(xpd = TRUE)
-  legend("right", inset = c(-0.11, 0), legend = c(target_group, "other"), pch = c(19, 1))
+  legend("right", inset = c(-0.11, 0), legend = c(target_group, other_group), pch = c(19, 1))
   
   if (showPred && !is.null(rdtSet$analSet$multiROC$test.res)) {
     test.y <- rnorm(length(rdtSet$analSet$multiROC$test.res))
@@ -1500,18 +1509,17 @@ save.image("probview.RData");
   }
   
   if (show == 1) {
-    pred.vec <- ifelse(prob.vec > 0.5, target_group, "other")
+    pred.vec <- ifelse(prob.vec > 0.5, target_group, other_group)
     misclassified <- (pred.vec != as.character(cls))
     text(prob.vec[misclassified], y[misclassified], nms[misclassified], pos = ifelse(pred.vec[misclassified] == target_group, 4, 2))
     
     if (showPred && !is.null(rdtSet$dataSet$test.cls)) {
       nms <- rownames(rdtSet$dataSet$test.data)
-      pred.vec <- ifelse(test.x > 0.5, target_group, "other")
+      pred.vec <- ifelse(test.x > 0.5, target_group, other_group)
       misclassified_test <- (pred.vec != as.character(rdtSet$dataSet$test.cls))
       text(test.x[misclassified_test], test.y[misclassified_test], nms[misclassified_test], pos = ifelse(pred.vec[misclassified_test] == target_group, 4, 2), cex = 0.9)
     }
   }
-  
   par(op)
   dev.off()
   
@@ -1636,3 +1644,601 @@ GetBestModelIndex <- function(){
   rdtSet <- .get.rdt.set();
   rdtSet$analSet$multiROC$best.model.inx;
 }
+
+#'Set custom data
+#'@description The "selected.cmpds" should be for extraction
+#'@param rdtSet Input the name of the created mSetObj (see InitDataObjects)
+#'@param selected.cmpds Input the vector containing the compounds
+#'@param selected.smpls Input the vector containing the samples
+#'@export
+#'
+SetCustomData <- function(rdtSet=NA, selected.cmpds, selected.smpls){
+ 
+  rdtSet <- .get.rdt.set();
+  
+  data.norm.orig <- rdtSet$dataSet$roc.norm;
+  cls <- rdtSet$dataSet$roc.cls;
+  
+  if(length(selected.cmpds) > 0){
+    data.norm <- data.norm.orig[rownames(data.norm.orig)%in% selected.cmpds, , drop=F];
+    if(!is.null(rdtSet$dataSet$new.data)){
+      rdtSet$dataSet$new.data <- rdtSet$dataSet$new.data[rownames(data.norm.orig)%in% selected.cmpds, , drop=F];
+    }
+  }
+  
+  if(length(selected.smpls) > 0){
+    hit.inx <- colnames(data.norm) %in% selected.smpls;
+    rdtSet$dataSet$test.data <- data.norm[, hit.inx,drop=F];
+    rdtSet$dataSet$test.cls <- cls[hit.inx];
+    data.norm <- data.norm[,!hit.inx ,drop=F];
+    cls <- cls[!hit.inx];
+  }else{
+    rdtSet$dataSet$test.data <- NULL;
+    rdtSet$dataSet$test.cls <- NULL;
+  }
+  
+  rdtSet$dataSet$roc.norm.orig <- data.norm.orig;
+  rdtSet$dataSet$roc.norm <- data.norm;
+  rdtSet$dataSet$selected.cmpds <- paste(selected.cmpds, collapse="; ");
+  rdtSet$dataSet$roc.cls <- cls;
+  return(.set.rdt.set(rdtSet));
+}
+
+
+
+
+#'Perform MCCV for manually selected features
+#'@description MCCV for manually selected features (no additional feature selection)
+#'@usage PerformCV.test(mSetObj, method, lvNum, propTraining=2/3, nRuns=100)
+#'@param rdtSet Input the name of the created mSetObj (see InitDataObjects)
+#'@param method Select the classification method, "rf" for random forest classification, "pls" for PLS-DA,
+#'and "svm" for support vector machine 
+#'@param lvNum Input the number of latent variables to include in the analyis, only for PLS-DA classification  
+#'@param propTraining Input the proportion of samples to use for training, by default it is 2/3 
+#'@param nRuns Input the number of MCCV runs, by default it is 100 
+#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: GNU GPL (>= 2)
+#'@export
+
+PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=100){
+ 
+  mSetObj <- .get.mSet(mSetObj);
+  mSetObj$analSet$tester.method <- method;
+  mSetObj$analSet$tester.lvNum <- lvNum;
+  data <- mSetObj$dataSet$norm;
+  cls <- mSetObj$dataSet$cls;    
+  
+  if(method == "lr") {
+    # check cls (response variable) whether it is number 0/1 or not
+    if( length(levels(mSetObj$dataSet$cls)) == 2 ) {
+      mSetObj$dataSet$cls.lbl <- levels(mSetObj$dataSet$cls);  # already sorted
+      cls <- as.numeric(mSetObj$dataSet$cls)-1;
+      mSetObj$dataSet$cls.lbl.new <- sort(unique(cls));
+      mSetObj$dataSet$cls01 <- cls; # integer values for response of logistic regression
+    } else {
+       AddErrMsg("level of response variable y/class has more than 2!");
+       return(0);
+    }
+  } else {
+    if(method == "pls"){# make sure the feature # > comp #
+        if(lvNum > ncol(data)){
+            AddErrMsg("PLS components cannot be more than total features selected!");
+            return(0);
+        }
+    }
+    cls <- mSetObj$dataSet$cls;
+  }
+  
+  splitMat <- GetTrainTestSplitMat(cls, propTraining, nRuns);
+  trainRuns <- splitMat$training.mat;
+  testRuns <- splitMat$testing.mat;
+  
+  feat.outp <- actualCls <- perf.outp <- vector(length = nRuns, mode = "list");
+  auc.vec <- accu.vec <- vector(mode="numeric", length=nRuns);
+  
+  for (irun in 1:nRuns){
+    trainingSampleRun <- trainRuns[irun, ]
+    testSampleRun <- testRuns[irun, ];
+    x.train <- data[trainingSampleRun, ,drop=F];
+    x.test <- data[testSampleRun, ,drop=F];
+    y.train <- cls[trainingSampleRun];
+    actualCls[[irun]] <- y.test <- cls[testSampleRun];
+    
+    res <- Predict.class(x.train, y.train, x.test, method, lvNum, imp.out=T);
+    feat.outp[[irun]] <- res$imp.vec;
+    prob.out <- res$prob.out;
+    
+    # calculate AUC for each
+    pred <- ROCR::prediction(prob.out, y.test);
+    auc.vec[irun] <- slot(ROCR::performance(pred, "auc"), "y.values")[[1]];
+    perf.outp[[irun]] <- prob.out;
+    pred.out <- as.factor(ifelse(prob.out > 0.5, 1, 0));
+    accu.vec[irun] <- Get.Accuracy(table(pred.out, y.test));
+  }
+  
+  #############################################################################
+  ## prepare results for default plotting
+  ## 1) get best model based on AUROC for prob.view and imp.feature calculation
+  ## 2) calculate accuracy and roc for all models under comparison
+  #############################################################################
+  
+  prob.vec <- unlist(perf.outp);
+  act.vec <- unlist(actualCls);
+  preds <- ROCR::prediction(prob.vec, act.vec);
+  auc <- mean(auc.vec);
+  auc.ci <- GetCIs(as.matrix(auc.vec));
+  
+  #########################################
+  # if there is holdout sample, do prediction
+  if(!is.null(mSetObj$dataSet$test.data)){
+    test.res <- Predict.class(data, cls, mSetObj$dataSet$test.data, method, lvNum);
+  }else{
+    test.res <- NULL;
+  }
+  #######################
+  #########################################
+  # if there is new samples, do prediction
+  if(!is.null(mSetObj$dataSet$new.data)){
+    new.res <<- Predict.class(data, cls, mSetObj$dataSet$new.data, method, lvNum);
+  }else{
+    new.res <- NULL;
+  }
+  
+  #########################################
+  # method = Logistic Regression
+  # generate report tables for model with 10-fold Cross-Validation
+  if( method == "lr") {
+    x.train.all <- data;
+    x.test.all  <- data;
+    y.train.all <- as.character(cls);
+    y.test.all  <- as.character(cls);
+    
+    # generate LR model and AUROC statistics. Then assign to the analSet list
+    # return (list(model = mdlSummary, LR.auc=LR.auc));
+    
+    tbl.cls <- table(cls);
+    if( (tbl.cls[[1]] < 10) & (tbl.cls[[2]] < 10) ) {
+       AddErrMsg("The sample size of each group should be more than 10!");
+       return (0);
+    } else {
+      doLogisticRegMdl(x.train.all, y.train.all, x.test.all, y.test.all);
+    }
+  }
+  #######################
+  if(!is.null(mSetObj$analSet$ROCtest$perm.res)){
+    mSetObj$analSet$ROCtest <-  list(
+      type = mSetObj$analSet$type,  # note, do not forget to carry the type "roc" when overwrite analSet
+      train.mat = trainRuns,
+      pred.cv = perf.outp,
+      true.cv = actualCls,
+      imp.cv = feat.outp,
+      perm.res = mSetObj$analSet$ROCtest$perm.res,
+      # record processed output
+      pred.list = preds,
+      accu.mat = t(as.matrix(accu.vec)),
+      auc.ci = auc.ci,
+      auc.vec = auc,
+      test.res = test.res,
+      new.res = new.res
+    );
+
+  } else {
+    mSetObj$analSet$ROCtest <-  list(
+      type = mSetObj$analSet$type,  # note, do not forget to carry the type "roc" when overwrite analSet
+      train.mat = trainRuns,
+      pred.cv = perf.outp,
+      true.cv = actualCls,
+      imp.cv = feat.outp,
+
+      # record processed output
+      pred.list = preds,
+      accu.mat = t(as.matrix(accu.vec)),
+      auc.ci = auc.ci,
+      auc.vec = auc,
+      test.res = test.res,
+      new.res = new.res
+    );
+  }
+
+  return(.set.mSet(mSetObj));
+}
+
+
+#'Plot ROC for the ROC Curve Based Model Creation and Evaluation module
+#'@description Plot the ROC curve of the biomarker model created using a user-selected subset of features.
+#'Pred and auroc are lists containing predictions and labels from different cross-validations. 
+#'@usage PlotROCTest(mSetObj=NA, imgName, format="png", 
+#'dpi=72, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0)
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param imgName Input a name for the plot
+#'@param format Select the image format, "png", of "pdf". 
+#'@param dpi Input the dpi. If the image format is "pdf", 
+#'users need not define the dpi. For "png" images, 
+#'the default dpi is 72. It is suggested that for high-resolution images, select a dpi of 300.  
+#'@param mdl.inx Model index, 0 means to compare all models, 
+#'input 1-6 to plot a ROC curve for one of the top six models  
+#'@param avg.method Input the method to compute the average ROC curve, 
+#'either "threshold", "vertical" or "horizontal"
+#'@param show.conf Logical, if 1, show confidence interval, if 0 do not show
+#'@param show.holdout Logical, if 1, show the ROC curve for hold-out validation, if 0 do not show 
+#'@param focus "fpr" 
+#'@param cutoff Input the threshold to limit the calculation of the ROC curve, the number must be between 0 and 1.
+#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: GNU GPL (>= 2)
+#'@export 
+
+PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
+  
+  mSetObj <- .get.mSet(mSetObj);
+  anal.mode <- mSetObj$analSet$mode;
+  
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  w <- 8; h <- 8;
+  mSetObj$imgSet$roc.testcurve.plot <- imgName;
+  mSetObj$imgSet$roc.testcurve.name <- mdl.inx
+  mSetObj$imgSet$roc.testcurve.method <- avg.method
+  
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+  
+  op <- par(mar=c(5,4,3,3));
+  
+  if(anal.mode=="explore" && mdl.inx == 0){ # compare all models
+    preds <- mSetObj$analSet$ROCtest$pred.list;
+    auroc <- mSetObj$analSet$ROCtest$auc.vec;
+    perf <- ROCR::performance(preds[[1]], "tpr", "fpr");
+    perf.avg <- ComputeAverageCurve(perf, avg.method);
+    
+    cols <- (1:length(preds))+1;
+    ROCR::plot(perf.avg@x.values[[1]], perf.avg@y.values[[1]], type="n", axes=F,
+         xlim=c(0,1), ylim=c(0,1),
+         xlab="1-Specificity (False positive rate)",
+         ylab="Sensitivity (True positive rate)"
+    );
+    
+    box()
+    axis(side=2)
+    lab.at <- seq(0, 1, 0.2);
+    grid.at <- seq(0, 1, 0.1);
+    lab.labels <- lab.at
+    axis(side=1, at=lab.at, labels=as.graphicsAnnot(sprintf( "%.1f", lab.labels)));
+    abline(v=grid.at, lty=3, col="lightgrey");
+    abline(h=grid.at, lty=3, col="lightgrey");
+    lines(perf.avg@x.values[[1]], perf.avg@y.values[[1]], col=cols[1]);
+    for(i in 2:length(preds)){
+      perf <- ROCR::performance(preds[[i]], "tpr", "fpr");
+      avg <- ComputeAverageCurve(perf, avg.method);
+      lines(avg@x.values[[1]], avg@y.values[[1]], col=cols[i]);
+    }
+    
+    best.inx <- which.max(auroc);
+    
+    # now add and format legends to the bottom right corner
+    feats <- c("Var.", names(preds));
+    feats <- substr(feats, 1, 8);
+    feats <- sprintf("%-5s", feats);
+    
+    vals <- c("AUC", round(auroc, 3));
+    
+    vals <- sprintf("%-8s", vals);
+    
+    cis <- mSetObj$analSet$multiROC$auc.ci;
+    cis <- c("CI", cis);
+    legends <- paste(feats, vals, cis, sep="");
+    
+    pch <- c(NA, rep(15, length(preds)));
+    cols <- c(NA, cols);
+    
+    legend("bottomright", legend = legends, pch=15, col=cols);
+    
+  }else if(mdl.inx > 0 && anal.mode=="explore"){ 
+    
+    preds <- ROCR::prediction(mSetObj$analSet$ROCtest$pred.cv[[mdl.inx]], mSetObj$analSet$ROCtest$true.cv);
+    auroc <- round(mSetObj$analSet$ROCtest$auc.vec[mdl.inx],3);
+    auc.ci <- mSetObj$analSet$ROCtest$auc.ci[mdl.inx];
+    perf <- ROCR::performance(preds, "tpr", "fpr");
+    perf.avg <- ComputeAverageCurve(perf, avg.method);
+    y.all <- perf.avg@y.values[[1]];
+    x.all <- perf.avg@x.values[[1]];
+    lgd <- paste("Area under the curve (AUC) =", auroc, "\n",
+                 "95% CI:", auc.ci);
+    
+    ROCR::plot(x.all, y.all, type="n", axes=F,
+         xlim=c(0,1), ylim=c(0,1),
+         xlab="1-Specificity (False positive rate)",
+         ylab="Sensitivity (True positive rate)"
+    );
+    
+    box()
+    axis(side=2)
+    lab.at <- seq(0, 1, 0.2);
+    grid.at <- seq(0, 1, 0.1);
+    lab.labels <- lab.at
+    axis(side=1, at=lab.at, labels=as.graphicsAnnot(sprintf( "%.1f", lab.labels)));
+    abline(v=grid.at, lty=3, col="lightgrey");
+    abline(h=grid.at, lty=3, col="lightgrey");
+    lines(x.all, y.all, type="l", lwd=2, col="blue");
+    
+    if(show.conf){
+      res <- ComputeHighLow(perf);
+      suppressWarnings(polygon(c(x.all, rev(x.all)), c(res$con.low, rev(res$con.high)), col="#0000ff22"))
+    }
+    
+    legend("center", legend = lgd, bty="n");
+    
+  }else{ # plot ROC of specific model and save the table for details
+    
+    preds <- ROCR::prediction(mSetObj$analSet$ROCtest$pred.cv, mSetObj$analSet$ROCtest$true.cv);
+    auroc <- round(mSetObj$analSet$ROCtest$auc.vec[1],3)
+    auc.ci <- mSetObj$analSet$ROCtest$auc.ci;
+    
+    perf <- ROCR::performance(preds, "tpr", "fpr");
+    perf.avg <- ComputeAverageCurve(perf, avg.method);
+    y.all <- perf.avg@y.values[[1]];
+    x.all <- perf.avg@x.values[[1]];
+    # to draw a roc curve line from (0,0)
+    y.all <- c(0.0, y.all);
+    x.all <- c(0.0, x.all);
+    
+    lgd <- paste("Area under the curve (AUC) =", auroc, "\n",
+                 "95% CI:", auc.ci);
+    
+    ROCR::plot(x.all, y.all, type="n", axes=F,
+         xlim=c(0,1), ylim=c(0,1),
+         xlab="1-Specificity (False positive rate)",
+         ylab="Sensitivity (True positive rate)"
+    );
+    
+    box()
+    axis(side=2)
+    lab.at <- seq(0, 1, 0.2);
+    grid.at <- seq(0, 1, 0.1);
+    lab.labels <- lab.at
+    axis(side=1, at=lab.at, labels=as.graphicsAnnot(sprintf( "%.1f", lab.labels)));
+    abline(v=grid.at, lty=3, col="lightgrey");
+    abline(h=grid.at, lty=3, col="lightgrey");
+    lines(x.all, y.all, type="l", lwd=2, col="blue");
+    
+    if(show.conf){
+      res <- ComputeHighLow(perf);            
+      # to draw a roc curve line from (0,0)
+      # suppressWarnings(polygon(c(x.all, rev(x.all)), c(res$con.low, rev(res$con.high)), col="#0000ff22"))
+      suppressWarnings(polygon(c(x.all, rev(x.all)), c(c(0,res$con.low), c(rev(res$con.high),0)), col="#0000ff22"))
+    }
+    if(show.holdout){
+
+      roc.obj <- pROC::roc(mSetObj$dataSet$test.cls, mSetObj$analSet$ROCtest$test.res, percent = F);
+      test.x <- 1-roc.obj$spec;
+      test.y <- roc.obj$sens;
+      
+      lbls <- c("Type", "CV","Holdout");
+      lbls <- sprintf("%-10s",lbls);
+      
+      test.auc <- round(roc.obj$auc[[1]],3);
+      aucs <- c("AUC", auroc, test.auc);
+      
+      lgd <- paste(lbls, aucs, sep="");
+      lines(test.x, test.y, type="l", lwd=2, col="magenta");
+      legend("bottomright", legend = lgd, pch=c(NA, 15, 15), col=c(NA, "blue", "magenta"));
+    }else{
+      legend("center", legend = lgd,  bty="n");
+    }       
+  }
+  dev.off();
+  return(.set.mSet(mSetObj));
+}
+
+
+#'Plot a summary view of the classification result of tester prediction
+#'@description Plot of predicted class probabilities. On the x-axis is the proability, 
+#'and the y-axis is the index of each predicted sample based on the probility. 
+#'The samples are turned into separations at the x-axis.
+#'This plot can be created for multivariate ROC curve analysis using SVM, PLS, and RandomForest.
+#'Please note that sometimes, not all samples will be tested, instead they will be plotted
+#'at the 0.5 neutral line. 
+#'@usage PlotProbViewTest(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, show, showPred) 
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param imgName Input a name for the plot
+#'@param format Select the image format, "png", of "pdf". 
+#'@param dpi Input the dpi. If the image format is "pdf", users need not define the dpi. For "png" images, 
+#'the default dpi is 72. It is suggested that for high-resolution images, select a dpi of 300. 
+#'@param mdl.inx Model index, 0 means to compare all models, -1 means to use the best model, input 1-6 to plot a ROC curve for one of the top six models
+#'@param show 1 or 0, if 1, label samples classified to the wrong groups 
+#'@param showPred Show predicted samples
+#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: GNU GPL (>= 2)
+#'@export
+
+PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, show, showPred) {
+  
+  mSetObj <- .get.mSet(mSetObj);
+  anal.mode <- mSetObj$analSet$mode;
+  
+  smpl.nms <- rownames(mSetObj$dataSet$norm);
+  prob.vec <- rep(0.5, length(smpl.nms));
+  names(prob.vec) <- smpl.nms;
+  
+  probs <- MergeDuplicates(unlist(mSetObj$analSet$ROCtest$pred.cv));
+
+  prob.vec[names(probs)] <- probs;
+  
+  nms <- names(prob.vec);
+  ord.inx <- order(nms);
+  prob.vec <- prob.vec[ord.inx];
+  cls <- mSetObj$dataSet$cls[ord.inx];
+  # remember to update the nms itself!
+  nms <- names(prob.vec);
+  
+  # get html confusion matrix
+  pred.out <- as.factor(ifelse(prob.vec > 0.5, 1, 0));
+  act.cls <- as.numeric(cls)-1;
+  
+  prob.res <- data.frame(Probability=prob.vec, Predicted=pred.out, Actual=act.cls);
+  
+  write.table(prob.res, file="roc_pred_prob1.csv", sep=",", col.names = TRUE);
+  
+  conf.res <- table(pred.out, act.cls);
+  mSetObj$analSet$conf.table <- xtable::xtable(conf.res, caption="Confusion Matrix (Cross-Validation)");
+  mSetObj$analSet$conf.mat <- print(mSetObj$analSet$conf.table, type = "html", print.results=F, caption.placement="top", html.table.attributes="border=1 width=150" )     
+  
+  if(anal.mode == "test"){
+    if(!is.null(mSetObj$dataSet$test.data)){
+      
+      test.pred <- ifelse(mSetObj$analSet$ROCtest$test.res > 0.5, 1, 0);
+      test.cls <- as.numeric(mSetObj$dataSet$test.cls)-1;
+      
+      test.df <- data.frame(Prob_HoldOut=mSetObj$analSet$ROCtest$test.res, Predicted_HoldOut=test.pred, Actual_HoldOut=test.cls);
+      suppressMessages(write.table(test.df, file="roc_pred_prob1.csv", sep=",", append=TRUE, col.names = TRUE));
+      
+      test.res <- table(test.pred, test.cls);
+      mSetObj$analSet$conf.mat.test <- print(xtable::xtable(test.res, 
+                                                            caption="Confusion Matrix (Hold-out)"),
+                                             type = "html", print.results=F, xtable.width=120, caption.placement="top",
+                                             html.table.attributes="border=1 width=150" );
+    }
+  }
+  
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  w <- 9; h <- 8;
+  
+  mSetObj$imgSet$roc.testprob.plot <- imgName;
+  mSetObj$imgSet$roc.testprob.name <- mdl.inx
+
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+  
+  set.seed(123);
+  y <- rnorm(length(prob.vec));
+  max.y <- max(abs(y));
+  ylim <- max.y*c(-1.05, 1.05);
+  
+  xlim <- c(0, 1.0);
+  
+  op <- par(mar=c(4,4,3,6));
+  pchs <- ifelse(as.numeric(cls) == 1, 1, 19);
+  
+  colors <- ifelse(show==1, "darkgrey", "black");
+  ROCR::plot(prob.vec, y, pch=pchs, col=colors, xlim=xlim, ylim= ylim, xlab = "Predicted Class Probabilities", ylab="Samples");
+  abline(h = 0, lty = 2, col="grey");
+  abline(v = 0.5, lty = 2, col="grey");
+  
+  par(xpd=T);
+  legend("right",inset=c(-0.11,0), legend = unique(as.character(cls)), pch=unique(pchs));
+  
+  test.y <- test.x <- 0;
+  if(showPred){
+    test.y <- rnorm(length(mSetObj$analSet$ROCtest$test.res));
+    test.x <- mSetObj$analSet$ROCtest$test.res;
+   
+    pchs <- ifelse(as.numeric(mSetObj$dataSet$test.cls) == 1, 1, 19);
+    points(test.x, test.y, pch=pchs, cex=1.5, col="red");
+  }
+  
+  if(show == 1){ 
+    
+    # add labels for sample classified wrong
+    # the idea is to add labels to the left side for those with prob < 0.5
+    # and add labels to the right side of the point for those with prob > 0.5
+    # leave 0.5 out 
+    
+    # first wrong pred as 1 (right side)
+    act.ones <- as.numeric(cls)-1 == 1;
+    pred.vec <- ifelse(prob.vec > 0.5, 1, 0);
+    
+    wrong.inx <- (pred.vec != as.numeric(cls)-1) & pred.vec == 1;
+    if(sum(wrong.inx) > 0){
+      text(prob.vec[wrong.inx], y[wrong.inx], nms[wrong.inx], pos=4);
+    }
+    
+    # first wrong pred as 0 (left side)
+    act.zeros <- as.numeric(cls)-1 == 0;
+    pred.vec <- ifelse(prob.vec < 0.5, 0, 0.5);
+    wrong.inx <- pred.vec != as.numeric(cls)-1 & pred.vec == 0;
+    if(sum(wrong.inx) > 0){
+      text(prob.vec[wrong.inx], y[wrong.inx], nms[wrong.inx], pos=2);
+    }
+    
+    if(showPred){
+      nms <- rownames(mSetObj$dataSet$test.data);
+      
+      act.ones <- as.numeric(mSetObj$dataSet$test.cls)-1 == 1;
+      act.zeros <- as.numeric(mSetObj$dataSet$test.cls)-1 == 0;
+      
+      # leave 0.5 there
+      pred.vec <- ifelse(test.x > 0.5, 1, 0.5);
+      wrong.inx <- (pred.vec != as.numeric(mSetObj$dataSet$test.cls)-1) & act.ones;
+      if(sum(wrong.inx) > 0){
+        text(test.x[wrong.inx], test.y[wrong.inx], nms[wrong.inx], pos=4, cex=0.9);
+      }
+      
+      pred.vec <- ifelse(test.x < 0.5, 0, 0.5);
+      wrong.inx <- pred.vec != as.numeric(mSetObj$dataSet$test.cls)-1 & act.zeros;
+      if(sum(wrong.inx) > 0){
+        text(test.x[wrong.inx], test.y[wrong.inx], nms[wrong.inx], pos=2, cex=0.9);
+      }
+    }
+  }
+  par(op)
+  dev.off();
+  return(.set.mSet(mSetObj));
+}
+
+
+#'Plot classification performance using different features for Biomarker Tester
+#'@description Plot of the accuracy of classification with an increasing number of features.
+#'@usage PlotTestAccuracy(mSetObj=NA, imgName, format="png", dpi=72)
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param imgName Input a name for the plot
+#'@param format Select the image format, "png", of "pdf". 
+#'@param dpi Input the dpi. If the image format is "pdf", users need not define the dpi. For "png" images, 
+#'the default dpi is 72. It is suggested that for high-resolution images, select a dpi of 300.  
+#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: GNU GPL (>= 2)
+#'@export
+
+PlotTestAccuracy<-function(mSetObj=NA, imgName, format="png", dpi=72){
+  
+  mSetObj <- .get.mSet(mSetObj);
+  anal.mode <- mSetObj$analSet$mode;
+  
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  w <- 9; h <- 7;
+  
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+  
+  y.vec <- mSetObj$analSet$ROCtest$accu.mat[1,];
+  ylim.ext <- GetExtendRange (y.vec, 12); # first increase ylim by 1/12
+  boxplot(y.vec, col="#0000ff22", ylim=ylim.ext, outline=FALSE, boxwex=c(0.5, 0.5), ylab="Predictive Accuracy");
+  stripchart(t(mSetObj$analSet$ROCtest$accu.mat), method = "jitter", vertical=T, add = T, pch=19);
+  
+  accu.info <- paste ("The average accuracy based on 100 cross validations is", round(mean(y.vec), 3));
+  
+  mSetObj$imgSet$roc.testpred <- imgName;
+  
+  if(!is.null(mSetObj$dataSet$test.cls)){
+    test.pred <- ifelse(mSetObj$analSet$ROCtest$test.res > 0.5, 1, 0);
+    test.cls <- as.numeric(mSetObj$dataSet$test.cls)-1;
+    
+    hit <- sum(test.pred == test.cls);
+    percent <- round(hit/length(test.cls), 3);
+    accu.info <- paste(accu.info, ". The accuracy for hold out data prediction is ",  percent,
+                       "(", hit, "/",  length(test.cls), ").", sep="");
+  }
+  
+  mSetObj$analSet$ROCtest$accu.info <- accu.info;
+  
+  dev.off();
+  return(.set.mSet(mSetObj));
+}
+
+
+#'Export biomarker accuracy information
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@export
+GetAccuracyInfo<-function(mSetObj=NA){
+  mSetObj <- .get.mSet(mSetObj);
+  return(mSetObj$analSet$ROCtest$accu.info);
+}
+
