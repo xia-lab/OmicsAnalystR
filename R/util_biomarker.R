@@ -1701,33 +1701,35 @@ SetCustomData <- function(rdtSet=NA, selected.cmpds, selected.smpls){
 #'License: GNU GPL (>= 2)
 #'@export
 
-PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=100){
- 
-  mSetObj <- .get.mSet(mSetObj);
-  mSetObj$analSet$tester.method <- method;
-  mSetObj$analSet$tester.lvNum <- lvNum;
-  data <- mSetObj$dataSet$norm;
-  cls <- mSetObj$dataSet$cls;    
+PerformCV.test <- function(rdtSet=NA, method, lvNum, propTraining=2/3, nRuns=100){
+  
+  rdtSet <-  .get.rdt.set();
+  rdtSet$analSet$tester.method <- method;
+  rdtSet$analSet$tester.lvNum <- lvNum;
+  data <- t(rdtSet$dataSet$roc.norm);
+  cls <- rdtSet$dataSet$roc.cls;    
+
+  print(c(cls,method))
   
   if(method == "lr") {
     # check cls (response variable) whether it is number 0/1 or not
-    if( length(levels(mSetObj$dataSet$cls)) == 2 ) {
-      mSetObj$dataSet$cls.lbl <- levels(mSetObj$dataSet$cls);  # already sorted
-      cls <- as.numeric(mSetObj$dataSet$cls)-1;
-      mSetObj$dataSet$cls.lbl.new <- sort(unique(cls));
-      mSetObj$dataSet$cls01 <- cls; # integer values for response of logistic regression
+    if( length(levels(rdtSet$dataSet$roc.cls)) == 2 ) {
+      rdtSet$dataSet$roc.cls.lbl <- levels(rdtSet$dataSet$roc.cls);  # already sorted
+      cls <- as.numeric(rdtSet$dataSet$roc.cls)-1;
+      rdtSet$dataSet$roc.cls.lbl.new <- sort(unique(cls));
+      rdtSet$dataSet$cls01 <- cls; # integer values for response of logistic regression
     } else {
-       AddErrMsg("level of response variable y/class has more than 2!");
-       return(0);
+      AddErrMsg("level of response variable y/class has more than 2!");
+      return(0);
     }
   } else {
     if(method == "pls"){# make sure the feature # > comp #
-        if(lvNum > ncol(data)){
-            AddErrMsg("PLS components cannot be more than total features selected!");
-            return(0);
-        }
+      if(lvNum > ncol(data)){
+        AddErrMsg("PLS components cannot be more than total features selected!");
+        return(0);
+      }
     }
-    cls <- mSetObj$dataSet$cls;
+    cls <- rdtSet$dataSet$roc.cls;
   }
   
   splitMat <- GetTrainTestSplitMat(cls, propTraining, nRuns);
@@ -1748,7 +1750,8 @@ PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=10
     res <- Predict.class(x.train, y.train, x.test, method, lvNum, imp.out=T);
     feat.outp[[irun]] <- res$imp.vec;
     prob.out <- res$prob.out;
-    
+      print(c(    prob.out ))
+ print(c(    y.test ))
     # calculate AUC for each
     pred <- ROCR::prediction(prob.out, y.test);
     auc.vec[irun] <- slot(ROCR::performance(pred, "auc"), "y.values")[[1]];
@@ -1771,16 +1774,16 @@ PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=10
   
   #########################################
   # if there is holdout sample, do prediction
-  if(!is.null(mSetObj$dataSet$test.data)){
-    test.res <- Predict.class(data, cls, mSetObj$dataSet$test.data, method, lvNum);
+  if(!is.null(rdtSet$dataSet$test.data)){
+    test.res <- Predict.class(data, cls, rdtSet$dataSet$test.data, method, lvNum);
   }else{
     test.res <- NULL;
   }
   #######################
   #########################################
   # if there is new samples, do prediction
-  if(!is.null(mSetObj$dataSet$new.data)){
-    new.res <<- Predict.class(data, cls, mSetObj$dataSet$new.data, method, lvNum);
+  if(!is.null(rdtSet$dataSet$new.data)){
+    new.res <<- Predict.class(data, cls, rdtSet$dataSet$new.data, method, lvNum);
   }else{
     new.res <- NULL;
   }
@@ -1799,21 +1802,21 @@ PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=10
     
     tbl.cls <- table(cls);
     if( (tbl.cls[[1]] < 10) & (tbl.cls[[2]] < 10) ) {
-       AddErrMsg("The sample size of each group should be more than 10!");
-       return (0);
+      AddErrMsg("The sample size of each group should be more than 10!");
+      return (0);
     } else {
       doLogisticRegMdl(x.train.all, y.train.all, x.test.all, y.test.all);
     }
   }
   #######################
-  if(!is.null(mSetObj$analSet$ROCtest$perm.res)){
-    mSetObj$analSet$ROCtest <-  list(
-      type = mSetObj$analSet$type,  # note, do not forget to carry the type "roc" when overwrite analSet
+  if(!is.null(rdtSet$analSet$ROCtest$perm.res)){
+    rdtSet$analSet$ROCtest <-  list(
+      type = rdtSet$analSet$type,  # note, do not forget to carry the type "roc" when overwrite analSet
       train.mat = trainRuns,
       pred.cv = perf.outp,
       true.cv = actualCls,
       imp.cv = feat.outp,
-      perm.res = mSetObj$analSet$ROCtest$perm.res,
+      perm.res = rdtSet$analSet$ROCtest$perm.res,
       # record processed output
       pred.list = preds,
       accu.mat = t(as.matrix(accu.vec)),
@@ -1822,15 +1825,15 @@ PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=10
       test.res = test.res,
       new.res = new.res
     );
-
+    
   } else {
-    mSetObj$analSet$ROCtest <-  list(
-      type = mSetObj$analSet$type,  # note, do not forget to carry the type "roc" when overwrite analSet
+    rdtSet$analSet$ROCtest <-  list(
+      type = rdtSet$analSet$type,  # note, do not forget to carry the type "roc" when overwrite analSet
       train.mat = trainRuns,
       pred.cv = perf.outp,
       true.cv = actualCls,
       imp.cv = feat.outp,
-
+      
       # record processed output
       pred.list = preds,
       accu.mat = t(as.matrix(accu.vec)),
@@ -1840,10 +1843,9 @@ PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=10
       new.res = new.res
     );
   }
-
-  return(.set.mSet(mSetObj));
+  
+  return(.set.rdt.set(rdtSet));
 }
-
 
 #'Plot ROC for the ROC Curve Based Model Creation and Evaluation module
 #'@description Plot the ROC curve of the biomarker model created using a user-selected subset of features.
@@ -1869,24 +1871,24 @@ PerformCV.test <- function(mSetObj=NA, method, lvNum, propTraining=2/3, nRuns=10
 #'License: GNU GPL (>= 2)
 #'@export 
 
-PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
+PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
   
-  mSetObj <- .get.mSet(mSetObj);
-  anal.mode <- mSetObj$analSet$mode;
+    rdtSet <-  .get.rdt.set();
+  anal.mode <- rdtSet$analSet$mode;
   
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   w <- 8; h <- 8;
-  mSetObj$imgSet$roc.testcurve.plot <- imgName;
-  mSetObj$imgSet$roc.testcurve.name <- mdl.inx
-  mSetObj$imgSet$roc.testcurve.method <- avg.method
+  rdtSet$imgSet$roc.testcurve.plot <- imgName;
+  rdtSet$imgSet$roc.testcurve.name <- mdl.inx
+  rdtSet$imgSet$roc.testcurve.method <- avg.method
   
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
   
   op <- par(mar=c(5,4,3,3));
   
   if(anal.mode=="explore" && mdl.inx == 0){ # compare all models
-    preds <- mSetObj$analSet$ROCtest$pred.list;
-    auroc <- mSetObj$analSet$ROCtest$auc.vec;
+    preds <- rdtSet$analSet$ROCtest$pred.list;
+    auroc <- rdtSet$analSet$ROCtest$auc.vec;
     perf <- ROCR::performance(preds[[1]], "tpr", "fpr");
     perf.avg <- ComputeAverageCurve(perf, avg.method);
     
@@ -1923,7 +1925,7 @@ PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.me
     
     vals <- sprintf("%-8s", vals);
     
-    cis <- mSetObj$analSet$multiROC$auc.ci;
+    cis <- rdtSet$analSet$multiROC$auc.ci;
     cis <- c("CI", cis);
     legends <- paste(feats, vals, cis, sep="");
     
@@ -1934,9 +1936,9 @@ PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.me
     
   }else if(mdl.inx > 0 && anal.mode=="explore"){ 
     
-    preds <- ROCR::prediction(mSetObj$analSet$ROCtest$pred.cv[[mdl.inx]], mSetObj$analSet$ROCtest$true.cv);
-    auroc <- round(mSetObj$analSet$ROCtest$auc.vec[mdl.inx],3);
-    auc.ci <- mSetObj$analSet$ROCtest$auc.ci[mdl.inx];
+    preds <- ROCR::prediction(rdtSet$analSet$ROCtest$pred.cv[[mdl.inx]], rdtSet$analSet$ROCtest$true.cv);
+    auroc <- round(rdtSet$analSet$ROCtest$auc.vec[mdl.inx],3);
+    auc.ci <- rdtSet$analSet$ROCtest$auc.ci[mdl.inx];
     perf <- ROCR::performance(preds, "tpr", "fpr");
     perf.avg <- ComputeAverageCurve(perf, avg.method);
     y.all <- perf.avg@y.values[[1]];
@@ -1969,9 +1971,9 @@ PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.me
     
   }else{ # plot ROC of specific model and save the table for details
     
-    preds <- ROCR::prediction(mSetObj$analSet$ROCtest$pred.cv, mSetObj$analSet$ROCtest$true.cv);
-    auroc <- round(mSetObj$analSet$ROCtest$auc.vec[1],3)
-    auc.ci <- mSetObj$analSet$ROCtest$auc.ci;
+    preds <- ROCR::prediction(rdtSet$analSet$ROCtest$pred.cv, rdtSet$analSet$ROCtest$true.cv);
+    auroc <- round(rdtSet$analSet$ROCtest$auc.vec[1],3)
+    auc.ci <- rdtSet$analSet$ROCtest$auc.ci;
     
     perf <- ROCR::performance(preds, "tpr", "fpr");
     perf.avg <- ComputeAverageCurve(perf, avg.method);
@@ -2008,7 +2010,7 @@ PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.me
     }
     if(show.holdout){
 
-      roc.obj <- pROC::roc(mSetObj$dataSet$test.cls, mSetObj$analSet$ROCtest$test.res, percent = F);
+      roc.obj <- pROC::roc(rdtSet$dataSet$test.cls, rdtSet$analSet$ROCtest$test.res, percent = F);
       test.x <- 1-roc.obj$spec;
       test.y <- roc.obj$sens;
       
@@ -2026,7 +2028,7 @@ PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.me
     }       
   }
   dev.off();
-  return(.set.mSet(mSetObj));
+  return(.set.rdt.set(rdtSet));
 }
 
 
@@ -2051,23 +2053,23 @@ PlotROCTest<-function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, avg.me
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, show, showPred) {
+PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, show, showPred) {
   
-  mSetObj <- .get.mSet(mSetObj);
-  anal.mode <- mSetObj$analSet$mode;
+   rdtSet <-  .get.rdt.set(); 
+  anal.mode <- rdtSet$analSet$mode;
   
-  smpl.nms <- rownames(mSetObj$dataSet$norm);
+  smpl.nms <- colnames(rdtSet$dataSet$roc.norm);
   prob.vec <- rep(0.5, length(smpl.nms));
   names(prob.vec) <- smpl.nms;
   
-  probs <- MergeDuplicates(unlist(mSetObj$analSet$ROCtest$pred.cv));
+  probs <- MergeDuplicates(unlist(rdtSet$analSet$ROCtest$pred.cv));
 
   prob.vec[names(probs)] <- probs;
   
   nms <- names(prob.vec);
   ord.inx <- order(nms);
   prob.vec <- prob.vec[ord.inx];
-  cls <- mSetObj$dataSet$cls[ord.inx];
+  cls <- rdtSet$dataSet$roc.cls[ord.inx];
   # remember to update the nms itself!
   nms <- names(prob.vec);
   
@@ -2080,20 +2082,20 @@ PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx,
   write.table(prob.res, file="roc_pred_prob1.csv", sep=",", col.names = TRUE);
   
   conf.res <- table(pred.out, act.cls);
-  mSetObj$analSet$conf.table <- xtable::xtable(conf.res, caption="Confusion Matrix (Cross-Validation)");
-  mSetObj$analSet$conf.mat <- print(mSetObj$analSet$conf.table, type = "html", print.results=F, caption.placement="top", html.table.attributes="border=1 width=150" )     
+  rdtSet$analSet$conf.table <- xtable::xtable(conf.res, caption="Confusion Matrix (Cross-Validation)");
+  rdtSet$analSet$conf.mat <- print(rdtSet$analSet$conf.table, type = "html", print.results=F, caption.placement="top", html.table.attributes="border=1 width=150" )     
   
   if(anal.mode == "test"){
-    if(!is.null(mSetObj$dataSet$test.data)){
+    if(!is.null(rdtSet$dataSet$test.data)){
       
-      test.pred <- ifelse(mSetObj$analSet$ROCtest$test.res > 0.5, 1, 0);
-      test.cls <- as.numeric(mSetObj$dataSet$test.cls)-1;
+      test.pred <- ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, 1, 0);
+      test.cls <- as.numeric(rdtSet$dataSet$test.cls)-1;
       
-      test.df <- data.frame(Prob_HoldOut=mSetObj$analSet$ROCtest$test.res, Predicted_HoldOut=test.pred, Actual_HoldOut=test.cls);
+      test.df <- data.frame(Prob_HoldOut=rdtSet$analSet$ROCtest$test.res, Predicted_HoldOut=test.pred, Actual_HoldOut=test.cls);
       suppressMessages(write.table(test.df, file="roc_pred_prob1.csv", sep=",", append=TRUE, col.names = TRUE));
       
       test.res <- table(test.pred, test.cls);
-      mSetObj$analSet$conf.mat.test <- print(xtable::xtable(test.res, 
+      rdtSet$analSet$conf.mat.test <- print(xtable::xtable(test.res, 
                                                             caption="Confusion Matrix (Hold-out)"),
                                              type = "html", print.results=F, xtable.width=120, caption.placement="top",
                                              html.table.attributes="border=1 width=150" );
@@ -2103,8 +2105,8 @@ PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx,
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   w <- 9; h <- 8;
   
-  mSetObj$imgSet$roc.testprob.plot <- imgName;
-  mSetObj$imgSet$roc.testprob.name <- mdl.inx
+  rdtSet$imgSet$roc.testprob.plot <- imgName;
+  rdtSet$imgSet$roc.testprob.name <- mdl.inx
 
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
   
@@ -2128,10 +2130,10 @@ PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx,
   
   test.y <- test.x <- 0;
   if(showPred){
-    test.y <- rnorm(length(mSetObj$analSet$ROCtest$test.res));
-    test.x <- mSetObj$analSet$ROCtest$test.res;
+    test.y <- rnorm(length(rdtSet$analSet$ROCtest$test.res));
+    test.x <- rdtSet$analSet$ROCtest$test.res;
    
-    pchs <- ifelse(as.numeric(mSetObj$dataSet$test.cls) == 1, 1, 19);
+    pchs <- ifelse(as.numeric(rdtSet$dataSet$test.cls) == 1, 1, 19);
     points(test.x, test.y, pch=pchs, cex=1.5, col="red");
   }
   
@@ -2160,20 +2162,20 @@ PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx,
     }
     
     if(showPred){
-      nms <- rownames(mSetObj$dataSet$test.data);
+      nms <- rownames(rdtSet$dataSet$test.data);
       
-      act.ones <- as.numeric(mSetObj$dataSet$test.cls)-1 == 1;
-      act.zeros <- as.numeric(mSetObj$dataSet$test.cls)-1 == 0;
+      act.ones <- as.numeric(rdtSet$dataSet$test.cls)-1 == 1;
+      act.zeros <- as.numeric(rdtSet$dataSet$test.cls)-1 == 0;
       
       # leave 0.5 there
       pred.vec <- ifelse(test.x > 0.5, 1, 0.5);
-      wrong.inx <- (pred.vec != as.numeric(mSetObj$dataSet$test.cls)-1) & act.ones;
+      wrong.inx <- (pred.vec != as.numeric(rdtSet$dataSet$test.cls)-1) & act.ones;
       if(sum(wrong.inx) > 0){
         text(test.x[wrong.inx], test.y[wrong.inx], nms[wrong.inx], pos=4, cex=0.9);
       }
       
       pred.vec <- ifelse(test.x < 0.5, 0, 0.5);
-      wrong.inx <- pred.vec != as.numeric(mSetObj$dataSet$test.cls)-1 & act.zeros;
+      wrong.inx <- pred.vec != as.numeric(rdtSet$dataSet$test.cls)-1 & act.zeros;
       if(sum(wrong.inx) > 0){
         text(test.x[wrong.inx], test.y[wrong.inx], nms[wrong.inx], pos=2, cex=0.9);
       }
@@ -2181,7 +2183,7 @@ PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx,
   }
   par(op)
   dev.off();
-  return(.set.mSet(mSetObj));
+  return(.set.rdt.set(rdtSet));
 }
 
 
@@ -2198,28 +2200,28 @@ PlotProbViewTest <- function(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx,
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotTestAccuracy<-function(mSetObj=NA, imgName, format="png", dpi=72){
+PlotTestAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=72){
   
-  mSetObj <- .get.mSet(mSetObj);
-  anal.mode <- mSetObj$analSet$mode;
+  rdtSet <-  .get.rdt.set();
+  anal.mode <- rdtSet$analSet$mode;
   
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   w <- 9; h <- 7;
   
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
   
-  y.vec <- mSetObj$analSet$ROCtest$accu.mat[1,];
+  y.vec <- rdtSet$analSet$ROCtest$accu.mat[1,];
   ylim.ext <- GetExtendRange (y.vec, 12); # first increase ylim by 1/12
   boxplot(y.vec, col="#0000ff22", ylim=ylim.ext, outline=FALSE, boxwex=c(0.5, 0.5), ylab="Predictive Accuracy");
-  stripchart(t(mSetObj$analSet$ROCtest$accu.mat), method = "jitter", vertical=T, add = T, pch=19);
+  stripchart(t(rdtSet$analSet$ROCtest$accu.mat), method = "jitter", vertical=T, add = T, pch=19);
   
   accu.info <- paste ("The average accuracy based on 100 cross validations is", round(mean(y.vec), 3));
   
-  mSetObj$imgSet$roc.testpred <- imgName;
+  rdtSet$imgSet$roc.testpred <- imgName;
   
-  if(!is.null(mSetObj$dataSet$test.cls)){
-    test.pred <- ifelse(mSetObj$analSet$ROCtest$test.res > 0.5, 1, 0);
-    test.cls <- as.numeric(mSetObj$dataSet$test.cls)-1;
+  if(!is.null(rdtSet$dataSet$test.cls)){
+    test.pred <- ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, 1, 0);
+    test.cls <- as.numeric(rdtSet$dataSet$test.cls)-1;
     
     hit <- sum(test.pred == test.cls);
     percent <- round(hit/length(test.cls), 3);
@@ -2227,18 +2229,92 @@ PlotTestAccuracy<-function(mSetObj=NA, imgName, format="png", dpi=72){
                        "(", hit, "/",  length(test.cls), ").", sep="");
   }
   
-  mSetObj$analSet$ROCtest$accu.info <- accu.info;
+  rdtSet$analSet$ROCtest$accu.info <- accu.info;
   
   dev.off();
-  return(.set.mSet(mSetObj));
+  return(.set.rdt.set(rdtSet));
 }
 
 
 #'Export biomarker accuracy information
 #'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
 #'@export
-GetAccuracyInfo<-function(mSetObj=NA){
-  mSetObj <- .get.mSet(mSetObj);
-  return(mSetObj$analSet$ROCtest$accu.info);
+GetAccuracyInfo<-function(rdtSet=NA){
+  rdtSet <-  .get.rdt.set();
+  return(rdtSet$analSet$ROCtest$accu.info);
 }
 
+
+#'Perform permutation tests only for ROC Tester 
+#'@description Perform permutation tests for the ROC Curve Based Model Creation and Evaluation module
+#'@usage Perform.Permut(mSetObj=NA, perf.measure, perm.num, propTraining = 2/3)
+#'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
+#'@param perf.measure Input the performance measure to rate the performance of the model, either the area
+#'under the ROC curve ("auroc") or the predictive accuracy ("accu")
+#'@param perm.num Input the number of permutations to perform
+#'@param propTraining Numeric, input the fraction of samples to set aside for training. Default is set to 2/3.
+#'@author Jeff Xia \email{jeff.xia@mcgill.ca}
+#'McGill University, Canada
+#'License: GNU GPL (>= 2)
+#'@export
+#'
+Perform.Permut<-function(rdtSet=NA, perf.measure, perm.num, propTraining = 2/3){
+  
+  rdtSet <-  .get.rdt.set();
+  
+  cvRuns = perm.num;
+  propTraining = propTraining
+  
+  cls <- rdtSet$dataSet$roc.cls;
+  datmat <- t(rdtSet$dataSet$roc.norm);
+
+  if(rdtSet$analSet$mode == "test"){
+    clsMethod <- rdtSet$analSet$tester.method;
+  }else{
+    clsMethod <- rdtSet$analSet$exp.method;
+  }
+
+  splitMat <- GetTrainTestSplitMat(cls, propTraining, cvRuns);
+  trainInx <- splitMat$training.mat;
+  testInx <- splitMat$testing.mat;
+  
+  # now, do the permutation
+  perf.outp <- actualCls <- vector(length = cvRuns, mode = "list");
+  # for (irun in 1:cvRuns){
+  irun <- 1;
+  while(irun < cvRuns){
+    cls <- cls[order(runif(length(cls)))];
+    trainingSampleRun <- trainInx[irun, ]
+    testSampleRun <- testInx[irun, ];
+    y.in <- cls[trainingSampleRun];
+    # make sure the y.in contain only one group
+    if(length(unique(as.numeric(y.in))) > 1){
+      y.out <- cls[testSampleRun];
+      actualCls[[irun]] <- as.numeric(y.out);
+      perf.outp[[irun]] <- Get.pred(datmat[trainingSampleRun,], y.in,
+                                    datmat[testSampleRun, ], y.out, clsMethod);
+      irun <- irun + 1;
+    }else{
+      print("redo....");
+    }
+  }
+  
+  # get the AUROC for permuted data
+  pred <- ROCR::prediction(perf.outp, actualCls);
+  aucs <- try(unlist(slot(ROCR::performance(pred, "auc"), "y.values")));
+  if (class(aucs)=="try-error"){
+     AddErrMsg("Not enough distinct predictions to compute area under the ROC curve. Increase sample size or reduce permutation number.");
+     return(0);
+  }
+  accs <- unlist(slot(ROCR::performance(pred, "acc"), "y.values"));
+  perf.obj <- try(ROCR::performance(pred, "tpr", "fpr"));
+  if (class(perf.obj)=="try-error"){
+     AddErrMsg("Something wrong with the task. Increase sample size or reduce permutation number.");
+     return(0);
+  }
+  # now, insert the average value of the original performance
+  accs <- c(mean(rdtSet$analSet$ROCtest$accu.mat[1,]), accs);
+  aucs <- c(mean(rdtSet$analSet$ROCtest$auc.vec), aucs);
+  rdtSet$analSet$ROCtest$perm.res <- list(perf.measure=perf.measure, perf.obj=perf.obj, auc.vec=aucs, acc.vec=accs);
+ return(.set.rdt.set(rdtSet));
+}
