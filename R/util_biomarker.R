@@ -947,7 +947,7 @@ rdtSet <- .get.rdt.set();;
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
   
   if(is.null(rdtSet$analSet$multiROC$accu.mat)){
-    accu.mat <- mSet$analSet$ROCtest$accu.mat;
+    accu.mat <- rdtSet$analSet$ROCtest$accu.mat;
   }else{
     accu.mat <- rdtSet$analSet$multiROC$accu.mat;
   }
@@ -2472,13 +2472,13 @@ doLogisticRegMdl <- function(x.train, y.train, x.test, y.test){
 
 
 
-PlotROC.LRmodel <- function(mSetObj=NA, imgName, format="png", dpi=72, show.conf=FALSE, sp.bin=0.01) {
+PlotROC.LRmodel <- function(rdtSet=NA, imgName, format="png", dpi=72, show.conf=FALSE, sp.bin=0.01) {
 
-  mSetObj <- .get.mSet(mSetObj);
+  rdtSet <- .get.rdt.set();
   
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   w <- h <- 8;
-  mSetObj$imgSet$roc.lr <- imgName;
+  rdtSet$imgSet$roc.lr <- imgName;
   
   roc.object <- LR.r;
   y.origin <- LR.y.origin;
@@ -2511,7 +2511,7 @@ PlotROC.LRmodel <- function(mSetObj=NA, imgName, format="png", dpi=72, show.conf
   }
   
   dev.off();
-  return(.set.mSet(mSetObj));
+return(.set.rdt.set(rdtSet));
 }
 
 Get.pred <- function(x.train, y.train, x.test, y.test, clsMethod="pls"){
@@ -2534,4 +2534,73 @@ Get.pred <- function(x.train, y.train, x.test, y.test, clsMethod="pls"){
     prob.out <- attr(predict(model, x.test,  probability=TRUE), "probabilities")[,"1"];
     return(prob.out);
   }
+}
+
+
+Plot.Permutation<-function(rdtSet=NA, imgName, format="png", dpi=72){
+  
+  rdtSet <- .get.rdt.set();
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  w <- 8; h <- 8;
+  rdtSet$imgSet$roc.perm.plot <- imgName;
+  
+  if(rdtSet$analSet$ROCtest$perm.res$perf.measure == "auroc"){
+    rdtSet$imgSet$roc.perm.method <- "auroc"
+  }else{
+    rdtSet$imgSet$roc.perm.method <- "predictive accuracy"
+  }
+  
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+  
+  if(rdtSet$analSet$ROCtest$perm.res$perf.measure == "auroc"){
+    ROCR::plot(rdtSet$analSet$ROCtest$perm.res$perf.obj, col="grey", lwd=1, lty=2,
+         xlab="1-Specificity (False Positive rate)",
+         ylab="Sensitivity (True Positive rate)");
+    
+    # now add the original ROC
+    
+    preds <- ROCR::prediction(rdtSet$analSet$ROCtest$pred.cv, rdtSet$analSet$ROCtest$true.cv);
+    auroc <- round(rdtSet$analSet$ROCtest$auc.vec[1],3)
+    perf <- ROCR::performance(preds, "tpr", "fpr");
+    # need to replace Inf with 1
+    alpha.vals <- perf@alpha.values;
+    perf@alpha.values <- lapply(alpha.vals, function(x){
+      x[x==Inf] <- 1;
+      x[x==-Inf] <- 0;
+      x
+    });
+    
+    
+    ROCR::plot(perf,lwd=2,avg="threshold", col="blue", add=T);
+    
+    # calculate p value
+    perm.vec <- rdtSet$analSet$ROCtest$perm.res$auc.vec;
+    better.hits <- sum(perm.vec[-1]>=perm.vec[1]);
+    num <- length(perm.vec);
+    if(better.hits == 0) {
+      p <- paste("p <", 1/num);
+    }else{
+      p <- better.hits/num;
+      p <- paste("p =", signif(p, digits=5));
+    }
+    legend("center", legend = paste('Empirical p-value: ', p), bty="n", cex=1.5);
+  }else{ # accuracies
+    perms <- PreparePermResult(rdtSet$analSet$ROCtest$perm.res$acc.vec);
+    perm.vec <- perms$permut;
+    perm.p <- perms$permut.p;
+    
+    op<-par(mar=c(5,5,2,4));
+    
+    xlim.ext <- GetExtendRange (perm.vec, 10);
+    hst <- hist(perm.vec[-1], breaks = "FD", freq=T, ylab="Frequency", xlim=xlim.ext, xaxt="n", xlab= 'Permutation test statistics', col="lightblue", main="");
+    axis(1);
+    
+    # add the indicator using original label
+    h <- max(hst$counts)
+    arrows(perm.vec[1], h/5, perm.vec[1], 0, col="red", lwd=2);
+    text(perm.vec[1], h/3.5, paste('Observed \n statistic \n', perm.p), xpd=T);
+    par(op);
+  }
+  dev.off();
+return(.set.rdt.set(rdtSet));
 }
