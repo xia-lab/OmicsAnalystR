@@ -757,7 +757,7 @@ CombineFacScatter.Anal <- function(dataName="",
     # just top 10
     return(c(0, 0));
   }
-    print("rest3")
+ 
   AddMsg(paste(c("A total of", sum(inx.imp), "significant features were found."), collapse=" "));
   rownames(both.mat) = both.mat[,1]
   both.mat <- both.mat[rownames(rest),];

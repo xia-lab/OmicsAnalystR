@@ -49,6 +49,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet$reductionOpt <- reductionOpt;
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
+
   if(reductionOpt == "mcia") {
     
     mcoin <- run.mcia(data.list, cia.nf=ncomps)
@@ -58,7 +59,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     #setting rownames because mcia may modify the names (i.e "-")
     rownames(pos.xyz) <- rownames(reductionSet$meta);
     colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps));
- 
+    
     loading.pos.xyz = mcoin$mcoa$Tco;
     loading.pos.xyz$ids = featureNms;
     loading.pos.xyz$type <- omics.vec;
@@ -199,7 +200,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
-  print("loading")
+
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
 
@@ -228,7 +229,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 #used to get MOFA results
 GetRdtQs <- function(){
     res <- qs::qread("rdt.set.qs");    
-    ##result.set <<- res;
+    rdt.set <<- res;
     return(1);
 }
 
@@ -250,7 +251,6 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
   reductionSet <- .get.rdt.set();
-
   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   df <- reshape2::melt(df)
 

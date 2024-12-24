@@ -15,7 +15,7 @@
 IntLim.Anal <- function( imgName="NA", imgFormat="png",  
                          analysis.var, ref = NULL, thresh=0.05,pval_type="raw",
                          contrast.cls = "anova",dt1,dt2,outcome=1){
-  print(c(dt1,dt2))
+ 
   dataSet1 <- readDataset(dt1);
   dataSet2 <- readDataset(dt2);
   reductionSet <- .get.rdt.set();
@@ -603,8 +603,7 @@ GetVolcanoDnMat <- function(reductionSet=NA){
 PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
  
     reductionSet <- .get.rdt.set();
-     
-     print("here")
+   
   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
 library(ggplot2)
     reductionSet <- .get.rdt.set();
