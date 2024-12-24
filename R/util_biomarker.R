@@ -744,7 +744,7 @@ other_group <- levels(cls)[2]
     x.in <- data[trainingSampleRun, ]
     y.train <- cls[trainingSampleRun]
     actualCls[[irun]] <- y.test <- cls[testSampleRun]
-    
+       print(c("y",levels(y.test)))
     # Check for missing values in y.train
     if (any(is.na(y.train))) {
       stop("y.train contains missing values. Please ensure labels are correctly assigned before training.")
@@ -767,6 +767,13 @@ other_group <- levels(cls)[2]
       auc.mat[irun, inum] <- slot(ROCR::performance(pred, "auc"), "y.values")[[1]]
       
       perf.outp[[inum]][[irun]] <- prob.out
+         if (!all(levels(y.test) ==levels(factor(pred@labels[[1]]))) ) {
+      auc.mat[irun, inum] <- 1-      auc.mat[irun, inum]
+  perf.outp[[inum]][[irun]] <- 1-prob.out;
+}
+    
+
+      print(c("pred",levels(factor(pred@labels[[1]]))))
       pred.out <- as.factor(ifelse(prob.out > 0.5, target_group, other_group))
       accu.mat[irun, inum] <- Get.Accuracy(table(pred.out, y.test))
     }
@@ -1473,7 +1480,7 @@ PlotProbView <- function(imgName, format = "png", dpi = 72, mdl.inx, show, showP
   prob.res <- data.frame(Probability = prob.vec, Predicted = pred.out, Actual = act.cls)
   write.table(prob.res, file = "roc_pred_prob.csv", sep = ",", col.names = TRUE)
   
-  conf.res <- table(pred.out, act.cls)
+  conf.res <- table(act.cls,pred.out);
   rdtSet$analSet$conf.table <- xtable::xtable(conf.res, caption = "Confusion Matrix (Cross-Validation)")
   rdtSet$analSet$conf.mat <- print(rdtSet$analSet$conf.table, type = "html", print.results = FALSE, caption.placement = "top", html.table.attributes = "border=1 width=150")
   
@@ -1701,16 +1708,15 @@ SetCustomData <- function(rdtSet=NA, selected.cmpds, selected.smpls){
 #'License: GNU GPL (>= 2)
 #'@export
 
-PerformCV.test <- function(rdtSet=NA, method, lvNum, propTraining=2/3, nRuns=100){
+PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, nRuns=100){
   
   rdtSet <-  .get.rdt.set();
   rdtSet$analSet$tester.method <- method;
   rdtSet$analSet$tester.lvNum <- lvNum;
   data <- t(rdtSet$dataSet$roc.norm);
   cls <- rdtSet$dataSet$roc.cls;    
-
-  print(c(cls,method))
-  
+  target_group <- levels(cls)[1]
+  other_group <- levels(cls)[2]
   if(method == "lr") {
     # check cls (response variable) whether it is number 0/1 or not
     if( length(levels(rdtSet$dataSet$roc.cls)) == 2 ) {
@@ -1729,7 +1735,7 @@ PerformCV.test <- function(rdtSet=NA, method, lvNum, propTraining=2/3, nRuns=100
         return(0);
       }
     }
-    cls <- rdtSet$dataSet$roc.cls;
+    #cls <- rdtSet$dataSet$roc.cls;
   }
   
   splitMat <- GetTrainTestSplitMat(cls, propTraining, nRuns);
@@ -1745,21 +1751,28 @@ PerformCV.test <- function(rdtSet=NA, method, lvNum, propTraining=2/3, nRuns=100
     x.train <- data[trainingSampleRun, ,drop=F];
     x.test <- data[testSampleRun, ,drop=F];
     y.train <- cls[trainingSampleRun];
-    actualCls[[irun]] <- y.test <- cls[testSampleRun];
-    
+    actualCls[[irun]] <- y.test <-  cls[testSampleRun];
+    y.test.numeric <- as.numeric(y.test)-1
+    y.train.numeric <- factor(as.numeric(y.train)-1)
+
     res <- Predict.class(x.train, y.train, x.test, method, lvNum, imp.out=T);
     feat.outp[[irun]] <- res$imp.vec;
     prob.out <- res$prob.out;
-      print(c(    prob.out ))
- print(c(    y.test ))
+    
     # calculate AUC for each
     pred <- ROCR::prediction(prob.out, y.test);
     auc.vec[irun] <- slot(ROCR::performance(pred, "auc"), "y.values")[[1]];
-    perf.outp[[irun]] <- prob.out;
-    pred.out <- as.factor(ifelse(prob.out > 0.5, 1, 0));
-    accu.vec[irun] <- Get.Accuracy(table(pred.out, y.test));
+   perf.outp[[irun]] <- prob.out;
+     if (!all(levels(y.test) ==levels(factor(pred@labels[[1]]))) ) {
+  auc.vec[irun] <- 1-auc.vec[irun] 
+   perf.outp[[irun]] <- 1-prob.out;
+}
+    pred.out <- factor(ifelse(prob.out > 0.5, target_group, other_group ),levels=c(target_group, other_group));
+
+  #print(c(levels(pred.out),"pred.out"))
+  accu.vec[irun] <- Get.Accuracy(table(pred.out, y.test));
   }
-  
+   print(c(levels( y.test)," y.test"))
   #############################################################################
   ## prepare results for default plotting
   ## 1) get best model based on AUROC for prob.view and imp.feature calculation
@@ -1823,7 +1836,9 @@ PerformCV.test <- function(rdtSet=NA, method, lvNum, propTraining=2/3, nRuns=100
       auc.ci = auc.ci,
       auc.vec = auc,
       test.res = test.res,
-      new.res = new.res
+      new.res = new.res,
+      target_group= target_group,
+      other_group= other_group
     );
     
   } else {
@@ -1840,12 +1855,15 @@ PerformCV.test <- function(rdtSet=NA, method, lvNum, propTraining=2/3, nRuns=100
       auc.ci = auc.ci,
       auc.vec = auc,
       test.res = test.res,
-      new.res = new.res
+      new.res = new.res,
+      target_group = target_group,
+      other_group = other_group
     );
   }
   
   return(.set.rdt.set(rdtSet));
 }
+
 
 #'Plot ROC for the ROC Curve Based Model Creation and Evaluation module
 #'@description Plot the ROC curve of the biomarker model created using a user-selected subset of features.
@@ -1875,6 +1893,8 @@ PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, avg.met
   
     rdtSet <-  .get.rdt.set();
   anal.mode <- rdtSet$analSet$mode;
+  target_group <- rdtSet$analSet$ROCtest$target_group
+  other_group <- rdtSet$analSet$ROCtest$other_group
   
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   w <- 8; h <- 8;
@@ -2057,39 +2077,41 @@ PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, 
   
    rdtSet <-  .get.rdt.set(); 
   anal.mode <- rdtSet$analSet$mode;
-  
+   target_group <- rdtSet$analSet$ROCtest$target_group
+  other_group <- rdtSet$analSet$ROCtest$other_group
+
   smpl.nms <- colnames(rdtSet$dataSet$roc.norm);
   prob.vec <- rep(0.5, length(smpl.nms));
   names(prob.vec) <- smpl.nms;
   
   probs <- MergeDuplicates(unlist(rdtSet$analSet$ROCtest$pred.cv));
-
+ 
   prob.vec[names(probs)] <- probs;
   
   nms <- names(prob.vec);
   ord.inx <- order(nms);
   prob.vec <- prob.vec[ord.inx];
-  cls <- rdtSet$dataSet$roc.cls[ord.inx];
+    cls <-  rdtSet$dataSet$roc.cls[ord.inx];
   # remember to update the nms itself!
   nms <- names(prob.vec);
   
   # get html confusion matrix
-  pred.out <- as.factor(ifelse(prob.vec > 0.5, 1, 0));
-  act.cls <- as.numeric(cls)-1;
+  pred.out <- factor(ifelse(prob.vec > 0.5, target_group, other_group), levels = c(target_group, other_group));
+    act.cls <- factor(cls, levels = c(target_group, other_group));
   
   prob.res <- data.frame(Probability=prob.vec, Predicted=pred.out, Actual=act.cls);
   
   write.table(prob.res, file="roc_pred_prob1.csv", sep=",", col.names = TRUE);
   
-  conf.res <- table(pred.out, act.cls);
+  conf.res <- table(act.cls,pred.out);
   rdtSet$analSet$conf.table <- xtable::xtable(conf.res, caption="Confusion Matrix (Cross-Validation)");
   rdtSet$analSet$conf.mat <- print(rdtSet$analSet$conf.table, type = "html", print.results=F, caption.placement="top", html.table.attributes="border=1 width=150" )     
   
   if(anal.mode == "test"){
     if(!is.null(rdtSet$dataSet$test.data)){
       
-      test.pred <- ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, 1, 0);
-      test.cls <- as.numeric(rdtSet$dataSet$test.cls)-1;
+      test.pred <-  factor(ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, target_group, other_group), levels = c(target_group, other_group));
+      test.cls <-  factor(rdtSet$dataSet$test.cls, levels = c(target_group, other_group));
       
       test.df <- data.frame(Prob_HoldOut=rdtSet$analSet$ROCtest$test.res, Predicted_HoldOut=test.pred, Actual_HoldOut=test.cls);
       suppressMessages(write.table(test.df, file="roc_pred_prob1.csv", sep=",", append=TRUE, col.names = TRUE));
@@ -2118,7 +2140,7 @@ PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, 
   xlim <- c(0, 1.0);
   
   op <- par(mar=c(4,4,3,6));
-  pchs <- ifelse(as.numeric(cls) == 1, 1, 19);
+  pchs <- ifelse( cls  == other_group, 19, 1);
   
   colors <- ifelse(show==1, "darkgrey", "black");
   ROCR::plot(prob.vec, y, pch=pchs, col=colors, xlim=xlim, ylim= ylim, xlab = "Predicted Class Probabilities", ylab="Samples");
@@ -2126,59 +2148,29 @@ PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, 
   abline(v = 0.5, lty = 2, col="grey");
   
   par(xpd=T);
-  legend("right",inset=c(-0.11,0), legend = unique(as.character(cls)), pch=unique(pchs));
-  
+ 
+ legend("right", inset = c(-0.12, 0), legend = c(target_group, other_group), pch = c(1, 19))
+
   test.y <- test.x <- 0;
   if(showPred){
     test.y <- rnorm(length(rdtSet$analSet$ROCtest$test.res));
     test.x <- rdtSet$analSet$ROCtest$test.res;
    
-    pchs <- ifelse(as.numeric(rdtSet$dataSet$test.cls) == 1, 1, 19);
+    pchs <- ifelse(rdtSet$dataSet$test.cls==other_group, 19, 1);
     points(test.x, test.y, pch=pchs, cex=1.5, col="red");
   }
   
   if(show == 1){ 
     
-    # add labels for sample classified wrong
-    # the idea is to add labels to the left side for those with prob < 0.5
-    # and add labels to the right side of the point for those with prob > 0.5
-    # leave 0.5 out 
+        pred.vec <- ifelse(prob.vec > 0.5, target_group, other_group)
+    misclassified <- (pred.vec != as.character(cls))
+    text(prob.vec[misclassified], y[misclassified], nms[misclassified], pos = ifelse(pred.vec[misclassified] == other_group, 4, 2))
     
-    # first wrong pred as 1 (right side)
-    act.ones <- as.numeric(cls)-1 == 1;
-    pred.vec <- ifelse(prob.vec > 0.5, 1, 0);
-    
-    wrong.inx <- (pred.vec != as.numeric(cls)-1) & pred.vec == 1;
-    if(sum(wrong.inx) > 0){
-      text(prob.vec[wrong.inx], y[wrong.inx], nms[wrong.inx], pos=4);
-    }
-    
-    # first wrong pred as 0 (left side)
-    act.zeros <- as.numeric(cls)-1 == 0;
-    pred.vec <- ifelse(prob.vec < 0.5, 0, 0.5);
-    wrong.inx <- pred.vec != as.numeric(cls)-1 & pred.vec == 0;
-    if(sum(wrong.inx) > 0){
-      text(prob.vec[wrong.inx], y[wrong.inx], nms[wrong.inx], pos=2);
-    }
-    
-    if(showPred){
-      nms <- rownames(rdtSet$dataSet$test.data);
-      
-      act.ones <- as.numeric(rdtSet$dataSet$test.cls)-1 == 1;
-      act.zeros <- as.numeric(rdtSet$dataSet$test.cls)-1 == 0;
-      
-      # leave 0.5 there
-      pred.vec <- ifelse(test.x > 0.5, 1, 0.5);
-      wrong.inx <- (pred.vec != as.numeric(rdtSet$dataSet$test.cls)-1) & act.ones;
-      if(sum(wrong.inx) > 0){
-        text(test.x[wrong.inx], test.y[wrong.inx], nms[wrong.inx], pos=4, cex=0.9);
-      }
-      
-      pred.vec <- ifelse(test.x < 0.5, 0, 0.5);
-      wrong.inx <- pred.vec != as.numeric(rdtSet$dataSet$test.cls)-1 & act.zeros;
-      if(sum(wrong.inx) > 0){
-        text(test.x[wrong.inx], test.y[wrong.inx], nms[wrong.inx], pos=2, cex=0.9);
-      }
+    if (showPred && !is.null(rdtSet$dataSet$test.cls)) {
+      nms <- rownames(rdtSet$dataSet$test.data)
+      pred.vec <- ifelse(test.x > 0.5, target_group, other_group)
+      misclassified_test <- (pred.vec != as.character(rdtSet$dataSet$test.cls))
+      text(test.x[misclassified_test], test.y[misclassified_test], nms[misclassified_test], pos = ifelse(pred.vec[misclassified_test] == other_group, 4, 2), cex = 0.9)
     }
   }
   par(op)
@@ -2220,7 +2212,7 @@ PlotTestAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=72){
   rdtSet$imgSet$roc.testpred <- imgName;
   
   if(!is.null(rdtSet$dataSet$test.cls)){
-    test.pred <- ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, 1, 0);
+    test.pred <- ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, target_group, other_group);
     test.cls <- as.numeric(rdtSet$dataSet$test.cls)-1;
     
     hit <- sum(test.pred == test.cls);
@@ -2317,4 +2309,229 @@ Perform.Permut<-function(rdtSet=NA, perf.measure, perm.num, propTraining = 2/3){
   aucs <- c(mean(rdtSet$analSet$ROCtest$auc.vec), aucs);
   rdtSet$analSet$ROCtest$perm.res <- list(perf.measure=perf.measure, perf.obj=perf.obj, auc.vec=aucs, acc.vec=accs);
  return(.set.rdt.set(rdtSet));
+}
+
+
+
+
+
+.do.CVTest.LRmodel <- function(data.in, fmla.in, kfold=10, run.stepwise=FALSE){
+
+
+  dw.case <- data.in[which(data.in$y == 1), ]; nrow(dw.case)
+  dw.ctrl <- data.in[which(data.in$y == 0), ]; nrow(dw.ctrl)
+  
+  random.seed <- 10063927;
+  grpIndice.case <- createCVset(nrow(dw.case), kfold, random.seed)
+  grpIndice.ctrl <- createCVset(nrow(dw.ctrl), kfold, random.seed)
+  
+  all.trainning.y <- NULL
+  all.trainning.fit <- NULL
+  all.validation.y <- NULL
+  all.validation.fit <- NULL
+  
+  for (i in 1:kfold) 
+  {
+    d.train.case <- dw.case[-grpIndice.case[[i]], ]; nrow(d.train.case)
+    d.train.ctrl <- dw.ctrl[-grpIndice.ctrl[[i]], ]; nrow(d.train.ctrl)
+    d.train <- rbind(d.train.case, d.train.ctrl); names(d.train)
+    
+    d.validation.case <- dw.case[grpIndice.case[[i]], ]; nrow(d.validation.case)
+    d.validation.ctrl <- dw.ctrl[grpIndice.ctrl[[i]], ]; nrow(d.validation.ctrl)
+    d.validation <- rbind(d.validation.case, d.validation.ctrl)  
+    
+    vnames <- names(d.train); 
+    
+    mdl <- glm(fmla.in, data=d.train, family=binomial(link="logit"))
+    if(run.stepwise) { mdl <- step(mdl) }
+    
+    dval.pred <- predict(mdl, d.validation, type="response");  
+    
+    all.validation.y <- c(all.validation.y, d.validation$y)
+    all.validation.fit <- c(all.validation.fit, dval.pred)
+    all.trainning.y <- c(all.trainning.y, mdl$y)
+    all.trainning.fit <- c(all.trainning.fit, mdl$fitted.values)
+  }
+  
+  # 10-fold cross validation
+  cv.r <- pROC::roc(all.validation.y ~ all.validation.fit, ci=T, ci.se=T, sp=seq(0,1,0.01)) # of: se (sensitivity), sp (specificity), thresholds, auc 
+  # cv.threshold <- coords(cv.r, "best", ret=c("threshold"), best.method="youden", best.weights=c(5, nrow(dw.case)/nrow(data.in)) ); 
+  cv.threshold <- as.numeric(pROC::coords(cv.r, "best", ret=c("threshold"), best.method="closest.topleft", transpose=TRUE)); 
+  cv.rstat <- multi.stat(all.validation.fit > cv.threshold, all.validation.y);
+  if(length(cv.rstat) == 1 && cv.rstat == 0){
+    return(0);
+  }
+  cv.tbl <- table(all.validation.fit > cv.threshold, all.validation.y);
+  
+  # training performance
+  train.r <- pROC::roc(all.trainning.y ~  all.trainning.fit, ci=T, ci.se=T, sp=seq(0,1,0.01)) # of: se (sensitivity), sp (specificity), thresholds, auc 
+  train.threshold <- pROC::coords(train.r, "best", ret=c("threshold"), best.method="youden", transpose=TRUE); 
+  train.rstat <- multi.stat(all.trainning.fit > cv.threshold, all.trainning.y) 
+  if(length(train.rstat) == 1 && train.rstat == 0){
+    return(0);
+  } 
+  return(list(
+    train.r = train.r$ci,
+    train.threshold = train.threshold,
+    train.rstat = train.rstat,
+    cv.robj = cv.r,
+    cv.r = cv.r$ci,
+    cv.threshold = cv.threshold,
+    cv.rstat = cv.rstat,
+    cv.tbl = cv.tbl,
+    cv.y = all.validation.y,
+    cv.pred = all.validation.fit,
+    cv.threshold = cv.threshold
+  ));
+}
+
+
+doLogisticRegMdl <- function(x.train, y.train, x.test, y.test){
+  
+  # use 10-fold CV as default; or LOOCV if sample size < 10
+  x <- x.train;
+  y <- y.train;
+  x.cv.test <- x.test;
+  y.cv.test <- y.test;
+  
+  #names.x.origin <- colnames(x);
+  #names(x) <- paste0("V", 1:(ncol(x)));
+  #names(x.cv.test) <- names(x);
+  
+  # glm can only take numeric + factor
+  if(class(y) == "character"){
+    y <- as.factor(y)
+  }
+  
+  # LR Model generation
+  data.xy <- data.frame(y, x);
+  fmla <- as.formula(paste("y ~", paste(names(data.xy)[-1], collapse="+")));
+  
+  model <- glm(fmla, data=data.xy, family=binomial(link="logit"), na.action="na.omit");
+  
+  # if model with selected variables is failed, the use the stepwise variable selection
+  if((!model$converged) | (model$deviance < 1)){
+    model <- step(model, trace=0);
+    fmla <- model$formula;
+  }
+  
+  mdlSummary <- summary(model)$coefficients;
+  #dimnames(mdlSummary)[[1]][-1] <- names.x.origin;
+  # prob.out <- predict(model, x.cv.test, type="response");
+  
+  Odds <- round(exp(cbind(OR=coef(model), confint(model))), 2)[,1];
+  # Odds <- round(exp(OR=coef(model)), 2);
+  Odds[1] <- "-";
+  LRmodel <- cbind(round(mdlSummary,3), Odds);
+  LRmodel[,4] <- ifelse(LRmodel[,4] < 0.001, "< 0.001", LRmodel[,4]);
+  
+  # LR model's summary table as html format
+  LRmodel.xtable <<- print(xtable::xtable(LRmodel, align="r|rrrcc"),
+                           type = "html", print.results=F, xtable.width=600,
+                           html.table.attributes="border=1 width=600" );
+  
+  coefTable <- coef(model);
+  #names(coefTable)[-1] <- names.x.origin;
+  if (model$converged & model$deviance > 1) {
+    LReq <<- genLREquation(coefTable);
+    LRConverged <<- "TRUE";
+  } else {
+    # (Error: Model was not converged)
+    LReq <<- "(Error: Model was not converged)";
+    LRConverged <<- "FALSE"; 
+  }
+  
+  # ROC analysis with 10-fold CV test set   
+  rStat <- .do.CVTest.LRmodel(data.xy, fmla.in=fmla, kfold=10, run.stepwise=FALSE)     
+  # r <- roc(y.cv.test ~ prob.out, ci=T, ci.se=T, sp=seq(0,1,0.01)) # of: se (sensitivity), sp (specificity), thresholds, auc
+  
+  # ROC plot with k-fold CV test set for ROC plot
+  LR.r <<- rStat$cv.robj;
+  LR.y.origin <<- rStat$cv.y;
+  LR.y.pred <<- rStat$cv.pred;
+  LR.threshold <<- rStat$cv.threshold;
+  
+  # training/discovery; 10-fold CV
+  auc  <- c( sprintf("%.3f (%.3f ~ %.3f)", rStat$train.r[2], rStat$train.r[1], rStat$train.r[3]),
+             sprintf("%.3f (%.3f ~ %.3f)", round(rStat$cv.r[2],3), round(rStat$cv.r[1],3), round(rStat$cv.r[3],3)) );
+  sens <- c( sprintf("%.3f (%.3f ~ %.3f)", rStat$train.rstat$sens, rStat$train.rstat$sensCI[1], rStat$train.rstat$sensCI[2]),
+             sprintf("%.3f (%.3f ~ %.3f)", rStat$cv.rstat$sens, rStat$cv.rstat[1], rStat$cv.rstat$sensCI[2]) );
+  spec <- c( sprintf("%.3f (%.3f ~ %.3f)", rStat$train.rstat$spec, rStat$train.rstat$specCI[1], rStat$train.rstat$specCI[2]),
+             sprintf("%.3f (%.3f ~ %.3f)", rStat$cv.rstat$spec, rStat$cv.rstat$specCI[1], rStat$cv.rstat$specCI[2]) );
+  
+  LRperf <- cbind(auc, sens, spec);
+  colnames(LRperf) <- c("AUC","Sensitivity","Specificity");
+  rownames(LRperf) <- c("Training/Discovery","10-fold Cross-Validation");
+  
+  LRperf.xtable <<- print(xtable::xtable(LRperf, align="r|ccc"), include.rownames=TRUE, floating=FALSE,
+                          type = "html", print.results=F, xtable.width=600,
+                          html.table.attributes="border=1 width=600");
+}
+
+
+
+
+
+PlotROC.LRmodel <- function(mSetObj=NA, imgName, format="png", dpi=72, show.conf=FALSE, sp.bin=0.01) {
+
+  mSetObj <- .get.mSet(mSetObj);
+  
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  w <- h <- 8;
+  mSetObj$imgSet$roc.lr <- imgName;
+  
+  roc.object <- LR.r;
+  y.origin <- LR.y.origin;
+  y.pred <- LR.y.pred;
+  
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+  op <- par(mar=c(5,4,3,3));
+  
+  # auc.ci <- ci.auc(roc.object, method="bootstrap", boot.n=500, progress="none");
+  auc.lbl <- paste("Area under the curve (AUC) = ", round(roc.object$ci[2],3), sep="");
+  ci.lbl  <- paste("95% CI: ", round(roc.object$ci[1],3), " - ", round(roc.object$ci[3],3),sep="");
+  perform.lbl <- paste(auc.lbl,"\n", ci.lbl, sep="");
+  
+  # plot ROC of specific model and save the table for details
+  if(show.conf){
+    # of: se (sensitivity), sp (specificity), thresholds, auc
+    r.new <- roc(y.origin ~ y.pred, ci=T, of="se", sp=seq(0,1,sp.bin));
+    pROC::plot.roc(r.new, add=F, ci.type="bars", ci.col="green", col="darkolivegreen", lty="dotted", legacy.axes=T,
+             xlab="1 - Specificity (False positive rate)", ylab="Sensitivity (True positive rate)",
+             cex.axis=1.0, cex.lab=1.0);
+    pROC::plot.roc(pROC::smooth(r.new, method="density", n=512), add=T, col="blue", lwd=1);
+    legend("bottomright", legend=c("Empirical","Smoothed", "95% CI"), cex=1.0, col=c(par("fg"), "blue", "green"), lwd=3, lty=c(3,1,1) );
+    
+    text(0.7, 0.4, perform.lbl, adj=c(0,1), col="black", cex=1.0);
+  } else {
+    pROC::plot.roc(roc.object, add=F, ci.type="no", col="blue", legacy.axes=T,
+             xlab="1 - Specificity (False positive rate)", ylab="Sensitivity (True positive rate)",
+             cex.axis=1.0, cex.lab=1.0, lwd=2, lty=1 );
+    text(0.7, 0.4, perform.lbl, adj=c(0,1), col="black", cex=1.0);
+  }
+  
+  dev.off();
+  return(.set.mSet(mSetObj));
+}
+
+Get.pred <- function(x.train, y.train, x.test, y.test, clsMethod="pls"){
+  
+  # first convert class label to 0/1 so convert prob-> class will be easier
+  y.train <- as.factor(as.numeric(y.train)-1);
+  y.test <- as.factor(as.numeric(y.test)-1);
+  
+  # note, we only need prob for class 1, pred can be inferred
+  if (clsMethod == "rf"){
+    model <- randomForest::randomForest(x.train, y.train, ntree=100, importance=F);
+    prob.out <- predict(model, x.test, type="prob")[,"1"];
+    return(prob.out);
+  }else if(clsMethod == "pls"){ # plsda
+    model <- caret::plsda(x.train, y.train, method='oscorespls');
+    prob.out <- predict(model, x.test, type="prob")[,"1",1];
+    return(prob.out);
+  }else{ # svm
+    model <- e1071::svm(x.train, y.train, type = 'C', kernel="linear", probability=TRUE);
+    prob.out <- attr(predict(model, x.test,  probability=TRUE), "probabilities")[,"1"];
+    return(prob.out);
+  }
 }
