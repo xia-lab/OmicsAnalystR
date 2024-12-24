@@ -79,9 +79,9 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
    meta.info = rdtSet$dataSet$meta.info
   if(factor2!="NA" &factor2!="all" ){
   meta.info = rdtSet$dataSet$meta.info
-    sample_include = rownames(meta.info[which(meta.info[[sel.meta]]) %in% c(factor1,factor2),])
+    sample_include = rownames(meta.info[which(meta.info[[sel.meta]] %in% c(factor1,factor2)),])
  merged_data <- merged_data[,sample_include]
-   meta.info <- meta.info[rownames(meta.info %in% sample_include),,drop=F]
+meta.info <- meta.info[rownames(meta.info) %in% sample_include,,drop=F]
    meta.info[[sel.meta]] <- droplevels(meta.info[[sel.meta]])
   }
 if(factor2=="all"){
@@ -90,8 +90,7 @@ idx = which(meta.info[[sel.meta]]!=factor1)
 meta.info[[sel.meta]][idx] <- "Others"
 meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,"Others"))
 }
-  
-
+   
   # Check if there are new samples to update `norm`
   new.inx <- is.na(rdtSet$dataSet$cls.all) | rdtSet$dataSet$cls.all == "";
   if(sum(new.inx) > 0){
@@ -131,7 +130,7 @@ CalculateFeatureRanking <- function(clust.num=5){
   
   x <- t(rdtSet$dataSet$roc.norm);
   y <- rdtSet$dataSet$roc.cls;
-  
+ 
   # Check if multiclass or binary
   if(length(levels(y)) > 2){
     # Multiclass case: calculate AUC using pROC::multiclass.roc
@@ -744,7 +743,7 @@ other_group <- levels(cls)[2]
     x.in <- data[trainingSampleRun, ]
     y.train <- cls[trainingSampleRun]
     actualCls[[irun]] <- y.test <- cls[testSampleRun]
-       print(c("y",levels(y.test)))
+ 
     # Check for missing values in y.train
     if (any(is.na(y.train))) {
       stop("y.train contains missing values. Please ensure labels are correctly assigned before training.")
@@ -771,9 +770,7 @@ other_group <- levels(cls)[2]
       auc.mat[irun, inum] <- 1-      auc.mat[irun, inum]
   perf.outp[[inum]][[irun]] <- 1-prob.out;
 }
-    
-
-      print(c("pred",levels(factor(pred@labels[[1]]))))
+     
       pred.out <- as.factor(ifelse(prob.out > 0.5, target_group, other_group))
       accu.mat[irun, inum] <- Get.Accuracy(table(pred.out, y.test))
     }
@@ -1772,7 +1769,7 @@ PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, n
   #print(c(levels(pred.out),"pred.out"))
   accu.vec[irun] <- Get.Accuracy(table(pred.out, y.test));
   }
-   print(c(levels( y.test)," y.test"))
+ 
   #############################################################################
   ## prepare results for default plotting
   ## 1) get best model based on AUROC for prob.view and imp.feature calculation
