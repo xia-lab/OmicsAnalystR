@@ -141,7 +141,7 @@ PerformVarPartOverview <- function(dataName,top_n = 1000, fileName = "variance_p
   varPart<- cbind(Symbol = rdtSet$analSet$varPart.symbols, varPart);
   rdtSet$analSet$varPart.fileName <- "varPart_results.csv";
   rdtSet$analSet$varPart.df <- varPart;
-  print(head(varPart))
+ 
   fast.write.csv(varPart, file="varPart_results.csv")
 .set.rdt.set(rdtSet)
   return(1)
@@ -278,7 +278,6 @@ GetVarSymbols <- function() {
   
   # Extract the symbols column
   varPart_symbols <- rdtSet$analSet$varPart.df$Symbol
-  print(head(varPart_symbols))
   return(varPart_symbols)
 }
 
