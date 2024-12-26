@@ -76,7 +76,7 @@ color_scale <- if (rdtSet$dataSet$meta.types[predictor] == "cont") {
     if(is.na(overall_test$F[1])){
       stats <- "The model is overfitted with no unconstrained (residual) component."
     }else{
-      stats <- paste0('[Constrained Permutational ANOVA] F-value: ',round(overall_test$F[1],3),";p-value: ",overall_test$`Pr(>F)`[1])
+      stats <- paste0('[Constrained Permutational ANOVA] F-value: ',round(overall_test$F[1],3),"; p-value: ",overall_test$`Pr(>F)`[1])
     }
     
     scaling_factor <- max(abs(st$RDA1), abs(st$RDA2)) / max(abs(sp$RDA1), abs(sp$RDA2))
@@ -187,7 +187,7 @@ axis.title = element_text(size = 12, color = "black"),
   # Plot the variance partitioning results and save the image
     imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
 
-  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 7, height = 5, units = "in", bg = "white")
+  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 7.5, height = 6, units = "in", bg = "white")
   print(p)
   dev.off()
   rdtSet$analSet$biplot_method <- method;
