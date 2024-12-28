@@ -230,11 +230,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
 #used to get MOFA results
 GetRdtQs <- function(){
-    res <- qs::qread("rdt.set.qs"); 
-    if(reductionSet[["mofa.complete"]]){
-        return(1);
-    }
-    return(0);
+    res <- qs::qread("rdt.set.qs");    
+    rdt.set <<- res;
+    return(1);
 }
 
 run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
@@ -256,7 +254,6 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
   reductionSet <- .get.rdt.set();
-
   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   df <- reshape2::melt(df)
 

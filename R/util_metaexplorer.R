@@ -105,7 +105,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
     saveRDS(p,"metadata_heatmap.rds");
 
      # Adjust the height and width (in pixels)
- 
+    options(device = "pdf") 
     as_list <- to_plotly_list(p)
     as_list[["layout"]][["width"]] <- w
     as_list[["layout"]][["height"]] <- max(h,500)
@@ -212,7 +212,7 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
     }else if(colorGradient == "d3"){
         colors <- c("#2CA02CFF","white","#FF7F0EFF");
     }else {
-         colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+         colors <- c( "blue", "white",  "red") #rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
     }
 
  

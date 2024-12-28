@@ -441,8 +441,14 @@ GetDiscMetas <- function(){
 }
 
 GetMetaDataCol <- function(colnm){
+ 
   rdtSet <- .get.rdt.set();
+ if(colnm=="NA"){
+    cls<-levels(rdtSet$dataSet$meta.info[,1])
+  }else{
   cls<-levels(rdtSet$dataSet$meta.info[,colnm])
+}
+
   return(cls[cls!="NA"]);
 }
 
@@ -582,7 +588,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat="png", interactive=F){
+PlotMetaCorrHeatmap <- function(cor.method,cor.opt="pearson", imgName="", dpi=96, imgFormat="png", interactive=F){
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
@@ -617,15 +623,25 @@ PlotMetaCorrHeatmap <- function(cor.opt="pearson", imgName="", dpi=96, imgFormat
   for(i in c(1:length(cont.inx))){
     metaData[,cont.inx[i]] <- as.numeric(as.character(metaData[,cont.inx[i]], na.rm = TRUE));
   }
-  
-
+ 
+ 
+  if(cor.method=="univariate"){
   cormat <- round(cor(metaData, method=cor.opt, use="pairwise.complete.obs"),3);
+
+  }else{
+ library(ppcor);
+     res <- pcor(metaData, method=cor.opt);
+    cormat <- res$estimate;
+    rownames(cormat) <-  colnames(cormat) <- colnames(metaData)
+}
+
   upper_tri <- get_upper_tri(cormat);
   melted_cormat <- melt(upper_tri, na.rm = TRUE);
-  
+  melted_cormat$value = signif(melted_cormat$value,3)
+ 
   ggheatmap <- ggplot2::ggplot(data = melted_cormat, aes(Var2, Var1, fill = value)) +
     geom_tile(color = "white")+ scale_y_discrete("Var1", position="right") +
-    scale_fill_gradient2(low = muted("blue"), mid="white", high = muted("red"), midpoint = 0,
+    scale_fill_gradient2(low =  "blue", mid="white", high = "red", midpoint = 0,
                          limit = c(-1,1), space = "Lab", name="Correlation") + theme_minimal()+ 
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
           axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.y.right = element_text(),

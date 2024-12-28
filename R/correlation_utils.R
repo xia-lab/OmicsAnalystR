@@ -6,6 +6,7 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
+  print(type)
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -41,8 +42,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
       sel.dats[[i]] <- dat
       labels <- c(labels, rownames(dat));
-      
-      
+            
       if(exists("m2m",dataSet)){ 
         
         all.mat.taxa <- dataSet$data.proc.taxa
@@ -115,7 +115,10 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
       sel.dats[[i]] <- dat
     }
+   
   }
+ 
+  names(sel.dats) = sel.nms
   reductionSet$selDatsCorr <- sel.dats;
   reductionSet$feat.sel.type <- type;
   .set.rdt.set(reductionSet);
@@ -179,6 +182,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   residx <- reductionSet$residx
   
   if(cor.method == "univariate"){
+    
     corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
     if(exists("selDatsCorr.taxa",reductionSet)){
       corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
@@ -375,4 +379,226 @@ expand.matrix <- function(A){
   B <- matrix(0,nrow = m, ncol = m)
   C <- matrix(0,nrow = n, ncol = n)
   cbind(rbind(B,t(A)),rbind(A,C))
+}
+
+
+
+###########generate chordgram
+GenerateChordGram <- function(thresh=0.5,imgName = "chordgram", format = "png", dpi = 300){
+  plotjs <- paste0(imgName, ".json");
+  reductionSet <- .get.rdt.set();
+  corr.mat <- qs::qread("corr.mat.qs");
+  corr.mat <- reshape2::melt(corr.mat)
+  sel.dats <- reductionSet$selDatsCorr;
+  #corr.mat <-   corr.mat[corr.mat$Var1!=corr.mat$Var2,]
+  corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
+  corr.mat <- corr.mat[abs(corr.mat$value)>thresh,]
+  reductionSet$chordGram <- corr.mat
+  library(jsonlite)
+  write_json(corr.mat,plotjs, pretty = TRUE)
+  .set.rdt.set(reductionSet);
+  return(nrow(corr.mat))
+}
+
+
+###############
+DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",comp.meta="Diagnosis",selnm1,selnm2){
+  labels <- vector();
+  sel.nms <- c(selnm1,selnm2);
+   
+  m2midx<-0
+  for(i in 1:length(sel.nms)){
+    dataName = sel.nms[i]
+    dataSet <- readDataset(dataName);
+    labels <- c(labels, dataSet$enrich_ids);
+    if(exists("m2m",dataSet)){
+      labels.taxa <- lapply(dataSet$data.taxa, function(x) rownames(x))
+      labels.taxa <-  lapply(labels.taxa, function(x) setNames(x,x))
+    }else if(exists("labels.taxa")){
+      labels.taxa <- lapply(labels.taxa, function(x) c(x,dataSet$enrich_ids))
+    }
+  }
+  
+  reductionSet <- .get.rdt.set();
+  reductionSet$cor.stat <- cor.stat;
+  reductionSet$cor.method <- cor.method;
+  sel.dats <- reductionSet$selDatsCorr;
+  sel.dats <- sel.dats[names(sel.dats) %in% sel.nms]
+  sel.dats <- lapply(sel.dats, function(x){
+    if(nrow(x)>500){
+      return(x[1:500,])
+    }else{
+      return(x)
+    }
+  })
+  load_igraph();
+ 
+  residx <- reductionSet$residx
+  
+  meta.info =  reductionSet$dataSet$meta.info
+  corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]]) 
+ 
+corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]]) 
+  corr.ls <- corr.ls[unlist(lapply(corr.ls, length))>4]
+   
+  if(cor.method == "univariate"){
+    library(Hmisc)
+    corr.mat.ls <- lapply(corr.ls, function(samp){
+       res = rcorr(as.matrix(cbind(t(sel.dats[[1]][,samp]), t(sel.dats[[2]][,samp]))),type = cor.stat);
+     })
+
+      if(exists("selDatsCorr.taxa",reductionSet)){
+      corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
+        cor(cbind(t(x), t(sel.dats[[residx]])), method=cor.stat)
+      })
+      
+      reductionSet$corr.mat.taxa <- corr.mat.taxa
+    }
+    
+  }
+  reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
+  qs::qsave(corr.mat.ls, "diffnet.mat.qs");
+  .set.rdt.set(reductionSet);
+  return(1);
+}
+ 
+
+ 
+
+GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", format = "png", dpi = 300,dt1,dt2,layout="kk"){
+print(c(dpi,"dpi"))
+ # plotjs <- paste0(imgName, ".json");
+  reductionSet <- .get.rdt.set();
+  sel.dats <- reductionSet$selDatsCorr[c(dt1,dt2)];
+  type1 <- readDataset(dt1)[["type"]]
+  type2 <- readDataset(dt2)[["type"]]
+  corr.mat.ls <- qs::qread("diffnet.mat.qs");
+  corr.mat.ls <- lapply(corr.mat.ls, function(x){
+    corr.mat<-reshape2::melt(x$r)
+    p.mat<-reshape2::melt(x$P)
+    corr.mat$pval <- p.mat$value
+    corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
+    #corr.mat <- corr.mat[abs(corr.mat$value)>thresh,]
+    return( corr.mat)
+  })
+  
+  sig.idx <- unique(unlist(lapply(corr.mat.ls, function(x) return(which(abs(x$value)>corr_thresh&x$pval< p_thresh)) )))
+  corr.mat.ls <- lapply(corr.mat.ls, function(x){
+    x <- x[sig.idx,]
+   # x$value[x$value<thresh] <-0
+    names(x) <-c("from","to","corr","pval")
+    x$weight <- abs(x$corr)
+    x$from = as.character(x$from)
+    x$to = as.character(x$to)
+    return(x)
+  })
+  library(igraph)
+  library(ggplot2)
+  library(ggraph)
+  nodes <- data.frame(
+    id=1:length( unique(c(corr.mat.ls[[1]]$from, corr.mat.ls[[1]]$to))),
+   label = unique(c(corr.mat.ls[[1]]$from, corr.mat.ls[[1]]$to))
+   )
+  nodes$type <- ifelse(nodes$label %in% rownames(sel.dats[[1]]),type1,type2)
+  
+  
+  edges.ls <-lapply(corr.mat.ls, function(x){
+    x$from <- nodes$id[match(x$from,nodes$label)]
+    x$to <- nodes$id[match(x$to,nodes$label)]
+    return(x)
+  })
+  edges = edges.ls[[1]] 
+  nodes$label <- gsub(type1,"",  nodes$label)
+  nodes$label <- gsub(type2,"",  nodes$label)
+  nodes$label <- gsub("_$","",  nodes$label)
+  graphall <- graph_from_data_frame(edges, vertices = nodes, directed = FALSE)
+  min_edge_length = 1
+   layout_fixed <- layout_with_kk(graphall)
+  #layout_fixed <- layout.norm(layout_fixed, xmin = -min_edge_length, xmax = min_edge_length,  ymin = -min_edge_length, ymax = min_edge_length)
+  unique_types <- unique(nodes$type)
+  
+  node_shapes <- setNames(c(21,22),unique_types)
+  
+   node_colors <-setNames(c("#00b300","#ffaa00"),unique_types)   # Node color by type
+ 
+  layout_df <- data.frame(
+    x = layout_fixed[, 1],
+    y = layout_fixed[, 2],
+    name = V(graphall)$name  # Node names for alignment
+  )
+  edges.ls <- lapply(edges.ls, function(x){
+    x <- x[x$weight>corr_thresh & x$pval<p_thresh,]
+    return(x)
+  })
+   
+  edges.ls <- edges.ls[unlist(lapply(edges.ls,nrow))>0]
+  subgraph_ls <- lapply(edges.ls, function(x){
+    subg<-induced_subgraph(graphall, vids = V(graphall)[V(graphall) %in% x$from |V(graphall) %in% x$to])
+    return(subg)
+    })
+
+   
+  graph_res <-lapply(names(subgraph_ls), function(title){
+    
+    g<-plot_graph_with_fixed_layout(subgraph_ls[[title]],layout_df,title,node_colors,node_shapes)
+    return(g)
+  })
+
+   #saveRDS(graph_res,"/Users/lzy/Documents/OmicsAnalystR/graph_res.rds")
+  combined_plot <-  patchwork::wrap_plots(graph_res, ncol = 2, guides = "collect") +
+    patchwork::plot_layout(guides = "collect", heights = unit(c(1, 1), "null"), widths = unit(1, "null")) &
+    theme(plot.margin = margin(15, 15, 15, 15))
+ 
+  
+    imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  
+  if(length(graph_res)>2){
+   h=8
+  }else{
+
+   h=6
+  }
+  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 9, height = h, units = "in", bg = "white")
+  print(combined_plot)
+  dev.off()
+  
+  reductionSet$analSet$diffgraph.ls <- graph_res
+  .set.rdt.set(reductionSet);
+  return(1)
+}
+
+plot_graph_with_fixed_layout <- function(graph, layout_df, title,node_colors,node_shapes) {
+print(title)
+  # Merge layout_df to preserve positions for all nodes
+  layout_sub <- merge(data.frame(name = V(graph)$name), layout_df, by = "name", sort = FALSE)
+  edge_colors <- ifelse(E(graph)$corr > 0, "red", "blue")  
+  # Set 'name' explicitly as vertex labels
+  E(graph)$color <- edge_colors  # Scale edge width
+  V(graph)$color <- node_colors[V(graph)$type]  # Node fill color
+  V(graph)$border.color <- V(graph)$color 
+  V(graph)$degree <- degree(graph) 
+  E(graph)$width <- E(graph)$weight 
+ 
+  # Plot the graph
+  ggraph(graph, layout = "manual", x = layout_sub$x, y = layout_sub$y) +
+    # Edges: color and width based on correlation and weight
+    geom_edge_link0(aes(edge_color = color, edge_width = width), alpha = 0.8) +
+    
+    # Nodes: Shape and fill dynamically mapped to 'type'
+    geom_node_point(aes(shape = type, fill = type,size=4 ),  color = "black", stroke = 0.5) +
+    
+    # Node labels
+     geom_node_text(aes(label = label), size = 2.5, color = "black", repel = TRUE) +
+    
+    # Scales for edge and node properties
+    scale_edge_color_identity(guide = "none") +  # Use edge colors directly
+    scale_edge_width(range = c(0.5, 1.2)) +  # Scale edge width
+    scale_shape_manual(values = node_shapes) +  # Shapes by type
+    scale_fill_manual(values = node_colors) +   # Fill colors by type
+    scale_size_continuous(range = c(2, 6)) +
+    ggtitle(title)+
+    
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5, size = 13,margin = margin(t = 10, b = 10)),
+          legend.position = "none" )
 }
