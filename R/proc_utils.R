@@ -309,6 +309,12 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   
   data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
   data <- as.data.frame(data)
+  
+######remove the constant features
+  constant_row <- apply(data, 1, function(row) var(row, na.rm = TRUE) == 0)
+  data <- data[!constant_row,]
+
+ 
   var.nms <- rownames(data)
   
   msg <- paste("A total of ", ncol(data), " samples and ", nrow(data), " features were found")
@@ -358,7 +364,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$orig.var.nms <- orig.var.nms;
   data <- data.frame(apply(data, 2, function(x) as.numeric(as.character(x))))
   # now reassgin the dimension names
-
+  
   colnames(data) <- smpl.nms;
   rownames(data) <- var.nms;
   dataSet$data.proc <- data

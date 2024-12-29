@@ -167,7 +167,9 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
   all_data <- list()
 
   for(i in 1:length(sel.nms)){
+    print(i)
     dataSet = readDataset(sel.nms[i])
+
     x <- dataSet$data.proc
     #print(head(x));
     pca <- prcomp(t(na.omit(x)), center=T, scale=T);
