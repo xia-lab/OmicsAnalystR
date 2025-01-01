@@ -67,9 +67,17 @@ color_scale <- if (rdtSet$dataSet$meta.types[predictor] == "cont") {
  
     rda_result=vegan::rda(feature_table~.,meta)#
     ii=summary(rda_result)  
-    sp=as.data.frame(ii$species[,1:2])
+    sp=as.data.frame(ii$species[,1:2,drop=F])
     st=as.data.frame(ii$sites)
-    yz=as.data.frame(ii$biplot[,1:2])
+    yz=as.data.frame(ii$biplot[,1:2,drop=F])
+
+    if(names(st)[2]=="PC1"){
+     ylab="PC1"
+     names(st)[2]<- names(sp)[2] <- names(yz)[2] <- "RDA2"
+    }else{
+     ylab="RDA2"  
+    }
+
     importance <- apply(abs(sp), 1, sum)  # Sum of absolute scores for Axes 1 & 2
     top_features <- names(sort(importance, decreasing = TRUE)[1:topN])
     overall_test <- anova.cca(rda_result, step = 10000, by = "term")
@@ -99,7 +107,7 @@ color_scale <- if (rdtSet$dataSet$meta.types[predictor] == "cont") {
                                    type = "closed"),linetype=1, size=0.3,colour = "#006000ff",alpha=1) + 
      geom_text_repel(data = yz,aes(RDA1,RDA2,label=row.names(yz)),size=3,color='#006000ff',segment.color = 'grey',fontface ='plain')+ #bold
       labs(x=paste("RDA1 (", format(100 *ii$cont[[1]][2,1], digits=4), "%)", sep=""),
-           y=paste("RDA2 (", format(100 *ii$cont[[1]][2,2], digits=4), "%)", sep=""))+
+           y=paste(ylab," (", format(100 *ii$cont[[1]][2,2], digits=4), "%)", sep=""))+
       geom_hline(yintercept=0,linetype=3,size=0.5,color='gray') + 
       geom_vline(xintercept=0,linetype=3,size=0.5,color='gray')+
       guides(shape=guide_legend(title=NULL,color="black"), fill = F)+
