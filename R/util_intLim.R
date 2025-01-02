@@ -40,8 +40,8 @@ IntLim.Anal <- function( imgName="NA", imgFormat="png",
       covariates.vec <- c()
     }
   }
-   dt1 = as.matrix(dataSet1$data.proc)
-   dt2 = as.matrix(dataSet2$data.proc)[1:1000,]
+   dt1 = as.matrix(dataSet1$data.proc)[1:min(nrow(dataSet1$data.proc),1000),]
+   dt2 = as.matrix(dataSet2$data.proc)[1:min(nrow(dataSet2$data.proc),1000),]
 
   meta.info=reductionSet$dataSet$meta.info
   cls.type <-  reductionSet[["dataSet"]][["meta.types"]]
@@ -77,7 +77,7 @@ IntLim.Anal <- function( imgName="NA", imgFormat="png",
   
   reductionSet <- ProcessResults(reductionSet,inputResults=myres,
                              pvalcutoff=thresh, pval.type=pval_type)
-   
+ 
   .set.rdt.set(reductionSet)
   return(c(1,nrow(reductionSet$intLim_sigmat)))
 
@@ -105,7 +105,6 @@ RunIntLim <- function(inputData,stype="", covar=c(),
     AddMsg("One type of analyte data is missing.")
     return(0)
   }
-  
   
   return(myres)
 }
@@ -203,8 +202,7 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
                           suppressWarnings = FALSE) {
   outcomeArrayData <- data.frame(outcome)
   independentArrayData <- data.frame(independentVariable)
-  num <-  nrow(independentArrayData)
-   
+  num <-  nrow(independentArrayData) 
   # Set up formula and interaction term.
   form.add <- "Y ~ a + type + a:type"
   interactionTerm <- "a:type"
@@ -227,7 +225,6 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
   # Run each model.
   warnings <- list()
   for (i in 1:num) {
-    
     # Set up clinical data.
     a <- as.numeric(independentArrayData[i, ])
     if (is.null(covar)|length(covar)==0) {
@@ -248,7 +245,9 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
                           arraydata = outcomeArrayData, 
                           analytename = rownames(independentArrayData)[i],
                           suppressWarnings = suppressWarnings)
+  
     mlin <- mlin[["mlin"]]
+
     term.pvals <- rownames(mlin$p.value.coeff)
     
     # Return the primary p-values and coefficients.
@@ -295,7 +294,11 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
       list.covariate.coefficients[[i]] <- covariate.coefficients.df
     }
   }
-  
+    failed.calc = which(unlist(lapply(list.coefficients,function(x) length(x)==0)))
+
+list.coefficients[failed.calc] <- list(rep(0,nrow(outcomeArrayData)))
+list.pvals[failed.calc] <- list(rep(1,nrow(outcomeArrayData)))
+list.rsquared[failed.calc] <- list(rep(0,nrow(outcomeArrayData)))
   # Convert the stats into matrix form.
   mat.pvals <- do.call(rbind, list.pvals)
   mat.coefficients <- do.call(rbind, list.coefficients)

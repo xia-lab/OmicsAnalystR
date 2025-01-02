@@ -40,7 +40,7 @@ color_scale <- if (rdtSet$dataSet$meta.types[predictor] == "cont") {
     }
 } else {
    if(colorGradient == "gray"){
-            colors <- c("grey90", "grey70", "grey50", "grey30", "grey10") 
+       colors <- c("grey90", "grey70", "grey50", "grey30", "grey10") 
     }else if(colorGradient == "byr"){
        colors <- RColorBrewer::brewer.pal(10, "RdYlBu") 
     }else if(colorGradient == "viridis") {
