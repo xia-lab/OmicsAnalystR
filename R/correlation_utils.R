@@ -6,7 +6,7 @@
 
 #default feature selection based on sig genes
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
-  print(type)
+  print(c(type,"DoFeatSelectionForCorr"))
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
@@ -153,11 +153,9 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   labels <- vector();
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
-  
-  if(length(sel.nms) != 2){
-    return(0)
-  }
-  
+   
+  print(sel.nms)
+print(cor.method)
   m2midx<-0
   for(i in 1:length(sel.nms)){
     dataName = sel.nms[i]
@@ -233,6 +231,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
   }
+
   reductionSet$corr.mat.path <- "corr.mat.qs"
   qs::qsave(corr.mat, "corr.mat.qs");
   .set.rdt.set(reductionSet);
@@ -436,11 +435,10 @@ DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",co
   residx <- reductionSet$residx
   
   meta.info =  reductionSet$dataSet$meta.info
-  corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]]) 
- 
-corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]]) 
+  corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]])  
+
   corr.ls <- corr.ls[unlist(lapply(corr.ls, length))>4]
-   
+  
   if(cor.method == "univariate"){
     library(Hmisc)
     corr.mat.ls <- lapply(corr.ls, function(samp){
@@ -456,6 +454,7 @@ corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]])
     }
     
   }
+ 
   reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
   qs::qsave(corr.mat.ls, "diffnet.mat.qs");
   .set.rdt.set(reductionSet);
@@ -466,13 +465,14 @@ corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]])
  
 
 GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", format = "png", dpi = 300,dt1,dt2,layout="kk"){
-print(c(dpi,"dpi"))
+
  # plotjs <- paste0(imgName, ".json");
   reductionSet <- .get.rdt.set();
   sel.dats <- reductionSet$selDatsCorr[c(dt1,dt2)];
   type1 <- readDataset(dt1)[["type"]]
   type2 <- readDataset(dt2)[["type"]]
   corr.mat.ls <- qs::qread("diffnet.mat.qs");
+
   corr.mat.ls <- lapply(corr.mat.ls, function(x){
     corr.mat<-reshape2::melt(x$r)
     p.mat<-reshape2::melt(x$P)
@@ -492,6 +492,7 @@ print(c(dpi,"dpi"))
     x$to = as.character(x$to)
     return(x)
   })
+ 
   library(igraph)
   library(ggplot2)
   library(ggraph)
@@ -511,7 +512,8 @@ print(c(dpi,"dpi"))
   nodes$label <- gsub(type1,"",  nodes$label)
   nodes$label <- gsub(type2,"",  nodes$label)
   nodes$label <- gsub("_$","",  nodes$label)
-  graphall <- graph_from_data_frame(edges, vertices = nodes, directed = FALSE)
+  graphall <- graph_from_data_frame(edges[edges$weight>0,], vertices = nodes, directed = FALSE)
+
   min_edge_length = 1
    layout_fixed <- layout_with_kk(graphall)
   #layout_fixed <- layout.norm(layout_fixed, xmin = -min_edge_length, xmax = min_edge_length,  ymin = -min_edge_length, ymax = min_edge_length)
@@ -544,7 +546,6 @@ print(c(dpi,"dpi"))
     return(g)
   })
 
-   #saveRDS(graph_res,"/Users/lzy/Documents/OmicsAnalystR/graph_res.rds")
   combined_plot <-  patchwork::wrap_plots(graph_res, ncol = 2, guides = "collect") +
     patchwork::plot_layout(guides = "collect", heights = unit(c(1, 1), "null"), widths = unit(1, "null")) &
     theme(plot.margin = margin(15, 15, 15, 15))
