@@ -8,7 +8,7 @@
 #'
 PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   rdtSet <- .get.rdt.set();
-  
+   msg.vec <<- 0;
   data.list <- list();
   omics.vec <- vector();
   featureNms <- vector();
@@ -82,18 +82,36 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
    meta.info = rdtSet$dataSet$meta.info
   if(factor2!="NA" &factor2!="all" ){
   meta.info = rdtSet$dataSet$meta.info
+   meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]])
     sample_include = rownames(meta.info[which(meta.info[[sel.meta]] %in% c(factor1,factor2)),])
  merged_data <- merged_data[,sample_include]
 meta.info <- meta.info[rownames(meta.info) %in% sample_include,,drop=F]
    meta.info[[sel.meta]] <- droplevels(meta.info[[sel.meta]])
-  }
+}
 if(factor2=="all"){
 meta.info[[sel.meta]] <- as.character(meta.info[[sel.meta]])
 idx = which(meta.info[[sel.meta]]!=factor1)
 meta.info[[sel.meta]][idx] <- "Others"
 meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,"Others"))
 }
-   
+   stt <- table(meta.info[[sel.meta]])
+print(stt)
+if(length(which(stt<10))==2){
+  
+  msg.vec <<- paste0("errorLess than 10 samples in both groups ",names(stt)[1]," and ",names(stt)[2],". Please select other groups containing more than 10 samples for biomarker analysis.")
+  return;
+}else if(length(which(stt<10))==1){
+  
+  msg.vec <<- paste0("errorLess than 10 samples in group ",names(stt)[which(stt<10)],". Please select other groups containing more than 10 samples for biomarker analysis.")
+  return;
+}else if(length(which(stt<20))==2){
+  msg.vec <<- paste0("warnBiomarker analysis require large sample size. Both groups selected have less than 20 samples.")
+  
+}else if(length(which(stt<20))==1){
+  msg.vec <<- paste0("warnBiomarker analysis require large sample size. ","Group ", names(stt)[which(stt<20)]," has less than 20 samples.")
+  
+}
+
   # Check if there are new samples to update `norm`
   new.inx <- is.na(rdtSet$dataSet$cls.all) | rdtSet$dataSet$cls.all == "";
   if(sum(new.inx) > 0){
