@@ -441,12 +441,14 @@ GetDiscMetas <- function(){
 }
 
 GetMetaDataCol <- function(colnm){
- 
+  
   rdtSet <- .get.rdt.set();
+ 
  if(colnm=="NA"){
     cls<-levels(rdtSet$dataSet$meta.info[,1])
   }else{
-  cls<-levels(rdtSet$dataSet$meta.info[,colnm])
+  meta <- factor(rdtSet$dataSet$meta.info[,colnm])
+  cls<-levels(meta)
 }
 
   return(cls[cls!="NA"]);

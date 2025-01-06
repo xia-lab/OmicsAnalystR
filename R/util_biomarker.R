@@ -14,6 +14,9 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   featureNms <- vector();
   uniqFeats <- vector();
   
+  print(c(sel.meta,factor1,factor2))
+  
+
   rdtSet$dataSet$meta.info.proc <- process_metadata(rdtSet$dataSet$meta.info);
   meta.sel.inx <- mmeta.all == 1;
   meta.sel.nms <- c();  # Assuming no metadata selection for this case
