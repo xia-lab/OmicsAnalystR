@@ -220,16 +220,29 @@ ComputeKmeans <- function(clusterNum="-1"){
   clusterNum <- as.numeric(clusterNum)
   combined_data <-  do.call(rbind, data.list)
     
-  res <- kmeans(t(combined_data), centers = 3, nstart = 25)
+  res <- kmeans(t(combined_data), centers = clusterNum, nstart = 25)
    
   clust <- res$cluster
   
   kmNMI = .calNMI(clust, as.numeric(dat$cls));
-  
+
+
+  global_mean <- colMeans(t(combined_data))
+  TSS <- sum( rowSums( (t(combined_data) - global_mean)^2 ) )
+  BSS_i <- numeric(clusterNum)
+  for (i in 1:clusterNum) {
+    cluster_size <- res$size[i]
+    cluster_centroid <- res$centers[i, ]
+    dist2 <- sum((cluster_centroid - global_mean)^2)  # squared distance
+    BSS_i[i] <- cluster_size * dist2
+  }
+    
   reductionSet$clustType <- "K-means"
   reductionSet$clustVec <- clust
   reductionSet$clustRes <- res 
   reductionSet$clustNmi <- kmNMI
+  reductionSet$clustRes$frac_explained <-  BSS_i / TSS
+  
   
   reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
@@ -271,7 +284,6 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   }
   
   res <- Spectrum::Spectrum(data.list, method=method, fixk=clusterNum, maxk=10, missing=TRUE, fontsize=8, dotsize=2, showres=F, silent=T)
-   saveRDS(data.list,"/Users/lzy/Documents/OmicsAnalystR/data.list.rds")
 
   clust <- res$assignments
   
@@ -512,9 +524,7 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
     C = clusterNum
   }
   group = spectralClustering(W, C); 
-  SNFNMI = .calNMI(group, truelabel)
-     saveRDS(group,"/Users/lzy/Documents/OmicsAnalystR/group.rds")
-  saveRDS(SNFNMI,"/Users/lzy/Documents/OmicsAnalystR/SNFNMI.rds")
+  SNFNMI = .calNMI(group, truelabel) 
   reductionSet$clustType <- "SNF"
   reductionSet$clustVec <- group
   reductionSet$clustRes <- res
@@ -572,7 +582,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   dpi <- as.numeric(dpi);
   imgNm <- paste(imgName, "dpi", dpi, ".", format, sep="");
   load_cairo();
-  if(alg %in% c("snf", "spectrum") ){
+  if(alg %in% c("snf", "spectrum","kmeans") ){
     h=8
     fig.list <- list()
     library(ggpubr);
@@ -633,7 +643,10 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     #fig.list[[1]] <-  function(){plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])}
     #p1 <- ggarrange(plotlist=fig.list, ncol = 1, nrow = 1)
     plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
-  }
+  }else if(alg == "kmeans"){
+    plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$frac_explained)
+
+ }
   dev.off();
   
   infoSet <- readSet(infoSet, "infoSet");
