@@ -13,9 +13,7 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   omics.vec <- vector();
   featureNms <- vector();
   uniqFeats <- vector();
-  
-  print(c(sel.meta,factor1,factor2))
-  
+ 
 
   rdtSet$dataSet$meta.info.proc <- process_metadata(rdtSet$dataSet$meta.info);
   meta.sel.inx <- mmeta.all == 1;
@@ -95,7 +93,7 @@ meta.info[[sel.meta]][idx] <- "Others"
 meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,"Others"))
 }
    stt <- table(meta.info[[sel.meta]])
-print(stt)
+ 
 if(length(which(stt<10))==2){
   
   msg.vec <<- paste0("errorLess than 10 samples in both groups ",names(stt)[1]," and ",names(stt)[2],". Please select other groups containing more than 10 samples for biomarker analysis.")

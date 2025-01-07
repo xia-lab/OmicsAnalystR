@@ -203,6 +203,49 @@ ComputePathHeatmapTable <- function(dataSet){
   return(json.res);
 }
 
+
+ComputeKmeans <- function(clusterNum="-1"){
+
+  print(clusterNum)
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+  data.list <- list()
+  for(i in 1:length(sel.nms)){
+    dat = readDataset(sel.nms[i])
+    data.list[[i]] <- dat$data.proc
+  }
+  reductionSet <- .get.rdt.set();
+  reductionSet$omicstype <- sel.nms
+  
+  clusterNum <- as.numeric(clusterNum)
+  combined_data <-  do.call(rbind, data.list)
+    
+  res <- kmeans(t(combined_data), centers = 3, nstart = 25)
+   
+  clust <- res$cluster
+  
+  kmNMI = .calNMI(clust, as.numeric(dat$cls));
+  
+  reductionSet$clustType <- "K-means"
+  reductionSet$clustVec <- clust
+  reductionSet$clustRes <- res 
+  reductionSet$clustNmi <- kmNMI
+  
+  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
+  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+  #save results
+  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
+  reductionSet$dataSet$meta.info$Cluster <- clust;
+  
+  reductionSet$clustResTable <- res.table;
+  
+  write.csv(res.table, "kmeans_clustering_results.csv");
+  
+  .set.rdt.set(reductionSet);
+  return(1)
+}
+
+ 
 ComputeSpectrum <- function(method="1", clusterNum="-1"){
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
@@ -228,10 +271,12 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   }
   
   res <- Spectrum::Spectrum(data.list, method=method, fixk=clusterNum, maxk=10, missing=TRUE, fontsize=8, dotsize=2, showres=F, silent=T)
+   saveRDS(data.list,"/Users/lzy/Documents/OmicsAnalystR/data.list.rds")
+
   clust <- res$assignments
   
   SNFNMI = .calNMI(clust, as.numeric(dat$cls));
-  
+ 
   reductionSet$clustType <- "Spectrum"
   reductionSet$clustVec <- clust
   reductionSet$clustRes <- res
@@ -304,7 +349,7 @@ GetClusterMembers<-function(clust){
 }
 
 GetDiagnosticSummary<- function(type){
-  if(type %in% c("perturbation", "spectrum", "snf")){
+  if(type %in% c("perturbation", "spectrum", "snf","kmeans")){
     reductionSet <- .get.rdt.set();
     clustNum <- length(unique(reductionSet$clustVec))
     return(c(clustNum, signif(reductionSet$clustNmi)))
@@ -468,7 +513,8 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   }
   group = spectralClustering(W, C); 
   SNFNMI = .calNMI(group, truelabel)
-  
+     saveRDS(group,"/Users/lzy/Documents/OmicsAnalystR/group.rds")
+  saveRDS(SNFNMI,"/Users/lzy/Documents/OmicsAnalystR/SNFNMI.rds")
   reductionSet$clustType <- "SNF"
   reductionSet$clustVec <- group
   reductionSet$clustRes <- res
