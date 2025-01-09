@@ -205,8 +205,9 @@ ComputePathHeatmapTable <- function(dataSet){
 
 
 ComputeKmeans <- function(clusterNum="-1"){
-
+   
   print(clusterNum)
+ 
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
@@ -218,6 +219,9 @@ ComputeKmeans <- function(clusterNum="-1"){
   reductionSet$omicstype <- sel.nms
   
   clusterNum <- as.numeric(clusterNum)
+  if(clusterNum==-1){
+    clusterNum =3
+   }
   combined_data <-  do.call(rbind, data.list)
     
   res <- kmeans(t(combined_data), centers = clusterNum, nstart = 25)
