@@ -189,6 +189,12 @@ print(cor.method)
       
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
+
+  library(Hmisc)
+ 
+    res = rcorr(as.matrix(cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))),type = cor.stat);
+   corr.mat <- res$r
+   corr.p.mat <- res$P
     
   }else if(cor.method == "MI"){
     library(parmigene)
@@ -234,6 +240,7 @@ print(cor.method)
 
   reductionSet$corr.mat.path <- "corr.mat.qs"
   qs::qsave(corr.mat, "corr.mat.qs");
+  qs::qsave(corr.p.mat,"corr.p.mat.qs")
   .set.rdt.set(reductionSet);
   
   return(1);
@@ -383,15 +390,23 @@ expand.matrix <- function(A){
 
 
 ###########generate chordgram
-GenerateChordGram <- function(thresh=0.5,imgName = "chordgram", format = "png", dpi = 300){
+GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format = "png", dpi = 300){
+  print(c(maxN,pval))
   plotjs <- paste0(imgName, ".json");
   reductionSet <- .get.rdt.set();
   corr.mat <- qs::qread("corr.mat.qs");
+  corr.p.mat<- qs::qread("corr.p.mat.qs");
   corr.mat <- reshape2::melt(corr.mat)
+  corr.p.mat <- reshape2::melt(corr.p.mat) 
   sel.dats <- reductionSet$selDatsCorr;
+  
   #corr.mat <-   corr.mat[corr.mat$Var1!=corr.mat$Var2,]
+ corr.mat <- corr.mat[abs(corr.mat$value)>thresh & corr.p.mat$value < pval,]
   corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
-  corr.mat <- corr.mat[abs(corr.mat$value)>thresh,]
+  corr.mat <- corr.mat[order(abs(corr.mat$value),decreasing = T),]
+  if(nrow(corr.mat)>maxN){
+    corr.mat <- corr.mat[maxN,]
+   }
   reductionSet$chordGram <- corr.mat
   library(jsonlite)
   write_json(corr.mat,plotjs, pretty = TRUE)
