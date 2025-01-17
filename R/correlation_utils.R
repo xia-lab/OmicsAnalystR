@@ -12,6 +12,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
   reductionSet <- .get.rdt.set()
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
+
   if(type %in% c("default","custom")){
     for(i in 1:length(sel.nms)){
       dataName = sel.nms[i];
@@ -151,6 +152,7 @@ ExportOmicsPairs <- function(fileName, type){
 
 DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   labels <- vector();
+  print(mdata.all)
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
    
@@ -174,11 +176,10 @@ print(cor.method)
   reductionSet$cor.method <- cor.method;
   sel.dats <- reductionSet$selDatsCorr;
   load_igraph();
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx];
+
   
   residx <- reductionSet$residx
-  
+
   if(cor.method == "univariate"){
     
     corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
@@ -195,7 +196,7 @@ print(cor.method)
     res = rcorr(as.matrix(cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))),type = cor.stat);
    corr.mat <- res$r
    corr.p.mat <- res$P
-    
+      
   }else if(cor.method == "MI"){
     library(parmigene)
     res = knnmi.all(rbind(sel.dats[[1]], sel.dats[[2]]), k=5)
@@ -217,10 +218,11 @@ print(cor.method)
   }else{
     library(ppcor);
     sel.res <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
-    res <- pcor(sel.res, method=cor.stat);
+    res <- pcor(sel.res, method=cor.stat, use = "complete.obs");
     corr.mat <- res$estimate;
-    rownames(corr.mat) <- colnames(sel.res)
-    colnames(corr.mat) <- colnames(sel.res)
+        corr.p.mat <- res$p.value;
+    rownames(corr.mat) <-    colnames(corr.mat) <- colnames(sel.res)
+    rownames(corr.p.mat) <-    colnames(corr.p.mat) <-colnames(sel.res)
     
     if(exists("selDatsCorr.taxa",reductionSet)){
       
@@ -398,16 +400,23 @@ GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format
   corr.p.mat<- qs::qread("corr.p.mat.qs");
   corr.mat <- reshape2::melt(corr.mat)
   corr.p.mat <- reshape2::melt(corr.p.mat) 
-  sel.dats <- reductionSet$selDatsCorr;
-  
+   corr.mat$pval <- corr.p.mat$value
+   sel.inx <- mdata.all==1; 
+ sel.nms <- names(mdata.all)[sel.inx];
+   
+ sel.dats <- reductionSet$selDatsCorr[sel.nms]; 
+
   #corr.mat <-   corr.mat[corr.mat$Var1!=corr.mat$Var2,]
  corr.mat <- corr.mat[abs(corr.mat$value)>thresh & corr.p.mat$value < pval,]
   corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
   corr.mat <- corr.mat[order(abs(corr.mat$value),decreasing = T),]
+ 
   if(nrow(corr.mat)>maxN){
-    corr.mat <- corr.mat[maxN,]
+    corr.mat <- corr.mat[1:maxN,]
    }
+ 
   reductionSet$chordGram <- corr.mat
+  write.csv(corr.mat,"corr.mat.csv",row.names=F)
   library(jsonlite)
   write_json(corr.mat,plotjs, pretty = TRUE)
   .set.rdt.set(reductionSet);
@@ -617,4 +626,68 @@ print(title)
     theme_void() +
     theme(plot.title = element_text(hjust = 0.5, size = 13,margin = margin(t = 10, b = 10)),
           legend.position = "none" )
+}
+
+
+GetChordSymbols1 <- function() {
+  rdtSet <- .get.rdt.set()
+  
+   
+ symbols <- rdtSet$chordGram[,"Var1"]
+  
+  return(symbols)
+}
+
+GetChordSymbols2 <- function() {
+  rdtSet <- .get.rdt.set()
+  
+   
+ symbols <- rdtSet$chordGram[,"Var2"]
+  
+  return(symbols)
+}
+
+GetChordColNames <- function() {
+  rdtSet <- .get.rdt.set()
+   if (is.null(rdtSet$chordGram)) {
+    stop("correlation reatult table not found.")
+  }
+ 
+ chord_colnames <- setdiff(colnames(rdtSet$chordGram),c("Var1","Var1")) # Exclude the symbol column
+  
+  return(chord_colnames)
+}
+
+ 
+GetChordFileName <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$chordGram)) {
+    stop("correlation reatult table not found.")
+  }
+
+  return("chord_diagram.csv")
+}
+
+GetChordMat <- function() {
+  rdtSet <- .get.rdt.set()
+ 
+   if (is.null(rdtSet$chordGram)) {
+    stop("correlation reatult table not found.")
+  }
+ 
+  chord_matrix <- as.matrix(subset(rdtSet$chordGram, select = -c(Var1,Var2))) # Removing the symbol column
+  
+  return(chord_matrix)
+}
+
+GetchordIds <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$chordGram)) {
+    stop("correlation reatult table not found.")
+  }
+  ids <- rownames(rdtSet$chordGram)
+  
+  return(ids)
 }

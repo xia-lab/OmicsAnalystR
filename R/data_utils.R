@@ -267,8 +267,8 @@ SelectData <- function(){
       mdata.all[[nm]] <<- 0;
     }
   }
- 
-  
+ print(nm.vec)
+ mdata.all <<- mdata.all
   rm('nm.vec', envir = .GlobalEnv);
   return(1);
 }
