@@ -416,7 +416,7 @@ GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format
    }
  
   reductionSet$chordGram <- corr.mat
-  write.csv(corr.mat,"corr.mat.csv",row.names=F)
+  write.csv(corr.mat,"chord_diagram.csv",row.names=F)
   library(jsonlite)
   write_json(corr.mat,plotjs, pretty = TRUE)
   .set.rdt.set(reductionSet);
@@ -653,7 +653,7 @@ GetChordColNames <- function() {
     stop("correlation reatult table not found.")
   }
  
- chord_colnames <- setdiff(colnames(rdtSet$chordGram),c("Var1","Var1")) # Exclude the symbol column
+ chord_colnames <- setdiff(colnames(rdtSet$chordGram),c("Var1","Var2")) # Exclude the symbol column
   
   return(chord_colnames)
 }
@@ -677,7 +677,7 @@ GetChordMat <- function() {
   }
  
   chord_matrix <- as.matrix(subset(rdtSet$chordGram, select = -c(Var1,Var2))) # Removing the symbol column
-  
+  print(head( chord_matrix ))
   return(chord_matrix)
 }
 
