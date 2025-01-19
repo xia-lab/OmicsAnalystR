@@ -203,7 +203,6 @@ ComputePathHeatmapTable <- function(dataSet){
   return(json.res);
 }
 
-
 ComputeKmeans <- function(clusterNum="-1"){
    
   print(clusterNum)
@@ -258,6 +257,65 @@ ComputeKmeans <- function(clusterNum="-1"){
   
   write.csv(res.table, "kmeans_clustering_results.csv");
   
+  .set.rdt.set(reductionSet);
+  return(1)
+}
+
+# do k-means++
+ComputeKmeansPP <- function(clusterNum="-1"){
+   
+  clusterNum <- as.numeric(clusterNum)
+  if(clusterNum==-1){
+    clusterNum <- 3
+  }
+
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+  data.list <- list()
+  for(i in 1:length(sel.nms)){
+    dat <- readDataset(sel.nms[i])
+    data.list[[i]] <- dat$data.proc
+  }
+  combined_data <-  do.call(rbind, data.list); 
+ 
+  # use kmeans++
+  clust <- maotai::kmeanspp(t(combined_data), k = clusterNum); 
+
+  kmNMI = .calNMI(clust, as.numeric(dat$cls));
+
+  global_mean <- colMeans(t(combined_data))
+  TSS <- sum( rowSums( (t(combined_data) - global_mean)^2 ) )
+  BSS_i <- numeric(clusterNum)
+
+   
+  for (i in 1:clusterNum) {
+    my.hits <- clust == i;
+    cluster_size <- sum(my.hits);
+    cluster_centroid <- colMeans(t(combined_data)[my.hits])
+    dist2 <- sum((cluster_centroid - global_mean)^2)  # squared distance
+    BSS_i[i] <- cluster_size * dist2
+  }
+ 
+  reductionSet <- .get.rdt.set();
+  reductionSet$omicstype <- sel.nms;
+
+  reductionSet$clustType <- "K-means++"
+  reductionSet$clustVec <- clust
+  reductionSet$clustNmi <- kmNMI
+  reductionSet$clustRes$frac_explained <-  BSS_i / TSS
+  
+  
+  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
+  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+  
+  #save results
+  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
+  reductionSet$dataSet$meta.info$Cluster <- clust;
+  
+  reductionSet$clustResTable <- res.table;
+  
+  #write.csv(res.table, "kmeans_clustering_results.csv");
+  write.csv(res.table, "kmeanspp_clustering_results.csv");
   .set.rdt.set(reductionSet);
   return(1)
 }
