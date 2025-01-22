@@ -323,41 +323,42 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
   # Prepare the data for plotting
   data <- data.frame(meta1 = meta1_data, meta2 = meta2_data)
 
+
   # Continuous vs Continuous (Scatter plot with regression line)
   if (meta1_type == "cont" && meta2_type == "cont") {
     # Scatter plot with a regression line
     p <- ggplot(data, aes(x = meta1, y = meta2)) +
       geom_point(size = 2) +
       geom_smooth(method = "lm", se = FALSE, color = "blue") +
-      labs(title = paste("Scatter plot of", meta1, "vs", meta2),
+      labs(title = "",
            x = meta1, y = meta2) +
       theme_minimal()
     
   # Discrete vs Continuous (Box plot colored by disc, points colored by cont)
   } else if ((meta1_type == "disc" && meta2_type == "cont") || (meta1_type == "cont" && meta2_type == "disc")) {
-    
+ 
     # Identify which one is continuous and which one is discrete
     if (meta1_type == "disc") {
-      disc_var <- "meta1"
-      cont_var <- "meta2"
+      disc_var <- meta1
+      cont_var <- meta2
     } else {
-      disc_var <- "meta2"
-      cont_var <- "meta1"
+      disc_var <- meta2
+      cont_var <- meta1
     }
-
+  names(data) <- c(meta1,meta2)
     p <- ggplot(data, aes_string(x = disc_var, y = cont_var, fill = disc_var)) +
       geom_boxplot(outlier.shape = NA) +
       geom_jitter(aes_string(color = cont_var), size = 2, width = 0.2) +
-      scale_color_gradient(low = "lightblue", high = "darkblue") +
-      labs(title = paste("Box plot of", meta1, "vs", meta2),
+    scale_color_gradient(low = "lightblue", high = "darkblue") +
+      labs(title ="",
            x = disc_var, y = cont_var, color = cont_var, fill = disc_var) +
-      theme_minimal()
-    
+    theme_minimal()
+
   # Discrete vs Discrete (Bar plot)
   } else if (meta1_type == "disc" && meta2_type == "disc") {
     p <- ggplot(data, aes(x = as.factor(meta1), fill = as.factor(meta2))) +
       geom_bar(position = "dodge") +
-      labs(title = paste("Bar plot of", meta1, "vs", meta2),
+      labs(title = "",
            x = meta1, fill = meta2) +
       theme_minimal()
   }
