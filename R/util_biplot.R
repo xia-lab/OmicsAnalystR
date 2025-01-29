@@ -7,9 +7,11 @@ GenerateBiplot <- function(method="RDA",topN=10,predictor,dataName, fileName = "
 print(method)
   dataSet <- readDataset(dataName);
   rdtSet <- .get.rdt.set()
-     meta <- rdtSet$dataSet$meta.info 
+   meta <- rdtSet$dataSet$meta.info 
   feature_table <- t(dataSet$data.proc);
-     if (!(exists("includeMeta") && length(includeMeta) == 0  )) {
+   colnames(feature_table) <- names(dataSet$enrich_ids)[match(colnames(feature_table),dataSet$enrich_ids)]
+ 
+  if (!(exists("includeMeta") && length(includeMeta) == 0  )) {
       meta = meta[,c(predictor,includeMeta)]
     }else{
       meta = meta[,predictor,drop=F]

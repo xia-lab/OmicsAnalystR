@@ -257,7 +257,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type){
 .loadEnrichLib <- function(fun.type, data.org){
   folderNm <- data.org;
   my.path <- paste(lib.path, folderNm, "/", fun.type, ".rds", sep="");
-  
+  print(my.path)
   my.lib <- readRDS(my.path);
   
   if(substr(fun.type, 0, 2)=="go"){

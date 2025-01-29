@@ -156,8 +156,6 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
    
-  print(sel.nms)
-print(cor.method)
   m2midx<-0
   for(i in 1:length(sel.nms)){
     dataName = sel.nms[i]
@@ -218,7 +216,7 @@ print(cor.method)
   }else{
     library(ppcor);
     sel.res <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
-    res <- pcor(sel.res, method=cor.stat, use = "complete.obs");
+    res <- pcor(sel.res, method=cor.stat);
     corr.mat <- res$estimate;
         corr.p.mat <- res$p.value;
     rownames(corr.mat) <-    colnames(corr.mat) <- colnames(sel.res)
@@ -395,7 +393,7 @@ expand.matrix <- function(A){
 GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format = "png", dpi = 300){
   print(c(maxN,pval))
   plotjs <- paste0(imgName, ".json");
-  reductionSet <- .get.rdt.set();
+  reductionSet <- .get.rdt.set(); 
   corr.mat <- qs::qread("corr.mat.qs");
   corr.p.mat<- qs::qread("corr.p.mat.qs");
   corr.mat <- reshape2::melt(corr.mat)
@@ -415,6 +413,15 @@ GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format
     corr.mat <- corr.mat[1:maxN,]
    }
  
+    dataSetList <- lapply(sel.nms, readDataset);
+
+corr.mat$Var1 <- gsub(paste0("_", dataSetList[[1]]$type), "", corr.mat$Var1);
+corr.mat$Var1 <- names(dataSetList[[1]]$enrich_ids)[match(corr.mat$Var1,dataSetList[[1]]$enrich_ids)]
+
+corr.mat$Var2 <- gsub(paste0("_", dataSetList[[2]]$type), "", corr.mat$Var2);
+corr.mat$Var2 <- names(dataSetList[[2]]$enrich_ids)[match(corr.mat$Var2,dataSetList[[2]]$enrich_ids)]
+
+
   reductionSet$chordGram <- corr.mat
   write.csv(corr.mat,"chord_diagram.csv",row.names=F)
   library(jsonlite)
