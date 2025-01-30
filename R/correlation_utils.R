@@ -405,7 +405,7 @@ GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format
  sel.dats <- reductionSet$selDatsCorr[sel.nms]; 
 
   #corr.mat <-   corr.mat[corr.mat$Var1!=corr.mat$Var2,]
- corr.mat <- corr.mat[abs(corr.mat$value)>thresh & corr.p.mat$value < pval,]
+   corr.mat <- corr.mat[abs(corr.mat$value)>thresh & corr.p.mat$value < pval,]
   corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
   corr.mat <- corr.mat[order(abs(corr.mat$value),decreasing = T),]
  
@@ -697,4 +697,40 @@ GetchordIds <- function() {
   ids <- rownames(rdtSet$chordGram)
   
   return(ids)
+}
+
+
+plotFeatCorr <- function(reductionSet=NA,imgName,feat1="PC.O.18.2.0.16.0.0",feat2="DNMT3A",dpi=72,format="png"){
+  
+  reductionSet <- .get.rdt.set();
+  
+  imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
+  library(ggplot2)
+  sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+  dataSetList <- lapply(sel.nms, readDataset);
+  id1 = paste0(dataSetList[[1]]$enrich_ids[feat1],"_",dataSetList[[1]]$type)
+  id2 = paste0(dataSetList[[2]]$enrich_ids[feat2],"_",dataSetList[[2]]$type)
+  selDatsCorr <- reductionSet$selDatsCorr[sel.nms]
+  
+  data<-data.frame(x= t(selDatsCorr[[1]])[,id1] ,y=t(selDatsCorr[[2]])[,id2])
+    
+    p<-ggplot(data, aes(x = x, y = y)) +
+      geom_point(size = 3) + # Dots represent the samples
+      geom_smooth(method = "lm", se = FALSE) +             
+      labs(title = "",
+           x = feat1,
+           y = feat2 ) +
+      theme_minimal()+
+      theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5), # Add panel border
+            plot.margin = margin(10, 10, 10, 10),
+            axis.title = element_text(size = 11, color = "black"),
+            axis.text = element_text(size = 10, color = "black")) 
+    
+  w <- 7.5
+  h<-6
+  Cairo::Cairo(file = imgName, unit = "in", dpi = dpi, width = w, height = h, type = format, bg = "white")
+  print(p)
+  dev.off()
+  
 }
