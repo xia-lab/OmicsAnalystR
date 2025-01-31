@@ -5,7 +5,19 @@
 ###################################################
 
 #default feature selection based on sig genes
-DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
+
+DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3) {
+
+if(!exists("mem.featSelectionForCorr")){
+    require("memoise");
+    mem.featSelectionForCorr <<- memoise(.do.feat.selectionForCorr);
+  }
+  return(mem.featSelectionForCorr(type,retainedNumber,retainedComp));
+ 
+}
+
+
+.do.feat.selectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
   print(c(type,"DoFeatSelectionForCorr"))
   sel.dats <- list();
   labels <- vector();
@@ -150,9 +162,10 @@ ExportOmicsPairs <- function(fileName, type){
   
 }
 
-DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
+
+DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll,metaSel,group){
   labels <- vector();
-  print(mdata.all)
+  print(c(ifAll,metaSel,group))
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
    
@@ -175,7 +188,22 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   sel.dats <- reductionSet$selDatsCorr;
   load_igraph();
 
+
+  if(ifAll != "true"){
+    meta.info = reductionSet$dataSet$meta.info
+    sampleInclude = row.names(meta.info[which(meta.info[[metaSel]]==group),])
   
+
+    if(length(sampleInclude)<4){
+         return(-1)
+    }else{
+     sel.dats <- lapply(sel.dats,function(x){
+         return(x[,sampleInclude])
+     })
+   
+   }
+   }
+ 
   residx <- reductionSet$residx
 
   if(cor.method == "univariate"){
@@ -470,6 +498,8 @@ DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",co
 
   corr.ls <- corr.ls[unlist(lapply(corr.ls, length))>4]
   
+  
+ 
   if(cor.method == "univariate"){
     library(Hmisc)
     corr.mat.ls <- lapply(corr.ls, function(samp){
