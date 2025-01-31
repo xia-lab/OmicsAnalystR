@@ -522,16 +522,15 @@ DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",co
   return(1);
 }
  
-
  
-
 GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", format = "png", dpi = 300,dt1,dt2,layout="kk"){
-
- # plotjs <- paste0(imgName, ".json");
+    print(imgName)
+  plotjs <- paste0(imgName, ".json");
   reductionSet <- .get.rdt.set();
   sel.dats <- reductionSet$selDatsCorr[c(dt1,dt2)];
-  type1 <- readDataset(dt1)[["type"]]
-  type2 <- readDataset(dt2)[["type"]]
+  dataSetList <- lapply(c(dt1,dt2), readDataset);
+  type1 <- dataSetList[[1]][["type"]]
+  type2 <- dataSetList[[2]][["type"]]
   corr.mat.ls <- qs::qread("diffnet.mat.qs");
 
   corr.mat.ls <- lapply(corr.mat.ls, function(x){
@@ -553,7 +552,27 @@ GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", f
     x$to = as.character(x$to)
     return(x)
   })
+
+corr.mat.ls <- lapply(corr.mat.ls,function(x){
+   df=x
+   df$type1 = type1
+   df$type2 = type2
+   df$source = gsub(paste0("_",type1,"$"),"",df$from)
+   df$target = gsub(paste0("_",type2,"$"),"",df$to)
+   df$source = names(dataSetList[[1]]$enrich_ids)[match(df$source,dataSetList[[1]]$enrich_ids)]
+   df$target = names(dataSetList[[2]]$enrich_ids)[match(df$target,dataSetList[[2]]$enrich_ids)]
+   df$corr[df$weight<corr_thresh & df$pval > p_thresh] <- 0
+   df$weight[df$weight<corr_thresh & df$pval > p_thresh] <- 0
+   return(df)
+})
  
+  reductionSet$diffList <- corr.mat.ls 
+  .set.rdt.set(reductionSet);
+  library(jsonlite)
+  write_json(corr.mat.ls,plotjs, pretty = TRUE)
+  return(1);
+
+
   library(igraph)
   library(ggplot2)
   library(ggraph)
@@ -630,7 +649,6 @@ GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", f
 }
 
 plot_graph_with_fixed_layout <- function(graph, layout_df, title,node_colors,node_shapes) {
-print(title)
   # Merge layout_df to preserve positions for all nodes
   layout_sub <- merge(data.frame(name = V(graph)$name), layout_df, by = "name", sort = FALSE)
   edge_colors <- ifelse(E(graph)$corr > 0, "red", "blue")  
