@@ -105,7 +105,8 @@ AnnotateGeneData <- function(dataName, org, idtype){
   dataSet <- readDataset(dataName);
   data.raw <- qs::qread(dataSet$data.raw.path);
   gene.vec <- rownames(data.raw);
-  
+  #saveRDS(data.raw,"/Users/lzy/Documents/OmicsAnalystR/data.raw.rds")
+  #print(idtype)
   #record the info
   data.org <<- org
   dataSet$idType <- idtype;
@@ -123,7 +124,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }else{
     enIDs <- doGeneIDMapping(gene.vec, org, idtype);
   }
-  
+ 
   dataSet$rawToEntrez <- enIDs
   names(dataSet$rawToEntrez) <- gene.vec;
   

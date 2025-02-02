@@ -265,7 +265,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll,
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
   }
-
+  reductionSet$labels <- labels
   reductionSet$corr.mat.path <- "corr.mat.qs"
   qs::qsave(corr.mat, "corr.mat.qs");
   qs::qsave(corr.p.mat,"corr.p.mat.qs")
@@ -283,6 +283,8 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
   
   reductionSet <- .get.rdt.set();
   graphs <- qs::qread(reductionSet$corr.graph.path);
+
+  
   fig.list <- list();
   for( i in 1:2){
     if(i == 1){
@@ -297,6 +299,7 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
     }
     
     df_res <- data.frame(get.edgelist(g),  as.numeric(E(g)$correlation))
+    df_res <- df_res[!duplicated(df_res), ]
     colnames(df_res) <- c("source", "target","correlation");
     df_res$type <- titleText;
     
@@ -371,6 +374,7 @@ PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
   if(netNm != "NA"){
     overall.graph <- ppi.comps[[netNm]];
   }
+ 
   G.degrees <- betweenness(overall.graph)
   
   G.degree.histogram <- as.data.frame(table(G.degrees))
@@ -515,7 +519,7 @@ DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",co
     }
     
   }
- 
+
   reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
   qs::qsave(corr.mat.ls, "diffnet.mat.qs");
   .set.rdt.set(reductionSet);
@@ -686,20 +690,14 @@ plot_graph_with_fixed_layout <- function(graph, layout_df, title,node_colors,nod
 
 GetChordSymbols1 <- function() {
   rdtSet <- .get.rdt.set()
-  
-   
- symbols <- rdtSet$chordGram[,"Var1"]
-  
-  return(symbols)
+  symbols <- rdtSet$chordGram[,"Var1"]
+   return(symbols)
 }
 
 GetChordSymbols2 <- function() {
   rdtSet <- .get.rdt.set()
-  
-   
- symbols <- rdtSet$chordGram[,"Var2"]
-  
-  return(symbols)
+  symbols <- rdtSet$chordGram[,"Var2"]
+   return(symbols)
 }
 
 GetChordColNames <- function() {
@@ -747,7 +745,64 @@ GetchordIds <- function() {
   return(ids)
 }
 
+GetCorrNetSymbols1 <- function() {
+  rdtSet <- .get.rdt.set()
+  symbols <- rdtSet$corNet[,"source"]
+  return(symbols)
+}
 
+GetCorrNetSymbols2 <- function() {
+  rdtSet <- .get.rdt.set()
+  symbols <- rdtSet$corNet[,"target"]
+  return(symbols)
+}
+
+GetCorrNetColNames <- function() {
+  rdtSet <- .get.rdt.set()
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation reatult table not found.")
+  }
+  
+  corNet_colnames <- setdiff(colnames(rdtSet$corNet),c("source","target")) # Exclude the symbol column
+  
+  return(corNet_colnames)
+}
+
+
+GetCorrNetFileName <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation reatult table not found.")
+  }
+  
+  return("corNet.csv")
+}
+
+GetCorrNetMat <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation reatult table not found.")
+  }
+  
+  corNet_matrix <- as.matrix(subset(rdtSet$corNet, select = -c(source,target))) # Removing the symbol column
+  #print(head( corNet_matrix ))
+  return(corNet_matrix)
+}
+
+GetCorrNetIds <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation reatult table not found.")
+  }
+  ids <- rownames(rdtSet$corNet)
+  
+  return(ids)
+}
+
+ 
 plotFeatCorr <- function(reductionSet=NA,imgName,feat1="PC.O.18.2.0.16.0.0",feat2="DNMT3A",dpi=72,format="png"){
   
   reductionSet <- .get.rdt.set();
