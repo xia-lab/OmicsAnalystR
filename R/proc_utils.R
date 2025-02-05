@@ -7,6 +7,7 @@
 #'McGill University, Canada
 #'License: MIT
 doGeneIDMapping <- function(q.vec, org, type){
+   print("doGeneIDMapping")
   org <- data.org
   library(RSQLite)  
   db.path <- paste0(sqlite.path, org, "_genes.sqlite");
@@ -34,7 +35,7 @@ doGeneIDMapping <- function(q.vec, org, type){
     }
     hit.inx <- match(q.vec, db.map[, "accession"]);
   }
-  
+
   entrezs=db.map[hit.inx, "gene_id"];
   rm(db.map, q.vec); 
   gc();

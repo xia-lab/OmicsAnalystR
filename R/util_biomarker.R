@@ -7,6 +7,7 @@
 #'@export
 #'
 PrepareROCData <- function(sel.meta="NA",factor1,factor2){
+
   rdtSet <- .get.rdt.set();
    msg.vec <<- 0;
   data.list <- list();
@@ -18,7 +19,7 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   rdtSet$dataSet$meta.info.proc <- process_metadata(rdtSet$dataSet$meta.info);
   meta.sel.inx <- mmeta.all == 1;
   meta.sel.nms <- c();  # Assuming no metadata selection for this case
-  
+ 
   if(length(meta.sel.nms) > 0) {
     for(i in 1:length(meta.sel.nms)){
       data.list[[meta.sel.nms[i]]] <- rdtSet$dataSet$meta.info.proc[,meta.sel.nms[i]]
@@ -36,7 +37,7 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   
   sel.inx <- mdata.all == 1;
   sel.nms <- names(mdata.all)[sel.inx];
-  
+  #print( sel.nms)
   for(i in 1:length(sel.nms)){
     dataSet = readDataset(sel.nms[i])
     
