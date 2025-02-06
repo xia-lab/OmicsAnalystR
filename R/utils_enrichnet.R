@@ -17,11 +17,15 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   }
   
   require(igraph);
-  require(reshape);
+  require(rexshape);
   
   current.geneset <- infoSet$imgSet$enrTables[[type]]$current.geneset;
   hits.query <- infoSet$imgSet$enrTables[[type]]$hits.query;
+  tbl <- infoSet$imgSet$enrTables[[type]]$sig.mat
   hits.query <- hits.query[enr.mat$Pathway];
+
+  
+
   geneSets <- hits.query;
   
   n <- nrow(enr.mat);
@@ -104,7 +108,7 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   
   # covert to json
   bedges <- stack(hits.query);
-  b.mat <- matrix(NA, nrow=nrow(bedges), ncol=2);
+   b.mat <- matrix(NA, nrow=nrow(bedges), ncol=2);
   b.mat[,1] <- bedges[,"values"];
   b.mat[,2] <- as.character(bedges[,"ind"]);
   b.mat <- b.mat[complete.cases(b.mat),]
@@ -118,8 +122,7 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   V(bg)$colorw[V(bg)$name %in% enr.mat$Pathway] <- ComputeColorGradient(-log(pvalue), "white", F, F);
   node.nms <- V(bg)$name;
   if(type == "limma"){
-    tbl <- infoSet$imgSet$enrTables[[type]]$sig.mat
-    V(bg)$label[!V(bg)$name %in% enr.mat$Pathway] <- tbl$label[match(V(bg)$name[!V(bg)$name %in% enr.mat$Pathway], tbl$ids)]
+     V(bg)$label[!V(bg)$name %in% enr.mat$Pathway] <- tbl$label[match(V(bg)$name[!V(bg)$name %in% enr.mat$Pathway], tbl$ids)]
  
     tbl <- tbl[which(rownames(tbl) %in% V(bg)$name),]
     expr.val <- tbl[,1];
@@ -191,13 +194,16 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   bedge.mat <- apply(bedge.mat, 1, as.list)
   enr.mat <- apply(enr.mat, 1, as.list)
    
-  
+  hits.query <- lapply(hits.query,function(x){
+  return(tbl$label[match(x,tbl$ids)])
+  })
+
   netData <- list(nodes=nodes, 
                   edges=edge.mat, 
                   bnodes=bnodes, 
                   bedges=bedge.mat, 
                   enr=unname(enr.mat), 
-                  id=names(enr.mat), 
+                  id=id, 
                   #sizes=analSet$listSizes, 
                   hits=hits.query, 
                   genelist=initsbls, 
