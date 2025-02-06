@@ -21,11 +21,7 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   
   current.geneset <- infoSet$imgSet$enrTables[[type]]$current.geneset;
   hits.query <- infoSet$imgSet$enrTables[[type]]$hits.query;
-  tbl <- infoSet$imgSet$enrTables[[type]]$sig.mat
   hits.query <- hits.query[enr.mat$Pathway];
-
-  
-
   geneSets <- hits.query;
   
   n <- nrow(enr.mat);
@@ -105,7 +101,7 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   
   edge.mat <- as_edgelist(g);
   edge.mat <- cbind(id=1:nrow(edge.mat), source=edge.mat[,1], target=edge.mat[,2]);
-  
+   print("here2")
   # covert to json
   bedges <- stack(hits.query);
    b.mat <- matrix(NA, nrow=nrow(bedges), ncol=2);
@@ -122,9 +118,9 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   V(bg)$colorw[V(bg)$name %in% enr.mat$Pathway] <- ComputeColorGradient(-log(pvalue), "white", F, F);
   node.nms <- V(bg)$name;
   if(type == "limma"){
+     tbl <- infoSet$imgSet$enrTables[[type]]$sig.mat
      V(bg)$label[!V(bg)$name %in% enr.mat$Pathway] <- tbl$label[match(V(bg)$name[!V(bg)$name %in% enr.mat$Pathway], tbl$ids)]
- 
-    tbl <- tbl[which(rownames(tbl) %in% V(bg)$name),]
+     tbl <- tbl[which(rownames(tbl) %in% V(bg)$name),] 
     expr.val <- tbl[,1];
     expvals <- expr.val;
     names(expvals) <- tbl$label
@@ -151,7 +147,7 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   }
   node.dgr2 <- as.numeric(degree(bg));
   V(bg)$size <- my.rescale(log(node.dgr2, base=10), 8, 24); 
-  
+   print("here3")
   # layout
   pos.xy <- layout_nicely(bg);
   
@@ -184,7 +180,8 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   infoSet$paramSet$current.net.nm <- netNm
   ppi.comps[[netNm]] <- bg;
   infoSet$analSet$ppi.comps <- ppi.comps
-  
+  ppi.comps <<-   ppi.comps
+  current.net.nm <<- netNm
   bedge.mat <- get.edgelist(bg);
   bedge.mat <- cbind(id=paste0("b", 1:nrow(bedge.mat)), source=bedge.mat[,1], target=bedge.mat[,2]);
   initsbls <-  setNames(tbl$label,tbl$ids)

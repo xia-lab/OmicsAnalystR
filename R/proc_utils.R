@@ -35,7 +35,7 @@ doGeneIDMapping <- function(q.vec, org, type){
     }
     hit.inx <- match(q.vec, db.map[, "accession"]);
   }
-
+ 
   entrezs=db.map[hit.inx, "gene_id"];
   rm(db.map, q.vec); 
   gc();
@@ -45,6 +45,10 @@ doGeneIDMapping <- function(q.vec, org, type){
 
 
 doEntrez2SymbolMapping <- function(entrez.vec){
+ 
+  if(data.org=="other"){
+      return(entrez.vec);
+  }
     gene.map <-  queryGeneDB("entrez", data.org);
     gene.map[] <- lapply(gene.map, as.character)
 

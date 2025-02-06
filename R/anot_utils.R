@@ -96,7 +96,7 @@ AnnotateMicrobiomeData <- function(dataName,org,feattype){
 #'@export
 #'
 AnnotateGeneData <- function(dataName, org, idtype){
-  
+ 
   if(org == "NA"){
     msg.vec <<- "Invalid organism!"
     return(0)
@@ -122,9 +122,15 @@ AnnotateGeneData <- function(dataName, org, idtype){
     enIDs <- gene.vec
     enIDs[enIDs %in% enMat[,2]] <- enMat[,1]
   }else{
+    if(org=="other"){
+     enIDs <- gene.vec
+    }else{
     enIDs <- doGeneIDMapping(gene.vec, org, idtype);
+    }
+
   }
  
+  
   dataSet$rawToEntrez <- enIDs
   names(dataSet$rawToEntrez) <- gene.vec;
   
@@ -148,6 +154,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   
   hit.inx <- which(!is.na(enIDs));
   matched.len <- length(hit.inx);
+ 
   if(matched.len > 1){
     data.raw <- data.raw[hit.inx,];
     matched.entrez <- enIDs[hit.inx];
@@ -178,7 +185,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
     dataSet$enrich_ids = rownames(data.annotated)
     dataSet$id.type <- "none";
   }
-  
+ 
   if(idtype != "NA"){
     if(length(unique(enIDs))/length(gene.vec) < 0.3){
       msg <- paste("Less than ", round( length(unique(enIDs))/length(gene.vec) * 100, 2), "% features were mapped in ", dataSet$name);
@@ -190,6 +197,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }else{
     msg <- paste("There is a total of ", length(unique(gene.vec)), "unique features.");
   }
+  print("here")
   msg.vec <<- msg;
   qs::qsave(data.annotated, dataSet$data.annotated.path);
   fast.write.csv(data.annotated,file=paste0(dataSet$folderName, "/data.annotated.csv"));

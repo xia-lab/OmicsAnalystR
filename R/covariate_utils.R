@@ -297,7 +297,7 @@ CovariateScatter.Anal <- function(dataName,
       inx.imp = inx.imp
     );
   }
-  
+ 
   dataSet$design <- design;
   dataSet$contrast.type <- analysis.type;
   dataSet$comp.res <- rest;
@@ -767,7 +767,8 @@ CombineFacScatter.Anal <- function(dataName="",
   sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
   rownames(sig.mat) <- sig.mat$ids;
   dataSet$sig.mat <- sig.mat
-  
+
+
   if(sig.num> 0){
     res <- 1;
     fileName <- paste0("covariate_result_",sub("^(.*)[.].*", "\\1", dataSet$name), ".csv")
