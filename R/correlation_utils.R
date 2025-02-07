@@ -163,9 +163,8 @@ ExportOmicsPairs <- function(fileName, type){
 }
 
 
-DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll,metaSel,group){
-  labels <- vector();
-  print(c(ifAll,metaSel,group))
+DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll="true",metaSel,group){
+  labels <- vector(); 
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
    
