@@ -105,7 +105,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   dataSet <- readDataset(dataName);
   data.raw <- qs::qread(dataSet$data.raw.path);
   gene.vec <- rownames(data.raw);
-  #saveRDS(data.raw,"/Users/lzy/Documents/OmicsAnalystR/data.raw.rds")
+
   #print(idtype)
   #record the info
   data.org <<- org

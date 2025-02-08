@@ -18,34 +18,41 @@ PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
   return(1)
 }
 
-PerformVarPartOverview <- function(dataName,top_n = 1000, fileName = "variance_partition_plot", dpi = 300, format = "png") {
+PerformVarPartOverview <- function(top_n = 500, fileName = "variance_partition_plot", dpi = 300, format = "png") {
   library(variancePartition)
-  library(limma)
+  #library(limma)
   library(Cairo)
   library(car)
-   
- 
-
-  rdtSet <- .get.rdt.set() 
+   rdtSet <- .get.rdt.set() 
   # Ensure that normalized data and metadata are available
-  if (is.null(rdtSet$dataSet$norm) || is.null(rdtSet$dataSet$meta.info) || is.null(rdtSet$dataSet$meta.types)) {
-    stop("Normalized data, metadata, or meta.types not found.")
-  }
-  
+ 
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+
+
+dataSetList <- lapply(sel.nms, readDataset);
+data.list <- lapply(dataSetList, function(x){
+  df =  x[["data.proc"]]
+  sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)
+  uniqFeats <- paste0( x$type,".",rownames(df))
+  rownames(df) <- uniqFeats;
+  return(df)
+})
+
+
   # Extract normalized gene expression data
-  gene_expr <- rdtSet$dataSet$norm;
+  gene_expr <- do.call(rbind,data.list)
+  feature_variances <- apply( gene_expr, 1, var)
+  ordinx <- order(feature_variances, decreasing = TRUE)
+  gene_expr <-   gene_expr[ordinx,]
+
+
   meta_data <- rdtSet$dataSet$meta.info
   meta_types <- rdtSet$dataSet$meta.types  # Continuous ("cont") or discrete ("disc") types
 
-  if(dataName!="all"){
-    dataSet <- readDataset(dataName);
-    var.nms <- paste0(dataSet[["type"]],".",dataSet[["orig.var.nms"]])
-    gene_expr <-  gene_expr[rownames( gene_expr) %in% var.nms,]
-   }
-
-  if(nrow(gene_expr)>500){
-    gene_expr <-  gene_expr[1:500,]
-
+  
+  if(nrow(gene_expr)>top_n){
+    gene_expr <-  gene_expr[1:top_n,]
   }
    
   
@@ -159,7 +166,7 @@ PrepareVarData <- function(type="NA"){
   rdtSet$dataSet$meta.info.proc <- process_metadata(rdtSet$dataSet$meta.info);
   meta.sel.inx <- mmeta.all == 1;
   meta.sel.nms <- c();  # Assuming no metadata selection for this case
-  
+  print(c(mmeta.all ,"mmeta.all "))
   if(length(meta.sel.nms) > 0) {
     for(i in 1:length(meta.sel.nms)){
       data.list[[meta.sel.nms[i]]] <- rdtSet$dataSet$meta.info.proc[,meta.sel.nms[i]]
@@ -209,7 +216,7 @@ PrepareVarData <- function(type="NA"){
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc), "_", dataSet$type))
     }
   }
-  
+   
   # Convert vectors to data frames if necessary
   for (i in seq_along(data.list)) {
     if (is.vector(data.list[[i]])) {

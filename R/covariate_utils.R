@@ -23,6 +23,7 @@ CovariateScatter.Anal <- function(dataName,
                                   contrast.cls = "anova",pval.type="raw"){
 
   dataSet <- readDataset(dataName);
+ 
   rdtSet <- .get.rdt.set();
   msg.lm <- ""
   # load libraries
@@ -50,7 +51,7 @@ CovariateScatter.Anal <- function(dataName,
       covariates.vec <- "NA"
     }
   }
-
+ 
   covariates <- rdtSet$dataSet$meta.info
   covariates <- droplevels(covariates)
   var.types <- rdtSet$dataSet[["meta.types"]]
@@ -79,6 +80,7 @@ CovariateScatter.Anal <- function(dataName,
   }
   #subset to samples contained in dataset
   covariates <- covariates[match(colnames(feature_table), rownames(covariates)),,drop=F]
+ 
   if (block != "NA"){    
     if(rdtSet$dataSet$meta.types[block] == "cont"){
       AddMsg("Blocking factor can not be continuous data type.")
@@ -88,7 +90,7 @@ CovariateScatter.Anal <- function(dataName,
   }
   
   sig.num <- 0;
-
+ 
   if(analysis.type == "disc"){
     # build design and contrast matrix
     #covariates[, analysis.var] <- covariates[, analysis.var] %>% make.names() %>% factor();
@@ -96,7 +98,7 @@ CovariateScatter.Anal <- function(dataName,
     design <- model.matrix(formula(paste0("~ 0", paste0(" + ", vars, collapse = ""))), data = covariates);
     colnames(design)[1:length(grp.nms)] <- grp.nms;
     myargs <- list();
-    
+ 
     # perform specified contrast
     if(contrast.cls == "anova"){
       cntr.cls <- grp.nms[grp.nms != ref];
@@ -104,9 +106,13 @@ CovariateScatter.Anal <- function(dataName,
     } else {
       myargs <- as.list(paste(contrast.cls, "-", ref, sep = ""));
     }
+   
     myargs[["levels"]] <- design;
+
     contrast.matrix <- do.call(makeContrasts, myargs);
+
     feature_table <- feature_table[,which(colnames(feature_table) %in% rownames(design)) ]
+ 
     # handle blocking factor
     if (block == "NA") {
       fit <- tryCatch({
@@ -127,7 +133,7 @@ CovariateScatter.Anal <- function(dataName,
         msg.lm <- c(msg.lm,w)
       })
   }
-    
+ 
     fit <-  tryCatch({
       contrasts.fit(fit, contrast.matrix);
     }, error=function(e){
@@ -135,7 +141,7 @@ CovariateScatter.Anal <- function(dataName,
     }, warning=function(w){
       msg.lm <- c(msg.lm,w)
     })
-  
+ 
     fit <-  tryCatch({
       eBayes(fit);
     }, error=function(e){
@@ -143,8 +149,9 @@ CovariateScatter.Anal <- function(dataName,
     }, warning=function(w){
       msg.lm <- c(msg.lm,w)
     })
-    rest <- topTable(fit, number = Inf);
-    
+ 
+    rest <- limma::topTable(fit, number = Inf);
+ 
     ### get results with no adjustment
     design <- model.matrix(formula(paste0("~ 0", paste0(" + ", analysis.var, collapse = ""))), data = covariates);
     colnames(design)[1:length(grp.nms)] <- grp.nms;
@@ -153,7 +160,7 @@ CovariateScatter.Anal <- function(dataName,
     fit <- lmFit(feature_table, design)
     fit <- contrasts.fit(fit, contrast.matrix);
     fit <- eBayes(fit);
-    res.noadj <- topTable(fit, number = Inf);
+    res.noadj <- limma::topTable(fit, number = Inf);
     
   } else { 
     covariates[, analysis.var] <- covariates[, analysis.var] %>% as.numeric();
@@ -208,7 +215,7 @@ CovariateScatter.Anal <- function(dataName,
   AddMsg(msg.lm)
   return(c(-1,-1));
   }
-
+ 
   # make visualization
   adj.mat <- rest[, c("P.Value", "adj.P.Val")]
   noadj.mat <- res.noadj[, c("P.Value", "adj.P.Val")]
@@ -247,7 +254,7 @@ CovariateScatter.Anal <- function(dataName,
     inx.imp <- p.value <= thresh;
     raw.thresh <- thresh;
   }
-
+ 
   inx.imp <- ifelse(is.na(inx.imp), FALSE, inx.imp);
   sig.num <- length(which(inx.imp == TRUE))
   
@@ -328,6 +335,7 @@ CovariateScatter.Anal <- function(dataName,
   comp_res_path <- paste0(names(dataSets)[i], "_data/", "comp_res.csv");
   fast.write.csv(rest, file=paste0(dataName, "_data/", "comp_res.csv"))
   RegisterData(dataSet)
+ 
   return(c(sig.num, nonSig));
 }
 
@@ -346,7 +354,7 @@ invert_named_vector <- function(input_named_vec) {
 
 
 PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="png", dpi=72){
-  print(dataName)
+ 
   dataSet <- readDataset(dataName);
   both.mat <- dataSet$cov.mat
   both.mat <- both.mat[order(-both.mat[,"pval.adj"]),]
@@ -602,7 +610,7 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
 
 
 SetSelectedMetaInfo <- function(dataName="", meta0, meta1, block1){
-print(c("SetSelectedMetaInfo",meta0,meta1))
+ 
   rdtSet <- .get.rdt.set()
   meta.info <- rdtSet$dataSet$meta.info
   if(meta0 == "NA"){

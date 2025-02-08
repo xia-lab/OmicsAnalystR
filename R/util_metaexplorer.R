@@ -352,7 +352,10 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
     scale_color_gradient(low = "lightblue", high = "darkblue") +
       labs(title ="",
            x = disc_var, y = cont_var, color = cont_var, fill = disc_var) +
-    theme_minimal()
+    theme_minimal()+
+ theme(
+   axis.title = element_text(size = 15) 
+  )
 
   # Discrete vs Discrete (Bar plot)
   } else if (meta1_type == "disc" && meta2_type == "disc") {
@@ -360,7 +363,10 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
       geom_bar(position = "dodge") +
       labs(title = "",
            x = meta1, fill = meta2) +
-      theme_minimal()
+      theme_minimal()+
+ theme(
+   axis.title = element_text(size = 15) 
+  )
   }
 
   # Handle rendering the plot
