@@ -1,9 +1,27 @@
 PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
   rdtSet <- .get.rdt.set()
   varPart <- rdtSet$analSet$varPart.df[,-1];
-  vp <- sortCols(varPart);
+    print(head(varPart))
+  vp <- varPart[order(varPart[, 1], decreasing = TRUE),,drop=F ]#sortCols(varPart);
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
-  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 10, height = 6, units = "in", bg = "white")
+
+   if (top_n < 10){
+      h <- 6;
+    } else if (top_n < 15){
+      h <- top_n/1.6;
+    } else if (top_n < 20){
+      h <- top_n/1.8;
+    } else if (top_n < 25){
+      h <- top_n/2;
+    } else if (top_n < 30){
+      h <- top_n/2.2;
+    } else if (top_n < 40){
+      h <- top_n/2.5;
+    } else {
+      h <- top_n/4.5;
+    };
+
+  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 10, height = h, units = "in", bg = "white")
   p<-plotPercentBars(vp[1:top_n, ]) +
     theme(
       plot.title = element_text(size = 16, face = "bold"),  
@@ -18,7 +36,7 @@ PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
   return(1)
 }
 
-PerformVarPartOverview <- function(top_n = 500, fileName = "variance_partition_plot", dpi = 300, format = "png") {
+PerformVarPartOverview <- function(selMeta, top_n = 500, fileName = "variance_partition_plot", dpi = 300, format = "png",color) {
   library(variancePartition)
   #library(limma)
   library(Cairo)
@@ -75,7 +93,7 @@ data.list <- lapply(dataSetList, function(x){
       random_effects <- random_effects.vec
     }
   }
-  
+ print(fixed_effects)
   # Align the sample names between gene expression data and metadata
   common_samples <- intersect(colnames(gene_expr), rownames(meta_data))
   
@@ -134,7 +152,12 @@ data.list <- lapply(dataSetList, function(x){
   
   # Reorder the entire varPart matrix based on the top genes
   varPart <- varPart[top_genes_idx, , drop = FALSE]
-  
+
+
+  if(ncol(varPart)>1){
+  varPart <- varPart[, c(selMeta, setdiff(names(varPart),selMeta))]
+  }
+ 
   # Plot the variance partitioning results and save the image
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
   

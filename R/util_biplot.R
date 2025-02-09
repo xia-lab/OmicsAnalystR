@@ -1,7 +1,7 @@
 
 
-PerformOrdination <- function(method="RDA",predictor,dataName) {
-
+PerformOrdination <- function(method,predictor,dataName) {
+print(dataName)
 if(!exists("mem.ordination")){
     require("memoise");
     mem.ordination <<- memoise(.perform.ordination);
@@ -14,7 +14,7 @@ if(!exists("mem.ordination")){
 .perform.ordination <- function(method = "RDA",
                               predictor,
                               dataName) {
-  
+  print(method)
   # Load or prepare your data
   dataSet <- readDataset(dataName)
   rdtSet  <- .get.rdt.set()
@@ -94,7 +94,7 @@ if(!exists("mem.ordination")){
   
   # Save it back
   .set.rdt.set(rdtSet)
-  
+ 
   # Return some summary stats if you like:
   return(rdtSet$analSet$ordination_res$stats)
 }
@@ -103,7 +103,7 @@ if(!exists("mem.ordination")){
 
 
  
-PlotBiplot <- function(topN=10,fileName = "biplot", format = "png",dpi = 300,colorGradient="d3") {
+PlotBiplot <- function( topN=10,fileName = "biplot", format = "png",dpi = 300,colorGradient="d3") {
   
  rdtSet  <- .get.rdt.set()
   if (is.null(rdtSet$analSet$ordination_res)) {
@@ -160,7 +160,8 @@ color_scale <- if (rdtSet$dataSet$meta.types[colnames(meta)[1]] == "cont") {
  
   library(ggplot2)
   library(ggrepel)
-  
+  print(method)
+
   if (method == "RDA") {
     # Extract RDA model, summary, etc.
     rda_obj <- ordRes$model
@@ -227,6 +228,7 @@ color_scale <- if (rdtSet$dataSet$meta.types[colnames(meta)[1]] == "cont") {
       )
 
   } else {
+ 
     # PCA route
     library(dplyr)
     pca_obj <- ordRes$model
