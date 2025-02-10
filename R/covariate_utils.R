@@ -428,13 +428,14 @@ PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="pn
 #'@export
 #'
 PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 72, plotType = "violin") {
-  dataSet <- readDataset(dataName)
+   print(dataName)
   rdtSet <- .get.rdt.set()
 
   # Set the dataset based on dataName
   if (dataName == "varPart") {
     # For variance partitioning, load the normalized dataset
-    dat <- rdtSet$dataSet$norm
+     dataSet <- readDataset(dataName)
+    dat <- dataSet$data.proc
   } else {
     # Load data for normal conditions (non-varPart)
     dataSet <- readDataset(dataName)

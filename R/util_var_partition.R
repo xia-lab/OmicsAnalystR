@@ -1,7 +1,6 @@
 PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
   rdtSet <- .get.rdt.set()
   varPart <- rdtSet$analSet$varPart.df[,-1];
-    print(head(varPart))
   vp <- varPart[order(varPart[, 1], decreasing = TRUE),,drop=F ]#sortCols(varPart);
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
 
@@ -51,33 +50,33 @@ PerformVarPartOverview <- function(selMeta, top_n = 500, fileName = "variance_pa
 dataSetList <- lapply(sel.nms, readDataset);
 data.list <- lapply(dataSetList, function(x){
   df =  x[["data.proc"]]
-  sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)
-  uniqFeats <- paste0( x$type,".",rownames(df))
+  sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)  
+  sanitized_names <- names(x[["enrich_ids"]])[match(sanitized_names,x$enrich_ids)]
+  uniqFeats <- paste0( x$type,".",sanitized_names)
   rownames(df) <- uniqFeats;
   return(df)
 })
 
+ types <- unlist(lapply(dataSetList, function(x) return(x$type)))
+ types <- paste(paste0("^",types,"."),collapse  = "|")
 
   # Extract normalized gene expression data
   gene_expr <- do.call(rbind,data.list)
   feature_variances <- apply( gene_expr, 1, var)
   ordinx <- order(feature_variances, decreasing = TRUE)
   gene_expr <-   gene_expr[ordinx,]
-
-
+  
   meta_data <- rdtSet$dataSet$meta.info
   meta_types <- rdtSet$dataSet$meta.types  # Continuous ("cont") or discrete ("disc") types
-
   
   if(nrow(gene_expr)>top_n){
     gene_expr <-  gene_expr[1:top_n,]
   }
-   
-  
+     
   if (exists("fixed_effects.vec") && length(fixed_effects.vec) == 0 && 
       exists("random_effects.vec") && length(random_effects.vec) == 0) {
-    fixed_effects <- colnames(meta_data)
-    random_effects <- "";
+      fixed_effects <- colnames(meta_data)
+      random_effects <- "";
   }else{
     
     # Check if the fixed_effects and random_effects are empty or null
@@ -93,7 +92,7 @@ data.list <- lapply(dataSetList, function(x){
       random_effects <- random_effects.vec
     }
   }
- print(fixed_effects)
+ 
   # Align the sample names between gene expression data and metadata
   common_samples <- intersect(colnames(gene_expr), rownames(meta_data))
   
@@ -165,15 +164,17 @@ data.list <- lapply(dataSetList, function(x){
   p <- plotVarPart(varPart)
   print(p)
   dev.off()
+
   
   # Store the top gene results in rdtSet for future use
-  rdtSet$analSet$varPart.symbols <- rownames(varPart);
+  rdtSet$analSet$varPart.symbols <- gsub(types,"",rownames(varPart));
+  rdtSet$analSet$varPart.ids <- rownames(dataSetList[[1]]$data.proc)[1:nrow(gene_expr)]
   varPart<- cbind(Symbol = rdtSet$analSet$varPart.symbols, varPart);
   rdtSet$analSet$varPart.fileName <- "varPart_results.csv";
   rdtSet$analSet$varPart.df <- varPart;
- 
+ rdtSet$dataSet$types <- types
   fast.write.csv(varPart, file="varPart_results.csv")
-.set.rdt.set(rdtSet)
+  .set.rdt.set(rdtSet)
   return(1)
 }
 
@@ -290,10 +291,10 @@ GetVarIds <- function() {
   if (is.null(rdtSet$analSet$varPart.df)) {
     stop("Variance partition matrix not found.")
   }
-  
+ 
   # Return the row names (gene IDs)
-  varPart_ids <- rownames(rdtSet$analSet$varPart.df)
-  
+   varPart_ids <-  rdtSet$analSet$varPart.ids
+ #  varPart_ids <- gsub(rdtSet$dataSet$types,"", varPart_ids )
   return(varPart_ids)
 }
 
