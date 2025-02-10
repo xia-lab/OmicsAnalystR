@@ -333,8 +333,15 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
       labs(title = "",
            x = meta1, y = meta2) +
       theme_minimal()
-    
-  # Discrete vs Continuous (Box plot colored by disc, points colored by cont)
+     
+   library(Hmisc)
+ 
+    res =rcorr(data$meta1, data$meta2, type = "pearson");
+   corr.mat <- res$r
+   corr.p.mat <- res$P
+     stat.info <- paste0("Correlation: ",round(res$r["x","y"],4),"; ","p-value: ",round(res$P["x","y"],4)," based on peason correlation.");
+ 
+# Discrete vs Continuous (Box plot colored by disc, points colored by cont)
   } else if ((meta1_type == "disc" && meta2_type == "cont") || (meta1_type == "cont" && meta2_type == "disc")) {
  
     # Identify which one is continuous and which one is discrete
@@ -346,6 +353,7 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
       cont_var <- meta1
     }
   names(data) <- c(meta1,meta2)
+ 
     p <- ggplot(data, aes_string(x = disc_var, y = cont_var, fill = disc_var)) +
       geom_boxplot(outlier.shape = NA) +
       geom_jitter(aes_string(color = cont_var), size = 2, width = 0.2) +
@@ -356,17 +364,26 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
  theme(
    axis.title = element_text(size = 15) 
   )
+      res <- anova(aov(data[[cont_var]] ~ data[[disc_var]]));
+      stat.info <- paste("p-value: ", signif(res$"Pr(>F)"[1], 5), "; [ANOVA] F-value: ", signif(res$"F value"[1], 5), sep="");
 
   # Discrete vs Discrete (Bar plot)
   } else if (meta1_type == "disc" && meta2_type == "disc") {
+
     p <- ggplot(data, aes(x = as.factor(meta1), fill = as.factor(meta2))) +
       geom_bar(position = "dodge") +
       labs(title = "",
            x = meta1, fill = meta2) +
       theme_minimal()+
- theme(
-   axis.title = element_text(size = 15) 
-  )
+       ggsci::scale_fill_npg()+
+   theme(
+      axis.title = element_text(size = 15) 
+    )
+tbl <- table(data$meta1, data$meta2)
+ res <- stats::fisher.test(tbl)
+
+stat.info <- paste0("p-value: ",round(res$p.value,4),"  based on Fisher’s Exact Test.");
+ 
   }
 
   # Handle rendering the plot
@@ -374,4 +391,6 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=8, height=6, type=format, bg="white")
   print(p)
   dev.off()
+ 
+  return(stat.info)
 }
