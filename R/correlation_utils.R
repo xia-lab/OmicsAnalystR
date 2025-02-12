@@ -7,26 +7,27 @@
 #default feature selection based on sig genes
 
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3) {
-
+ sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
 if(!exists("mem.featSelectionForCorr")){
     require("memoise");
     mem.featSelectionForCorr <<- memoise(.do.feat.selectionForCorr);
   }
-  return(mem.featSelectionForCorr(type,retainedNumber,retainedComp));
+  return(mem.featSelectionForCorr(type,retainedNumber,retainedComp,sel.nms));
  
 }
 
 
-.do.feat.selectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
+.do.feat.selectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3,sel.nms){
   print(c(type,"DoFeatSelectionForCorr"))
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx];
+  
 
   if(type %in% c("default","custom")){
     for(i in 1:length(sel.nms)){
+     print(c(i,sel.nms))
       dataName = sel.nms[i];
       dataSet <- readDataset(dataName);
       
@@ -41,7 +42,7 @@ if(!exists("mem.featSelectionForCorr")){
       }else{
         sig.mat <- dataSet$custom.sig.mat
       }
-      
+   
       #if more than 1000 sig features, then limit to top 1000 only
       if(nrow(sig.mat) > 1000){
         sig.mat <- sig.mat[c(1:1000),];
@@ -462,8 +463,19 @@ corr.mat$Var2 <- names(dataSetList[[2]]$enrich_ids)[match(corr.mat$Var2,dataSetL
 }
 
 
+###############Functions for generating differential chord diagram
 ###############
 DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",comp.meta="Diagnosis",selnm1,selnm2){
+if(!exists("mem.omicsDiffCorr")){
+    require("memoise");
+    mem.diffCorr <<- memoise(.do.omics.diffcorr);
+  }
+  return(mem.diffCorr(cor.method,cor.stat,comp.meta, selnm1,selnm2));
+ 
+}
+
+
+.do.omics.diffcorr <- function(cor.method="univariate",cor.stat="pearson",comp.meta="Diagnosis",selnm1,selnm2){
   labels <- vector();
   sel.nms <- c(selnm1,selnm2);
    
@@ -525,9 +537,8 @@ DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",co
   return(1);
 }
  
- 
-GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", format = "png", dpi = 300,dt1,dt2,layout="kk"){
-    print(imgName)
+GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", format = "png", dpi = 300,dt1,dt2,topN = 100,layout="kk"){
+
   plotjs <- paste0(imgName, ".json");
   reductionSet <- .get.rdt.set();
   sel.dats <- reductionSet$selDatsCorr[c(dt1,dt2)];
@@ -564,11 +575,15 @@ corr.mat.ls <- lapply(corr.mat.ls,function(x){
    df$target = gsub(paste0("_",type2,"$"),"",df$to)
    df$source = names(dataSetList[[1]]$enrich_ids)[match(df$source,dataSetList[[1]]$enrich_ids)]
    df$target = names(dataSetList[[2]]$enrich_ids)[match(df$target,dataSetList[[2]]$enrich_ids)]
-   df$corr[df$weight<corr_thresh & df$pval > p_thresh] <- 0
-   df$weight[df$weight<corr_thresh & df$pval > p_thresh] <- 0
+   df <- df[order(-df$weight,df$pval),]
+   df <- df[which(df$weight>corr_thresh &df$pval < p_thresh), ] 
+   if(nrow(df)>topN){
+   df <- df[1:topN,]
+   }
+
    return(df)
 })
- 
+
   reductionSet$diffList <- corr.mat.ls 
   .set.rdt.set(reductionSet);
   library(jsonlite)
