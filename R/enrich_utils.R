@@ -160,7 +160,11 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   hits.inx <- ora.vec %in% current.universe;
   ora.vec <- ora.vec[hits.inx];
   ora.nms <- ora.nms[hits.inx];
-  
+ 
+  if(length(ora.vec)==0){
+  return(0)
+  }
+
   q.size<-length(ora.vec);
   
   # get the matched query for each pathway
@@ -476,6 +480,9 @@ InitEnrichmentNetwork <- function(file.nm, fun.type,type){
   ora.vec <- unique(unlist(idList));
   names(ora.vec) <- ora.vec;
   res <- PerformEnrichAnalysis(file.nm, fun.type, ora.vec, type,T);
+  if(res==0){
+  return(0)
+  }
  infoSet <- readSet(infoSet, "infoSet");
    infoSet$imgSet$enrTables[[type]]$sig.mat <- sig.mat
    infoSet$imgSet$enrTables[[type]]$selDataNm <-  sel.nms[kp];
