@@ -497,3 +497,25 @@ InitEnrichmentNetwork <- function(file.nm, fun.type,type){
     }
     return(my.enrich.net(netNm, type, overlapType));
 }
+
+
+GetEnrichList <- function(dataNm, type,fileNm){
+  
+  dataSet<- readDataset(dataNm);
+  if(type=="limma"){
+   if(nrow(dataSet[["sig.mat"]])==0){
+    return(0)
+
+    }
+   if(dataSet$idType=="name"|dataSet$idType=="symbol"){
+     all_str <- dataSet[["sig.mat"]]$label
+    
+    }else{
+
+     all_str <- dataSet[["sig.mat"]]$ids
+  } 
+   }
+ 
+  writeLines(all_str, fileNm)
+  return(1)
+}

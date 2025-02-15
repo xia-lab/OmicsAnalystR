@@ -96,7 +96,6 @@ AnnotateMicrobiomeData <- function(dataName,org,feattype){
 #'@export
 #'
 AnnotateGeneData <- function(dataName, org, idtype){
- 
   if(org == "NA"){
     msg.vec <<- "Invalid organism!"
     return(0)
@@ -276,6 +275,7 @@ SkippingAnnotation <- function(dataName, idtype){
   
   dataSet$enrich_ids <- rownames(data)
   names(dataSet$enrich_ids) <- rownames(data)
+  dataSet$idType <- idtype
   qs::qsave(data, dataSet$data.annotated.path);
   fast.write.csv(data,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   RegisterData(dataSet);

@@ -57,7 +57,7 @@ CovariateScatter.Anal <- function(dataName,
   var.types <- rdtSet$dataSet[["meta.types"]]
   feature_table <- dataSet$data.proc;
   covariates <- covariates[which(rownames(covariates) %in% colnames(feature_table)),,drop=F]
-
+ 
   # process inputs
   thresh <- as.numeric(thresh)
   ref <- make.names(ref)
