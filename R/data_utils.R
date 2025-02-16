@@ -7,15 +7,15 @@
 .get.rdt.set <- function(){
   # return(result.set);
   if(.on.public.web){
-    return(rdt.set);
+    return(qs::qread("rdt.set.qs"));
   }else{
     return(qs::qread("rdt.set.qs"));
   }
 }
 
 .set.rdt.set <- function(my.set){
-  if(.on.public.web){
-  rdt.set <<- my.set;
+  if(.on.public.web){ 
+  qs::qsave(my.set, file="rdt.set.qs");
 }else{
   qs::qsave(my.set, file="rdt.set.qs");
 }
