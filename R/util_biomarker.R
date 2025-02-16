@@ -210,8 +210,10 @@ CalculateFeatureRanking <- function(clust.num=5){
   }
   
   # Format and return the result
-  feat.rank.mat <<- signif(feat.rank.mat, digits = 5);
-  
+  feat.rank.mat <- signif(feat.rank.mat, digits = 5);
+  qs::qsave(feat.rank.mat,"feat.rank.mat.qs")
+
+
   if(rdtSet$analSet$mode == "univ"){
     fast.write.csv(feat.rank.mat, file="metaboanalyst_roc_univ.csv");
   }
@@ -310,11 +312,13 @@ SetAnalysisMode <- function(rdtSet=NA, mode){
 }
 
 GetUnivRankedFeatureNames <- function(){
+  feat.rank.mat <- qs::qread("feat.rank.mat.qs")
   rownames(feat.rank.mat);
 }
 
 GetFeatureRankingMat <- function(){
-  feat.rank.mat;
+  feat.rank.mat <- qs::qread("feat.rank.mat.qs")
+  return(feat.rank.mat)
 }
 
 Perform.UnivROC <- function(feat.nm, 
