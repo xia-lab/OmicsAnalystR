@@ -738,6 +738,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   
   fig.list <- list()
   for(i in 1:length(sel.nms)){
+   print(sel.nms[i])
     dataSet = readDataset(sel.nms[i])
     x <- dataSet$data.proc
     pca <- prcomp(t(na.omit(x)));

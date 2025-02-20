@@ -330,7 +330,7 @@ Perform.UnivROC <- function(feat.nm,
   rdtSet <- .get.rdt.set();
   
   imgName <- rdtSet$dataSet$url.var.nms[feat.nm];
-  imgName = paste("roc_univ_", imgName, "_", version, "_dpi", dpi, ".", format, sep="");
+  imgName = paste( version, "dpi", dpi, ".", format, sep="");
   
   data_ori_norm <- rdtSet$dataSet$roc.norm
   if(!is.null(rdtSet$dataSet$roc.norm.orig)){
@@ -482,7 +482,7 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
   }
   
   imgName <- rdtSet$dataSet$url.var.nms[feat.nm];
-  imgName = paste("roc_boxplot_", imgName, "_", version, "_dpi", dpi, ".", format, sep="");
+  imgName = paste( version, "dpi", dpi, ".", format, sep="");
   
   x <- unname(unlist(data_ori_norm[feat.nm,]));
   y <- rdtSet$dataSet$roc.cls;
@@ -492,7 +492,7 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
   
   # Handle multiclass color schema
   col <- GetColorSchema(y)  # Ensure this supports multiclass
-  
+  print(col)
   if(length(rdtSet$imgSet$roc.univ.boxplot)==0){
     rdtSet$imgSet$roc.univ.boxplot <- imgName;
     rdtSet$imgSet$roc.univ.name2 <- feat.nm;
@@ -2624,4 +2624,30 @@ Plot.Permutation<-function(rdtSet=NA, imgName, format="png", dpi=72){
   }
   dev.off();
 return(.set.rdt.set(rdtSet));
+}
+
+
+####getter functions 
+GetRocValues <- function(){
+    rdtSet <- .get.rdt.set();
+    return(as.matrix(rdtSet$analSet$roc.mat))
+
+}
+
+GetRocColName <- function(){
+    rdtSet <- .get.rdt.set();
+    return(colnames(rdtSet$analSet$roc.mat))
+
+}
+
+GetGrp1SampleNames <- function(){
+    rdtSet <- .get.rdt.set();
+    return(colnames(rdtSet$dataSet$roc.norm)[rdtSet$dataSet$roc.cls==levels(rdtSet$dataSet$roc.cls)[1]])
+
+}
+
+GetGrp2SampleNames <- function(){
+    rdtSet <- .get.rdt.set();
+    return(colnames(rdtSet$dataSet$roc.norm)[rdtSet$dataSet$roc.cls==levels(rdtSet$dataSet$roc.cls)[2]])
+
 }

@@ -141,11 +141,11 @@ SanityCheckData <- function(dataName){
   }else{
     msg<-c(msg,"All data values are numeric.");
   }
-  
+ 
   int.mat <- num.mat;
   rownames(int.mat) <- rowNms;
   colnames(int.mat)<- colNms;
-  
+
   # check for feats with all constant (var =0)
   varCol <- apply(int.mat, 1, var, na.rm=T);
   constCol <- (varCol == 0 | is.na(varCol));
@@ -155,7 +155,7 @@ SanityCheckData <- function(dataName){
     msg<-c(msg, paste("<font color=\"red\">", constNum, "features with a constant or single value across samples were found and deleted.</font>"));
     int.mat <- int.mat[!constCol, , drop=FALSE];
   }
-  
+ 
   # check zero, NA values
   totalCount <- nrow(int.mat)*ncol(int.mat);
   naCount <- sum(is.na(int.mat));
@@ -165,7 +165,7 @@ SanityCheckData <- function(dataName){
   
   # obtain original half of minimal positive value (threshold)
   minConc <- min(int.mat[int.mat>0], na.rm=T)/2;
-  
+ 
   # remove smpls/exp with over half missing value
   good.inx<-apply(is.na(int.mat), 2, sum)/nrow(int.mat)<0.6;
   if(sum(!good.inx)>0){
