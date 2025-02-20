@@ -491,8 +491,8 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
   h <- 400*scale; 
   
   # Handle multiclass color schema
-  col <- GetColorSchema(y)  # Ensure this supports multiclass
-  print(col)
+  #col <- GetColorSchema(y)  # Ensure this supports multiclass
+  
   if(length(rdtSet$imgSet$roc.univ.boxplot)==0){
     rdtSet$imgSet$roc.univ.boxplot <- imgName;
     rdtSet$imgSet$roc.univ.name2 <- feat.nm;
@@ -525,7 +525,7 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
                  axis.text = element_text(size=10))
   
   # Apply color schema
-  p <- p + scale_fill_manual(values=col)
+p <- p +ggsci::scale_fill_npg()
   
   # Plot optimal threshold line only if `y` is binary and `isOpt` is TRUE
   if(isOpt && length(unique(y)) == 2){
