@@ -608,7 +608,7 @@ PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
     reductionSet <- .get.rdt.set();
    
   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
-library(ggplot2)
+   library(ggplot2)
  
     # Set type.
     stype <- reductionSet$intLim$stype
