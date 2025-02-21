@@ -44,7 +44,7 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
     # Sanitize row names
     sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dataSet$data.proc), perl = TRUE)
     rownames(dataSet$data.proc) <- sanitized_names;
-    
+ 
     # Calculate variance for each feature
     feature_variances <- apply(dataSet$data.proc, 1, var)
     
@@ -60,11 +60,11 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
     if(i == 1){       
       featureNms <- rownames(dataSet$data.proc);
       omics.vec <- rep(dataSet$type, nrow(dataSet$data.proc));
-      uniqFeats <- paste0(rownames(dataSet$data.proc), "_", dataSet$type)
+      uniqFeats <- names(dataSet$enrich_ids)[match(featureNms,dataSet$enrich_ids)]
     } else {
       featureNms <- c(featureNms, rownames(dataSet$data.proc));
       omics.vec <- c(omics.vec, rep(dataSet$type, nrow(dataSet$data.proc)));
-      uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc), "_", dataSet$type))
+      uniqFeats <- c(uniqFeats,  names(dataSet$enrich_ids)[match(rownames(dataSet$data.proc),dataSet$enrich_ids)])
     }
   }
   
@@ -77,7 +77,6 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   
   # Merge all datasets
   merged_data <- do.call(rbind, data.list)
-
    meta.info = rdtSet$dataSet$meta.info
   if(factor2!="NA" &factor2!="all" ){
   meta.info = rdtSet$dataSet$meta.info
@@ -125,6 +124,8 @@ if(length(which(stt<10))==2){
     rdtSet$dataSet$roc.norm <- merged_data;
     rdtSet$dataSet$roc.cls.orig <- factor(rdtSet$dataSet$meta.info[,sel.meta])
     rdtSet$dataSet$roc.cls <- meta.info[[sel.meta]]
+    rdtSet$dataSet$omics.vec <- omics.vec
+    rdtSet$dataSet$uniqFeats <- uniqFeats
   }
   
   return(.set.rdt.set(rdtSet));
@@ -147,7 +148,7 @@ CalculateFeatureRanking <- function(clust.num=5){
   
   rdtSet <- .get.rdt.set()
   LRConverged <<- "FALSE"; 
-  
+ 
   x <- t(rdtSet$dataSet$roc.norm);
   y <- rdtSet$dataSet$roc.cls;
  
@@ -205,6 +206,8 @@ CalculateFeatureRanking <- function(clust.num=5){
     
     ord.inx <- order(feat.rank.mat$AUC, decreasing=T);
     feat.rank.mat  <- data.matrix(feat.rank.mat[ord.inx, , drop=FALSE]);
+     rdtSet$dataSet$omics.vec <- rdtSet$dataSet$omics.vec[ord.inx]
+    rdtSet$dataSet$uniqFeats <- rdtSet$dataSet$uniqFeats[ord.inx]
   }else{
     feat.rank.mat <- data.matrix(data.frame(AUC=auc, Pval=ttp, Avg_FC=fc, clusters=1))
   }
@@ -213,7 +216,7 @@ CalculateFeatureRanking <- function(clust.num=5){
   feat.rank.mat <- signif(feat.rank.mat, digits = 5);
   qs::qsave(feat.rank.mat,"feat.rank.mat.qs")
 
-
+ 
   if(rdtSet$analSet$mode == "univ"){
     fast.write.csv(feat.rank.mat, file="metaboanalyst_roc_univ.csv");
   }
@@ -313,7 +316,20 @@ SetAnalysisMode <- function(rdtSet=NA, mode){
 
 GetUnivRankedFeatureNames <- function(){
   feat.rank.mat <- qs::qread("feat.rank.mat.qs")
-  rownames(feat.rank.mat);
+ 
+return(rownames(feat.rank.mat))
+}
+
+
+GetUnivRankedFeatureLabels <- function(){
+    rdtSet <- .get.rdt.set()
+ 
+return( rdtSet$dataSet$uniqFeats)
+}
+
+GetUnivRankedFeatureTypes <- function(){
+  rdtSet <- .get.rdt.set()
+ return( rdtSet$dataSet$omics.vec)
 }
 
 GetFeatureRankingMat <- function(){
@@ -481,7 +497,7 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
     data_ori_norm <- rdtSet$dataSet$roc.norm.orig
   }
   
-  imgName <- rdtSet$dataSet$url.var.nms[feat.nm];
+ # imgName <- rdtSet$dataSet$url.var.nms[feat.nm];
   imgName = paste( version, "dpi", dpi, ".", format, sep="");
   
   x <- unname(unlist(data_ori_norm[feat.nm,]));
