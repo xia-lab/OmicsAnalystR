@@ -734,7 +734,9 @@ PrepareROCDetails <- function(feat.nm){
   roc.mat.combined[!is.finite(roc.mat.combined)] <- NA
   
   # Write the ROC details to a CSV file
-  filename <- paste(rdtSet$dataSet$url.var.nms[feat.nm], "_roc.csv", sep="")
+
+  print(c(feat.nm,"feat.nm"))
+  filename <- paste(feat.nm, "_roc.csv", sep="")
   fast.write.csv(signif(roc.mat.combined, 4), file=filename, row.names=FALSE)
   
   # Save ROC data in the rdtSet for future use
