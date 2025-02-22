@@ -541,7 +541,7 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
                  axis.text = element_text(size=10))
   
   # Apply color schema
-p <- p +ggsci::scale_fill_npg()
+  p <- p +ggsci::scale_fill_npg()
   
   # Plot optimal threshold line only if `y` is binary and `isOpt` is TRUE
   if(isOpt && length(unique(y)) == 2){
@@ -571,7 +571,7 @@ p <- p +ggsci::scale_fill_npg()
 
 GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
   #save.image("coords.RData");
-  rdtSet <- .get.rdt.set();
+   rdtSet <- .get.rdt.set();
   roc.obj <- rdtSet$analSet$roc.obj
   
   if (length(unique(rdtSet$dataSet$roc.cls)) > 2) {
@@ -630,10 +630,10 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
       res[2] <- paste(res[2], "(", specs[1], "-", specs[3], ")", sep="")
       res[3] <- paste(res[3], "(", sens[1], "-", sens[3], ")", sep="")
     }
-    
     # Plot if requested
     if (plot) {
       PlotDetailROC(rdtSet, imgNm, res[1], sp, se)
+      rdtSet$analSet$roc.obj$thresh <- res[1]
     }
     
     return(res)
@@ -642,8 +642,8 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
 
 
 
-PlotDetailROC <- function(imgName, thresh, sp, se, dpi=72, format="png"){
-  
+PlotDetailROC <- function(rdtSet,imgName, thresh, sp, se, dpi=72, format="png"){
+  print(c(imgName,thresh,sp,se))
   rdtSet <- .get.rdt.set();
   
   imgName = paste(imgName, "_dpi", dpi, ".", format, sep="");
