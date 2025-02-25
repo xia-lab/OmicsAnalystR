@@ -14,7 +14,7 @@
 #' @export
 IntLim.Anal <- function( imgName="NA", imgFormat="png",  
                          analysis.var, ref = NULL, thresh=0.05,pval_type="raw",
-                         contrast.cls = "anova",dt1,dt2,outcome=1){
+                         contrast.cls = "anova",dt1,dt2,outcome=1,topNum=1000){
  
   dataSet1 <- readDataset(dt1);
   dataSet2 <- readDataset(dt2);
@@ -40,8 +40,8 @@ IntLim.Anal <- function( imgName="NA", imgFormat="png",
       covariates.vec <- c()
     }
   }
-   dt1 = as.matrix(dataSet1$data.proc)[1:min(nrow(dataSet1$data.proc),1000),]
-   dt2 = as.matrix(dataSet2$data.proc)[1:min(nrow(dataSet2$data.proc),1000),]
+   dt1 = as.matrix(dataSet1$data.proc)[1:min(nrow(dataSet1$data.proc),topNum),]
+   dt2 = as.matrix(dataSet2$data.proc)[1:min(nrow(dataSet2$data.proc),topNum),]
 
   meta.info=reductionSet$dataSet$meta.info
   cls.type <-  reductionSet[["dataSet"]][["meta.types"]]
@@ -461,7 +461,6 @@ ProcessResults <- function(reductionSet,inputResults,
       finmydat.adj <- reshape2::melt(mydat.adjust)
       finmydat.coef <- reshape2::melt(mydat.interac)
       finmydat.rsq <- reshape2::melt(mydat.rsq)
-      
        finmydat = data.frame(
                 Analyte1=as.character(finmydat[,"Var1"]),
                 Analyte2 = as.character(finmydat[,"Var2"]),
