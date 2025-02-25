@@ -12,8 +12,31 @@
 #' @param thresh threshold
 #' @param contrast.cls contrast group
 #' @export
-IntLim.Anal <- function( imgName="NA", imgFormat="png",  
-                         analysis.var, ref = NULL, thresh=0.05,pval_type="raw",
+
+
+IntLim.Anal <- function(imgName="NA", imgFormat="png",  
+                         analysis.var, ref = NULL, thresh=0.05,coefThresh=1,pval_type="raw",
+                         contrast.cls = "anova",dt1,dt2,outcome=1,topNum=1000){
+  if(!exists("mem.intlim")){
+    require("memoise");
+    mem.intlim <<- memoise(.perform.intLim.anal);
+  }
+  result <- mem.intlim(imgName, imgFormat, analysis.var,ref, contrast.cls,dt1,dt2,outcome,topNum);
+  if(result==1){
+   reductionSet <- .get.rdt.set();
+  reductionSet <- ProcessResults(reductionSet,inputResults=reductionSet$intLim$myres,
+                             pvalcutoff=thresh, pval.type=pval_type,coeffPercentile = coefThresh)
+
+  .set.rdt.set(reductionSet)
+  return(c(1,nrow(reductionSet$intLim_sigmat)))
+
+  }else{
+ return(0)
+  }
+}
+
+.perform.intLim.anal <- function( imgName="NA", imgFormat="png",  
+                         analysis.var, ref = NULL, #thresh=0.05,coefThresh=1,pval_type="raw",
                          contrast.cls = "anova",dt1,dt2,outcome=1,topNum=1000){
  
   dataSet1 <- readDataset(dt1);
@@ -72,16 +95,13 @@ IntLim.Anal <- function( imgName="NA", imgFormat="png",
  if(!is.list(myres)){
    return(0)
  }
- 
- reductionSet$intLim <- list(stype=analysis.var,continuous=continuous,outcomeArray=dt1,independentArray = dt2,sampleMetaData=meta.info)
+ reductionSet$intLim <- list(stype=analysis.var,continuous=continuous,outcomeArray=dt1,independentArray = dt2,sampleMetaData=meta.info,myres=myres)
   
-  reductionSet <- ProcessResults(reductionSet,inputResults=myres,
-                             pvalcutoff=thresh, pval.type=pval_type)
- 
-  .set.rdt.set(reductionSet)
-  return(c(1,nrow(reductionSet$intLim_sigmat)))
-
+ .set.rdt.set(reductionSet)
+return(1)
 }
+
+
 
 
 RunIntLim <- function(inputData,stype="", covar=c(), 
@@ -426,7 +446,7 @@ RemovePlusInCovars <- function(covar=c(), sampleDataColnames){
 
 ProcessResults <- function(reductionSet,inputResults, 
                            pvalcutoff=0.01,
-                           pval.type="raw",
+                           pval.type="raw", 
                            coeffPercentile=0,
                            rsquaredCutoff = 0,
                            coefficient = "interaction"){
@@ -498,10 +518,10 @@ ProcessResults <- function(reductionSet,inputResults,
       }
       # Filter by coefficient.
      
-      if(coeffPercentile > 0){
-        quantiles <- getQuantileForCoefficient(finmydat$Coef, coeffPercentile)
+      if(coeffPercentile > 0 & coeffPercentile < 100){
+        quantiles <- getQuantileForCoefficient(finmydat$interaction_coeff, 1-coeffPercentile/100)
         
-        keepers <- (finmydat$Coef > quantiles[2]) | (finmydat$Coef < quantiles[1])
+        keepers <- (finmydat$interaction_coeff > quantiles[2]) | (finmydat$interaction_coeff < quantiles[1])
         
         finmydat <- finmydat[keepers, , drop = FALSE] 
       }
@@ -529,7 +549,7 @@ ProcessResults <- function(reductionSet,inputResults,
 
 GetVolcanoDnMat <- function(reductionSet=NA){
     reductionSet <- .get.rdt.set();
-    vcn <- reductionSet$intLim_filtres; 
+      vcn <- reductionSet$intLim_filtres; 
     blue.inx <- which(!rownames(vcn) %in% rownames(reductionSet$intLim_sigmat));
 
     if(sum(blue.inx)>0){
@@ -665,6 +685,20 @@ PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
      dev.off()
 
   }
+
+getQuantileForCoefficient <-function(tofilter, interactionCoeffPercentile){
+  print(interactionCoeffPercentile)
+  if(interactionCoeffPercentile > 1 || interactionCoeffPercentile < 0) {
+    stop("interactionCoeffPercentile parameter must be between 0 and 1")
+  }
+  
+  #get top and bottom cutoffs (need highest positive and highest negative coeffs)
+  tofilter_abs = abs(tofilter)
+  abs_cutoff = as.numeric(stats::quantile(tofilter_abs, interactionCoeffPercentile, na.rm = TRUE))
+  
+  return(c(0 - abs_cutoff, abs_cutoff))
+  
+}
 
 #####feature detailed table
 GetVolcMat <- function() {
