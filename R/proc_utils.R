@@ -421,8 +421,7 @@ SanityCheckMeta <- function(){
         dataSet <- readDataset(sel.nms[i])
         data.list[[i]] <- dataSet$meta;
         mdata.all[[i]] <- 1;
-    }
-
+    } 
     samples_intersect <- intersect_rownames(data.list);
     meta.info <- rdtSet$dataSet$meta.info[samples_intersect, , drop = FALSE];
     meta.info <- droplevels(meta.info);

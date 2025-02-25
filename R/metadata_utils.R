@@ -6,7 +6,7 @@
 
 ReadMetaDataFile <- function(metafilename){
   reductionSet <- .get.rdt.set();
-  res <- .readMetaData(metafilename,"", "false");
+  res <- .readMetaData(metafilename,"", "false"); 
   res$meta.info <- removeXPrefix(res$meta.info);
   meta.types <- rep("disc", ncol(res$meta.info));
   meta.types[res$cont.inx] <- "cont";
@@ -595,7 +595,7 @@ PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson", imgNa
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
   metaData <- rdtSet$dataSet$meta.info
-  
+
   meta.types <- rdtSet$dataSet$meta.types
   disc.inx <- which(meta.types == "disc")
   cont.inx <- which(meta.types == "cont")
@@ -622,9 +622,12 @@ PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson", imgNa
   for(i in c(1:length(disc.inx))){
     metaData[,disc.inx[i]] <- as.integer(metaData[,disc.inx[i]], na.rm = TRUE);
   }
+
+if(length(cont.inx)>0){
   for(i in c(1:length(cont.inx))){
     metaData[,cont.inx[i]] <- as.numeric(as.character(metaData[,cont.inx[i]], na.rm = TRUE));
   }
+}
  
  
   if(cor.method=="univariate"){

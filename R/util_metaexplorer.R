@@ -8,7 +8,7 @@
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",includeRowNames=T,drawBorder=T, imgName, format="png", dpi=96,width=NA){
+PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=T, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
   plotjs <- paste0(imgName, ".json");
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
@@ -65,7 +65,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
     colBool = F;
   }
 
-    w = min(1200,ncol(met)*200+50)
+    w = min(1000,ncol(met)*150+50)
     h = min(2000,nrow(met)*14+50);
  
    met <- scale_mat(met,  "column")
@@ -73,7 +73,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                   colors = colors, 
           colorbar_grid = setup_colorbar_grid(y_start = 0.85)) %>%
       add_col_labels(size = 0.1, font = list(size = 14)) 
- 
+
     if (includeRowNames) {
       p <- p%>%
         add_row_labels(size = 0.2, font = list(size = 10), side = "right") 
