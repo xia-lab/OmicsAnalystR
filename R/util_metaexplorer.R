@@ -369,13 +369,20 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
 
   # Discrete vs Discrete (Bar plot)
   } else if (meta1_type == "disc" && meta2_type == "disc") {
+   if(length(unique(data$meta2))>10){
+ color_palette <- colorRampPalette(ggsci::pal_npg("nrc")(10))(length(unique(data$meta2)))  # Expands to needed length
 
+    }else{
+
+ color_palette <-ggsci::pal_npg("nrc")(10)
+  }
+  
     p <- ggplot(data, aes(x = as.factor(meta1), fill = as.factor(meta2))) +
       geom_bar(position = "dodge") +
       labs(title = "",
            x = meta1, fill = meta2) +
       theme_minimal()+
-       ggsci::scale_fill_npg()+
+         scale_fill_manual(values = color_palette) + 
    theme(
       axis.title = element_text(size = 15) 
     )
