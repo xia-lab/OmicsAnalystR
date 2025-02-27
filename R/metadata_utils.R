@@ -15,7 +15,7 @@ ReadMetaDataFile <- function(metafilename){
   reductionSet$dataSet$meta.status <- rep("OK", ncol(res$meta.info) );
   reductionSet$dataSet$cont.inx <- res$cont.inx;
   reductionSet$dataSet$disc.inx <- res$disc.inx;
-  reductionSet$dataSet$meta.info <- res$meta.info;
+  reductionSet$dataSet$meta.info <- res$meta.info;  
   .set.rdt.set(reductionSet)
   return(res$check.bool);
 }
@@ -141,6 +141,7 @@ GetUniqueMetaNames <-function(metadata){
       msg.vec <<- "Failed to read the metadata table! Please check your data format.";
       return(NULL);
     }
+ 
     mydata[is.na(mydata)] <- "NA";
     # look for #NAME, store in a list
     sam.inx <- grep("^#NAME", colnames(mydata)[1]);
@@ -151,12 +152,11 @@ GetUniqueMetaNames <-function(metadata){
       msg.vec <<- "Please make sure you have the label #NAME in your sample data file!";
       return(NULL);
     }
-    
     # covert to factor
     mydata <-data.frame(lapply(1:ncol(mydata),function(x){
       mydata[,x]=unlist(ClearFactorStrings(mydata[,x]))
     }));
-    
+ 
     mydata <- mydata[,-1,drop=F]; # converting to character matrix as duplicate row names not allowed in data frame.
     if(nrow(mydata)==1){
       msg.vec <<- "Only one sample in the dataset or the metadata file must be transposed!";
@@ -173,8 +173,7 @@ GetUniqueMetaNames <-function(metadata){
       na.msg1 <- c(na.msg1, "Blank spaces in group names are replaced with underscore '_'");
     }
     
-  }
-    
+  } 
   disc.inx <- GetDiscreteInx(meta.info);
 
   # make sure categorical metadata are valid names
@@ -187,7 +186,7 @@ GetUniqueMetaNames <-function(metadata){
     x <- factor(x);
     meta.info[,disc.inx] <- x;
   }
-
+ 
   if(sum(disc.inx) == length(disc.inx)){
     na.msg <- c(na.msg,"All metadata columns are OK!")
   }else{
@@ -210,7 +209,7 @@ GetUniqueMetaNames <-function(metadata){
   cont.inx <- cont.inx[colnames(meta.info)]
 
   meta.info <- as.data.frame(meta.info);
-
+ 
   check.inx <-apply(meta.info , 2, function(x){ ( sum(is.na(x))/length(x) + sum(x=="NA")/length(x) + sum(x=="")/length(x) ) >0})
   
   init <- 1;
@@ -590,7 +589,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson", imgName="", dpi=96, imgFormat="png", interactive=F){
+PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient, imgName="", dpi=96, imgFormat="png", interactive=F){
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
@@ -617,6 +616,38 @@ PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson", imgNa
   library(reshape2)
   load_ggplot();
   library(scales);
+
+
+ color_scale <- if(colorGradient=="gbr"){
+   scale_fill_gradient2(low =  "green", mid="black", high = "red", midpoint = 0,
+                         limit = c(-1,1), space = "Lab", name="Correlation") 
+    }else if(colorGradient == "heat"){
+  scale_fill_gradientn(colors = heat.colors(10))
+    }else if(colorGradient == "topo"){
+      scale_fill_gradientn(colors = topo.colors(10))
+    }else if(colorGradient == "gray"){
+         scale_fill_gradientn(colors = c("grey90", "grey10"))
+    }else if(colorGradient == "byr"){
+      scale_fill_gradientn(colors = rev(RColorBrewer::brewer.pal(10, "RdYlBu")))
+    }else if(colorGradient == "viridis") {
+          scale_fill_viridis_c(option = "viridis")
+    }else if(colorGradient == "plasma") {
+              scale_fill_viridis_c(option = "plasma")
+    }else if(colorGradient == "npj"){
+   scale_fill_gradient2(low =  "#00A087FF", mid="white", high = "#E64B35FF", midpoint = 0,
+                         limit = c(-1,1), space = "Lab", name="Correlation") 
+    }else if(colorGradient == "aaas"){
+   scale_fill_gradient2(low =  "#4DBBD5FF", mid="white", high = "#E64B35FF", midpoint = 0,
+                         limit = c(-1,1), space = "Lab", name="Correlation") 
+    }else if(colorGradient == "d3"){
+  scale_fill_gradient2(low =  "#2CA02CFF", mid="white", high = "#FF7F0EFF", midpoint = 0,
+                         limit = c(-1,1), space = "Lab", name="Correlation") 
+    }else {
+        scale_fill_gradient2(low =  "blue", mid="white", high = "red", midpoint = 0,
+                         limit = c(-1,1), space = "Lab", name="Correlation")
+    }
+
+ 
   
   metaData[metaData == "NA"] <- NA;
   for(i in c(1:length(disc.inx))){
@@ -646,8 +677,7 @@ if(length(cont.inx)>0){
  
   ggheatmap <- ggplot2::ggplot(data = melted_cormat, aes(Var2, Var1, fill = value)) +
     geom_tile(color = "white")+ scale_y_discrete("Var1", position="right") +
-    scale_fill_gradient2(low =  "blue", mid="white", high = "red", midpoint = 0,
-                         limit = c(-1,1), space = "Lab", name="Correlation") + theme_minimal()+ 
+     color_scale + theme_minimal()+ 
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
           axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.y.right = element_text(),
           legend.direction = "vertical", legend.position="left")+ coord_fixed();

@@ -8,7 +8,7 @@
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=T, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
+PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
   plotjs <- paste0(imgName, ".json");
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
@@ -132,7 +132,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                        clustering_distance_rows = smplDist,
                        clustering_distance_cols = smplDist,
                        clustering_method = clstDist, 
-                      # border_color = border.col,
+                       border_color = NA,#border.col,
                        cluster_rows = rowBool, 
                        cluster_cols = colBool,
                        scale = "column",
@@ -151,7 +151,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                        clustering_distance_rows = smplDist,
                        clustering_distance_cols = smplDist,
                        clustering_method = clstDist, 
-                      # border_color = border.col,
+                        border_color = NA,#border.col,
                        cluster_rows = rowBool, 
                        cluster_cols = colBool,
                        scale = "column",
@@ -291,7 +291,7 @@ scale_rows = function(x){
   return((x - m) / s)
 }
 
-PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
+PlotPairwiseMetadata <- function(meta1, meta2, colorGradient ,imgName, format="png", dpi=96) {
 
   rdtSet <- .get.rdt.set();
 
@@ -321,8 +321,28 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
   }
 
   # Prepare the data for plotting
-  data <- data.frame(meta1 = meta1_data, meta2 = meta2_data)
+  data <- unique(data.frame(meta1 = meta1_data, meta2 = meta2_data))
 
+
+color_scale <- if (colorGradient == "gray") {
+    scale_fill_manual(values = c("grey90","grey70","grey50","grey30","grey10"))
+} else if (colorGradient == "byr") {
+    scale_fill_brewer(palette = "RdYlBu")
+} else if (colorGradient == "viridis") {
+    scale_fill_viridis_d(option = "viridis")
+} else if (colorGradient == "plasma") {
+    scale_fill_viridis_d(option = "plasma")
+} else if (colorGradient == "npj") {
+    ggsci::scale_fill_npg()
+} else if (colorGradient == "aaas") {
+    ggsci::scale_fill_aaas()
+} else if (colorGradient == "d3") {
+    ggsci::scale_fill_d3("category10")
+} else if (colorGradient == "gbr") {
+    scale_fill_manual(values = c("red","green"))
+}else {
+    scale_fill_brewer(palette="Set1")  # Default
+}
 
   # Continuous vs Continuous (Scatter plot with regression line)
   if (meta1_type == "cont" && meta2_type == "cont") {
@@ -358,15 +378,17 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
       geom_boxplot(outlier.shape = NA) +
       geom_jitter(aes_string(color = cont_var), size = 2, width = 0.2) +
     scale_color_gradient(low = "lightblue", high = "darkblue") +
+      color_scale + 
       labs(title ="",
            x = disc_var, y = cont_var, color = cont_var, fill = disc_var) +
     theme_minimal()+
  theme(
    axis.title = element_text(size = 15) 
   )
-      res <- anova(aov(data[[cont_var]] ~ data[[disc_var]]));
+     
+    res <- anova(aov(data[[cont_var]] ~ data[[disc_var]]));
       stat.info <- paste("p-value: ", signif(res$"Pr(>F)"[1], 5), "; [ANOVA] F-value: ", signif(res$"F value"[1], 5), sep="");
-
+   
   # Discrete vs Discrete (Bar plot)
   } else if (meta1_type == "disc" && meta2_type == "disc") {
    if(length(unique(data$meta2))>10){
@@ -382,7 +404,7 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
       labs(title = "",
            x = meta1, fill = meta2) +
       theme_minimal()+
-         scale_fill_manual(values = color_palette) + 
+      color_scale +
    theme(
       axis.title = element_text(size = 15) 
     )
