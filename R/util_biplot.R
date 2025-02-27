@@ -1,20 +1,21 @@
 
 
 PerformOrdination <- function(method,predictor,dataName) {
-print(dataName)
+
+ 
 if(!exists("mem.ordination")){
     require("memoise");
     mem.ordination <<- memoise(.perform.ordination);
   }
-  return(mem.ordination(method,predictor,dataName));
+  return(mem.ordination(method,predictor,dataName,includeMeta));
  
 }
 
 
 .perform.ordination <- function(method = "RDA",
                               predictor,
-                              dataName) {
-  print(method)
+                              dataName,includeMeta) {
+  print(includeMeta)
   # Load or prepare your data
   dataSet <- readDataset(dataName)
   rdtSet  <- .get.rdt.set()
@@ -33,7 +34,7 @@ if(!exists("mem.ordination")){
   } else {
     meta <- meta[, predictor, drop = FALSE]
   }
-
+ 
   # Convert continuous metadata columns to numeric
   idx <- which(rdtSet$dataSet$meta.types[colnames(meta)] == "cont")
   if (length(idx) > 0) {
@@ -56,7 +57,7 @@ if(!exists("mem.ordination")){
     }
     
     # Store results
-    rdtSet$analSet$ordination_res <- list(
+    rdtSet$analSet$RDA_res <- list(
       method     = "RDA",
       model      = rda_result,
       meta       = meta,
@@ -83,7 +84,7 @@ if(!exists("mem.ordination")){
     }
 
     # Store results
-    rdtSet$analSet$ordination_res <- list(
+    rdtSet$analSet$PCA_res <- list(
       method     = "PCA",
       model      = pca_result,
       meta       = meta,
@@ -94,7 +95,6 @@ if(!exists("mem.ordination")){
   
   # Save it back
   .set.rdt.set(rdtSet)
- 
   # Return some summary stats if you like:
   return(rdtSet$analSet$ordination_res$stats)
 }
@@ -103,15 +103,18 @@ if(!exists("mem.ordination")){
 
 
  
-PlotBiplot <- function( topN=10,fileName = "biplot", format = "png",dpi = 300,colorGradient="d3") {
+PlotBiplot <- function( method,topN=10,fileName = "biplot", format = "png",dpi = 300,colorGradient="d3") {
   
  rdtSet  <- .get.rdt.set()
-  if (is.null(rdtSet$analSet$ordination_res)) {
+  resnm <- paste0(method,"_res")
+
+  if (is.null(rdtSet$analSet[[resnm]])) {
     stop("No ordination results found! Please run PerformOrdination() first.")
   }
-  ordRes  <- rdtSet$analSet$ordination_res
 
-  method        <- ordRes$method
+  ordRes  <- rdtSet$analSet[[resnm]]
+
+ 
   meta          <- ordRes$meta
   feature_table <- ordRes$featureTbl
   stats         <- ordRes$stats 
