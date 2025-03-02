@@ -250,9 +250,8 @@ ComputeKmeans <- function(clusterNum="-1"){
   reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   #save results
-  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
-  reductionSet$dataSet$meta.info$Cluster <- clust;
-  
+  res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
+   
   reductionSet$clustResTable <- res.table;
   
   write.csv(res.table, "kmeans_clustering_results.csv");
@@ -309,8 +308,7 @@ ComputeKmeansPP <- function(clusterNum="-1"){
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   
   #save results
-  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
-  reductionSet$dataSet$meta.info$Cluster <- clust;
+  res.table <- data.frame( Cluster=clust,reductionSet$dataSet$meta.info);
   
   reductionSet$clustResTable <- res.table;
   
@@ -360,9 +358,7 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
   #save results
-  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
-  reductionSet$dataSet$meta.info$Cluster <- clust;
-
+  res.table <- data.frame( Cluster=clust,reductionSet$dataSet$meta.info);
   reductionSet$clustResTable <- res.table;
 
   write.csv(res.table, "spectrum_clustering_results.csv");
@@ -400,7 +396,7 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
 
-  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
+  res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
   write.csv(res.table, "perturbation_clustering_results.csv");
   reductionSet$clustResTable <- res.table;
 
@@ -591,11 +587,10 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   reductionSet$clustVec <- group
   reductionSet$clustRes <- res
   reductionSet$clustDistMat <- W
-  reductionSet$clustNmi <- SNFNMI
-  reductionSet$dataSet$meta.info$Cluster <- group;
+  reductionSet$clustNmi <- SNFNMI 
   reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
   names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
-  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=group);
+  res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
   write.csv(res.table, "snf_clustering_results.csv");
   reductionSet$clustResTable <- res.table;
 
@@ -782,5 +777,98 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
   print(p1)
   dev.off();
+}
+
+
+PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
+  
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  rdtSet <- .get.rdt.set();
+   
+  metaData <- rdtSet$clustResTable;
+  metaData = metaData[order( metaData$Cluster),]
+  smp.nms <- rownames(metaData);
+  meta.num <- ncol(metaData)
+
+  var.nms <- rownames(metaData);
+  rdtSet$imgSet$clusterHeat <- imgName;
+
+  met <- sapply(metaData, function(x) as.integer(x))
+  rownames(met) <- smp.nms;
+
+
+
+  # set up parameter for heatmap
+  if(colorGradient=="gbr"){
+    colors <- colorRampPalette(c("green", "black", "red"), space="rgb")(256);
+    }else if(colorGradient == "heat"){
+    colors <- heat.colors(256);
+    }else if(colorGradient == "topo"){
+    colors <- topo.colors(256);
+    }else if(colorGradient == "gray"){
+        colors <- grDevices::colorRampPalette(c("grey90", "grey10"), space="rgb")(256);
+    }else if(colorGradient == "byr"){
+        colors <- rev(grDevices::colorRampPalette(RColorBrewer::brewer.pal(10, "RdYlBu"))(256));
+    }else if(colorGradient == "viridis") {
+        colors <- rev(viridis::viridis(10))
+    }else if(colorGradient == "plasma") {
+        colors <- rev(viridis::plasma(10))
+    }else if(colorGradient == "npj"){
+        colors <- c("#00A087FF","white","#E64B35FF")
+    }else if(colorGradient == "aaas"){
+        colors <- c("#4DBBD5FF","white","#E64B35FF");
+    }else if(colorGradient == "d3"){
+        colors <- c("#2CA02CFF","white","#FF7F0EFF");
+    }else {
+         colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+    }
+   
+  if(clustSelOpt == "both"){
+    rowBool = T;
+    colBool = T;
+  }else if(clustSelOpt == "row"){
+    rowBool = T;
+    colBool = F;
+  }else if(clustSelOpt == "col"){
+    rowBool = F;
+    colBool = T;
+  }else{
+    rowBool = F;
+    colBool = F;
+  }
+
+    w = min(500,ncol(met)*100+50)
+    h = min(2000,nrow(met)*14+50);
+ 
+   met <- scale_mat(met,  "column")
+ 
+
+  ##plot static
+  plot_dims <- get_pheatmap_dims(met, NA, "overview", width);
+  h <- plot_dims$height;
+  w <- plot_dims$width;
+  viewOpt <- "overview";
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+       displayText = metaData;
+    if(viewOpt == "overview"){
+       displayText = F;
+    }
+ 
+    
+    pheatmap::pheatmap(met, 
+                       fontsize=12, fontsize_row=8, 
+                       clustering_distance_rows = smplDist,
+                       clustering_distance_cols = smplDist,
+                       clustering_method = clstDist, 
+                        border_color = NA,#border.col,
+                       cluster_rows = F, 
+                       cluster_cols = F,
+                       scale = "column",
+                       show_rownames= includeRowNames,
+                       color = colors,
+                       display_numbers=displayText);
+  dev.off();
+
+  return(.set.rdt.set(rdtSet));
 }
 

@@ -509,16 +509,17 @@ GetEnrichList <- function(dataNm, type,fileNm){
     }
    if(dataSet$idType=="name"|dataSet$idType=="symbol"){
      #all_str <- dataSet[["sig.mat"]]$label
-df <- data.frame("#id" = dataSet[["sig.mat"]]$label, coef = dataSet[["sig.mat"]]$coefficient)
+df <- data.frame("#id" = dataSet[["sig.mat"]]$label, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
 
      }else{
-df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, coef = dataSet[["sig.mat"]]$coefficient)
+df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
 
 
      #all_str <- dataSet[["sig.mat"]]$ids
   } 
 
    }
+
 write.table(df, file = fileNm, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
   #writeLines(all_str, fileNm)
   return(1)
