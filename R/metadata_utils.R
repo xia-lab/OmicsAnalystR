@@ -594,12 +594,12 @@ PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorG
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
   metaData <- rdtSet$dataSet$meta.info
-
+ 
   meta.types <- rdtSet$dataSet$meta.types
   disc.inx <- which(meta.types == "disc")
   cont.inx <- which(meta.types == "cont")
   meta.num <- ncol(metaData)
-  
+  print(meta.types )
   textSize = 4;
   if(meta.num > 25){
     w <- 24

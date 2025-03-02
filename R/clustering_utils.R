@@ -124,8 +124,8 @@ ComputePathHeatmapTable <- function(dataSet){
     metadf$Cluster <- reductionSet$clustVec;
     sample.cluster[[reductionSet$clustType]] <- smpl.int.rk;
     metadf <- metadf[smpl.int.rk,];
-    meta.types <- c(meta.types, "disc");
-    names(meta.types)[length(names(meta.types))] <- "Cluster";
+    meta.types <- c( meta.types,"disc");
+    names(meta.types)[length(meta.types)] <- "Cluster";
   }
   meta <- metadf;
   meta <- meta[which(rownames(meta) %in% orig.smpl.nms), ,drop=F];
@@ -247,8 +247,8 @@ ComputeKmeans <- function(clusterNum="-1"){
   reductionSet$clustRes$frac_explained <-  BSS_i / TSS
   
   
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+  reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
   #save results
   res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
    
@@ -304,10 +304,10 @@ ComputeKmeansPP <- function(clusterNum="-1"){
   reductionSet$clustRes$frac_explained <-  BSS_i / TSS
   
   
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
-  
-  #save results
+  reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
+
+   #save results
   res.table <- data.frame( Cluster=clust,reductionSet$dataSet$meta.info);
   
   reductionSet$clustResTable <- res.table;
@@ -355,8 +355,9 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$clustDistMat <- res$similarity_matrix
   reductionSet$clustNmi <- SNFNMI
 
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+ reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
+
   #save results
   res.table <- data.frame( Cluster=clust,reductionSet$dataSet$meta.info);
   reductionSet$clustResTable <- res.table;
@@ -393,8 +394,9 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   reductionSet$clustRes <- result
   reductionSet$clustNmi <- SNFNMI
   
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+ reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
+
 
   res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
   write.csv(res.table, "perturbation_clustering_results.csv");
@@ -588,8 +590,8 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   reductionSet$clustRes <- res
   reductionSet$clustDistMat <- W
   reductionSet$clustNmi <- SNFNMI 
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+   reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
   res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
   write.csv(res.table, "snf_clustering_results.csv");
   reductionSet$clustResTable <- res.table;
