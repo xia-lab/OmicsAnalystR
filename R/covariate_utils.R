@@ -21,7 +21,7 @@ CovariateScatter.Anal <- function(dataName,
                                   block = "NA", 
                                   thresh=0.05,
                                   contrast.cls = "anova",pval.type="raw"){
-
+print(pval.type)
   dataSet <- readDataset(dataName);
  
   rdtSet <- .get.rdt.set();
@@ -224,11 +224,14 @@ CovariateScatter.Anal <- function(dataName,
   colnames(noadj.mat) <- c("pval.no", "fdr.no")
   
   both.mat <- merge(adj.mat, noadj.mat, by = "row.names")
+  
   both.mat$pval.adj <- -log10(both.mat$pval.adj)
   both.mat$fdr.adj <- -log10(both.mat$fdr.adj)
   both.mat$pval.no <- -log10(both.mat$pval.no)
   both.mat$fdr.no <- -log10(both.mat$fdr.no)
   both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];  
+  
+  
 
   # make plot
   if( "F" %in% colnames(rest)){
@@ -290,7 +293,8 @@ CovariateScatter.Anal <- function(dataName,
       p.value.no = both.mat$pval.no,
       p.log = -log10(p.value),
       inx.imp = inx.imp,
-      sig.mat = sig.mat
+      sig.mat = sig.mat,
+      pval.type = pval.type
     );
   }else{
     res <- 0;
@@ -301,7 +305,8 @@ CovariateScatter.Anal <- function(dataName,
       p.value = p.value,
       p.value.no = both.mat$pval.no,
       p.log = -log10(p.value),
-      inx.imp = inx.imp
+      inx.imp = inx.imp,
+      pval.type = pval.type
     );
   }
  
@@ -324,6 +329,7 @@ CovariateScatter.Anal <- function(dataName,
   both.list <- apply(both.mat, 2, function(x){unname(as.list(x))})
 
   both.list$thresh <- thresh;
+   both.list$pvalType <- pval.type;
   jsonNm <- gsub(paste0(".", imgFormat), ".json", imgName);
   jsonObj <- rjson::toJSON(both.list);
   sink(jsonNm);
@@ -365,6 +371,7 @@ PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="pn
   if(nrow(both.mat) < topFeature){
     topFeature <- nrow(both.mat);
   }
+
   if(theme == "default"){
     p <- ggplot(both.mat, mapping = aes(x = pval.no, y = pval.adj, label = Row.names)) +
       geom_rect(mapping = aes(xmin = logp_val, xmax = Inf, 
@@ -716,7 +723,7 @@ CombineFacScatter.Anal <- function(dataName="",
   noadj.mat <-  res.noadj[, c("P.Value", "adj.P.Val")]
   colnames(adj.mat) <- c("pval.adj", "fdr.adj")
   colnames(noadj.mat) <- c("pval.no", "fdr.no")
-  
+    
   both.mat <- merge(adj.mat, noadj.mat, by = "row.names")
   both.mat$pval.adj <- -log10(both.mat$pval.adj)
   both.mat$fdr.adj <- -log10(both.mat$fdr.adj)
@@ -724,6 +731,7 @@ CombineFacScatter.Anal <- function(dataName="",
   both.mat$fdr.no <- -log10(both.mat$fdr.no)
   both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];  
   
+
   # make plot
   if( "F" %in% colnames(rest)){
     fstat <- rest[, "F"];
