@@ -1,9 +1,9 @@
-PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
+PlotPercentBars <- function(dataNm,top_n=10, fileName="", dpi=72, format="png"){
   rdtSet <- .get.rdt.set()
   varPart <- rdtSet$analSet$varPart.df[,-1];
   vp <- varPart[order(varPart[, 1], decreasing = TRUE),,drop=F ]#sortCols(varPart);
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
-
+ 
    if (top_n < 10){
       h <- 6;
     } else if (top_n < 15){
@@ -32,6 +32,10 @@ PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
     )
   print(p);
   dev.off();
+   
+  dataSet <- readDataset(dataNm);
+  dataSet$varPar$topNum <- top_n; 
+  RegisterData(dataSet)
   return(1)
 }
 
@@ -47,21 +51,19 @@ PerformVarPartOverview <- function(selMeta, top_n = 500, fileName = "variance_pa
   sel.nms <- names(mdata.all)[sel.inx];
 
 
-dataSetList <- lapply(sel.nms, readDataset);
-data.list <- lapply(dataSetList, function(x){
-  df =  x[["data.proc"]]
-  sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)  
-  sanitized_names <- names(x[["enrich_ids"]])[match(sanitized_names,x$enrich_ids)]
-  uniqFeats <- paste0( x$type,".",sanitized_names)
+dataSet <- readDataset(sel.nms);
+  df =  dataSet[["data.proc"]]
+ sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)  
+  sanitized_names <- names(dataSet[["enrich_ids"]])[match(sanitized_names,dataSet$enrich_ids)]
+  uniqFeats <- paste0( dataSet$type,".",sanitized_names)
   rownames(df) <- uniqFeats;
-  return(df)
-})
+ 
 
- types <- unlist(lapply(dataSetList, function(x) return(x$type)))
- types <- paste(paste0("^",types,"."),collapse  = "|")
+# types <- unlist(lapply(dataSetList, function(x) return(x$type)))
+# types <- paste(paste0("^",types,"."),collapse  = "|")
 
   # Extract normalized gene expression data
-  gene_expr <- do.call(rbind,data.list)
+  gene_expr <- df
   feature_variances <- apply( gene_expr, 1, var)
   ordinx <- order(feature_variances, decreasing = TRUE)
   gene_expr <-   gene_expr[ordinx,]
@@ -165,15 +167,21 @@ data.list <- lapply(dataSetList, function(x){
   print(p)
   dev.off()
 
-  
+  symbols <- gsub(paste0(dataSet$type,"."),"",rownames(varPart))
+  ids <- unname(dataSet$enrich_ids[match(symbols,names(dataSet$enrich_ids))])
   # Store the top gene results in rdtSet for future use
-  rdtSet$analSet$varPart.symbols <- gsub(types,"",rownames(varPart));
-  rdtSet$analSet$varPart.ids <- rownames(dataSetList[[1]]$data.proc)[1:nrow(gene_expr)]
-  varPart<- cbind(Symbol = rdtSet$analSet$varPart.symbols, varPart);
+  rdtSet$analSet$varPart.symbols <- symbols;
+  rdtSet$analSet$varPart.ids <-  ids;
+  varPart<-cbind(Symbol = rdtSet$analSet$varPart.symbols, varPart);
   rdtSet$analSet$varPart.fileName <- "varPart_results.csv";
-  rdtSet$analSet$varPart.df <- varPart;
- rdtSet$dataSet$types <- types
+  rdtSet$analSet$varPart.df <- varPart; 
+  dataSet$varPar$symbols <-  symbols;
+  dataSet$varPar$ids <- ids;
+  dataSet$varPar$topNum <- top_n;
+  dataSet$varPar$varPart.df <- varPart;
   fast.write.csv(varPart, file="varPart_results.csv")
+ 
+    RegisterData(dataSet)
   .set.rdt.set(rdtSet)
   return(1)
 }

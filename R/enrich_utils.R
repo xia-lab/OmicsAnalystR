@@ -500,7 +500,7 @@ InitEnrichmentNetwork <- function(file.nm, fun.type,type){
 
 
 GetEnrichList <- function(dataNm, type,fileNm){
-  
+  print(dataNm)
   dataSet<- readDataset(dataNm);
   if(type=="limma"){
    if(nrow(dataSet[["sig.mat"]])==0){
@@ -509,16 +509,27 @@ GetEnrichList <- function(dataNm, type,fileNm){
     }
    if(dataSet$idType=="name"|dataSet$idType=="symbol"){
      #all_str <- dataSet[["sig.mat"]]$label
-df <- data.frame("#id" = dataSet[["sig.mat"]]$label, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
+     df <- data.frame("#id" = dataSet[["sig.mat"]]$label, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
 
      }else{
-df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
-
-
+     df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
      #all_str <- dataSet[["sig.mat"]]$ids
   } 
 
-   }
+   }else if(type=="var"){
+    if(is.null(dataSet[["varPar"]])){
+    return(0)
+    }
+if(dataSet$idType=="name"|dataSet$idType=="symbol"){
+ 
+     df <- data.frame("#id" = dataSet[["varPar"]]$label, percentage = round(dataSet[["varPar"]]$varPart.df[[2]],4),check.names = FALSE)
+
+     }else{
+     df <- data.frame("#id" = dataSet[["varPar"]]$ids, percentage = round(dataSet[["varPar"]]$varPart.df[[2]],4),check.names = FALSE)
+
+  } 
+df <- df[1:min(nrow(df),dataSet$varPar$topNum),]
+}
 
 write.table(df, file = fileNm, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
   #writeLines(all_str, fileNm)
