@@ -56,7 +56,7 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
     
     # Add to the list
     data.list[[dataSet$type]] <- dataSet$data.proc
-    
+
     if(i == 1){       
       featureNms <- rownames(dataSet$data.proc);
       omics.vec <- rep(dataSet$type, nrow(dataSet$data.proc));
@@ -67,12 +67,14 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
       uniqFeats <- c(uniqFeats,  names(dataSet$enrich_ids)[match(rownames(dataSet$data.proc),dataSet$enrich_ids)])
     }
   }
-  
+   
   # Convert vectors to data frames if necessary
   for (i in seq_along(data.list)) {
     if (is.vector(data.list[[i]])) {
       data.list[[i]] <- data.frame(value = data.list[[i]])
-    }
+    }else{
+     data.list[[i]] <- as.data.frame( data.list[[i]] )
+   }
   }
   
   # Merge all datasets
@@ -109,7 +111,7 @@ if(length(which(stt<10))==2){
   msg.vec <<- paste0("warnBiomarker analysis require large sample size. ","Group ", names(stt)[which(stt<20)]," has less than 20 samples.")
   
 }
-
+ 
   # Check if there are new samples to update `norm`
   new.inx <- is.na(rdtSet$dataSet$cls.all) | rdtSet$dataSet$cls.all == "";
   if(sum(new.inx) > 0){
@@ -176,19 +178,30 @@ CalculateFeatureRanking <- function(clust.num=5){
   }else{
     ttp <- GetROCTtestP(x, y);  # Assuming GetROCTtestP also needs adaptation for multiclass
   }
-  
+
   # Fold change computation (pairwise or aggregated for multiclass)
   data <- x;
   class_means <- sapply(levels(y), function(cls) {
     colMeans(data[which(rdtSet$dataSet$roc.cls == cls), , drop=FALSE])
   })
-  
   # Compute pairwise fold changes
+
+ 
+ if(any( class_means<0)){
+ ratio <- apply(class_means, 1, function(means) {
+    means - means[1]  # Compare all to first class
+  })
+  fc <- signif(ratio, 5);
+  print("here")
+}else{
   ratio <- apply(class_means, 1, function(means) {
     means / means[1]  # Compare all to first class
   })
-  ratio[ratio < 0] <- 0;
   fc <- signif(log2(ratio), 5);
+}
+ 
+  #ratio[ratio < 0] <- 0;
+
   fc[is.infinite(fc) & fc < 0] <- -99;
   fc[is.infinite(fc) & fc > 0] <- 99;
   
@@ -196,12 +209,14 @@ CalculateFeatureRanking <- function(clust.num=5){
   if(length(levels(y)) > 2){
     fc <- colMeans(fc)
   }
-  
+ 
   rdtSet$dataSet$roc_cols <- 2;
   if(rdtSet$dataSet$roc_cols > 1){
     # Perform k-means clustering for feature similarities
-    kms <- ComputeKmeanClusters(t(x), clust.num);
-    feat.rank.mat <- data.frame(AUC=auc, Pval=ttp, Avg_FC=fc, clusters = kms);
+    kms <- ComputeKmeanClusters(t(x), clust.num); 
+ 
+    feat.rank.mat <- data.frame(AUC=auc, Pval=ttp, Avg_FC=fc[2,], clusters = kms);
+
     rownames(feat.rank.mat) <- colnames(x);
     
     ord.inx <- order(feat.rank.mat$AUC, decreasing=T);
@@ -211,7 +226,7 @@ CalculateFeatureRanking <- function(clust.num=5){
   }else{
     feat.rank.mat <- data.matrix(data.frame(AUC=auc, Pval=ttp, Avg_FC=fc, clusters=1))
   }
-  
+
   # Format and return the result
   feat.rank.mat <- signif(feat.rank.mat, digits = 5);
   qs::qsave(feat.rank.mat,"feat.rank.mat.qs")
@@ -447,13 +462,13 @@ Perform.UnivROC <- function(feat.nm,
     # Plot binary ROC curve
     if(isAUC){
       pROC::plot.roc(roc.obj, print.auc=F, legacy.axes=TRUE, col="navy", grid=T,
-                     xlab = "False positive rate", ylab="True positive rate", main=feat.nm);
+                     xlab = "False positive rate", ylab="True positive rate", main="");
       ci.obj <- pROC::ci.se(roc.obj, specificities=seq(0, 1, 0.05), boot.n=200, progress="none");
       ROCR::plot(ci.obj,type="shape",col="#0000ff22");
     }else{
       pROC::plot.roc(roc.obj, print.auc=F, legacy.axes=TRUE, col="navy", grid=T,
                      xlab = "False positive rate", ylab="True positive rate",
-                     auc.polygon=TRUE, auc.polygon.col="#0000ff22", main=feat.nm);
+                     auc.polygon=TRUE, auc.polygon.col="#0000ff22", main="");
     }
     
     auc.ci <- pROC::ci.auc(roc.obj, method="bootstrap", boot.n=500, progress="none");

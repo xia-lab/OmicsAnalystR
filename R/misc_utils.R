@@ -534,7 +534,7 @@ rowcoltt =  function(x, fac, tstatOnly, which, na.rm) {
       x[] <- as.numeric(x)
 
   cc = .Call("rowcolttests", x, f$fac, f$nrgrp, which-1L, na.rm)
-    
+ 
   res = data.frame(statistic = cc$statistic,
                    dm        = cc$dm,
                    row.names = dimnames(x)[[which]])
