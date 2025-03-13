@@ -535,3 +535,34 @@ write.table(df, file = fileNm, sep = "\t", quote = FALSE, row.names = FALSE, col
   #writeLines(all_str, fileNm)
   return(1)
 }
+
+GetNetEnrichlist <- function(netNm, mode, dataName="",enrNm=""){
+   if(mode=="fileNms"){
+     netFile <- RJSONIO::fromJSON(netNm)
+     netEnrTypes<<- netFile$nodeTypes
+     netEnridtypes <<- netFile$idTypes
+
+    return(netFile$fileNms)
+   }else if(mode=="types"){
+      type_map <- c(
+  "met_t" = "met",
+  "rna_b" = "gene",
+  "prot"  = "protein",
+  "mic_m" = "mic",
+  "mirna" = "mir"
+)
+
+      return(unname(type_map[netEnrTypes]))
+   }else if(mode=="idtypes"){
+     return(netEnridtypes)
+  }else if(mode=="data"){
+     netFile <- RJSONIO::fromJSON(netNm)
+   idx = which(netFile$fileNms==dataName)
+   nodes <- netFile$nodes[unlist(lapply(netFile$nodes, function(x) x$molType==netFile$nodeTypes[idx]))] 
+  df = data.frame("#id" = unlist(lapply(nodes,function(x) x$featureId)), btw =  unlist(lapply(nodes,function(x) x$size)),check.names = FALSE)
+  write.table(df, file = enrNm, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+return(1)
+ }
+   
+
+}

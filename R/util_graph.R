@@ -57,6 +57,8 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
           comp.inx = which(names(expr.vec) %in% rownames(comp.res1));
           expr.vec[comp.inx] = as.numeric(comp.res1[which(rownames(comp.res1) %in% names(expr.vec)), "coefficient"]);
           seeds <- rownames(dataSet$sig.mat);
+          idTypes <- dataSet$idType;
+          fileNms <- dataSet$name;
         }else{
           dataSet2 = readDataset(sel.nms[i]);
           dat2 = dataSet2$data.proc;
@@ -71,6 +73,8 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
           comp.inx = which(names(expr.vec) %in% rownames(comp.res1));
           expr.vec[comp.inx] = as.numeric(comp.res1[which(rownames(comp.res1) %in% names(expr.vec)), "coefficient"]);
           seeds <- c(seeds, rownames(dataSet2$sig.mat));
+          idTypes <- c(idTypes, dataSet2$idType);
+          fileNms <- c(fileNms,dataSet2$name);
         }
       }
     }
@@ -316,7 +320,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   require(rjson);
   #formattin json file because of rjson
   edges.list <- apply(edge.mat, 1, as.list)
-  netData <- list(nodes=nodes, edges=edges.list, idType=idType, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm="", nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
+  netData <- list(nodes=nodes, edges=edges.list, idTypes=idTypes,fileNms = fileNms, org=data.org, analType=anal.type, naviString = "network", modules=modules, tblNm="", nodeTypes= unique(mol.types), nodeColors = unique(color.vec) ,idType="entrez");
   
   if(!is.null(E(g)$correlation)){
     netData[["maxCorrelation"]] <- max(E(g)$correlation)

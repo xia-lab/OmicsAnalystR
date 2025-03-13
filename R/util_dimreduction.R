@@ -252,9 +252,9 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   sel.nms <- names(mdata.all)[sel.inx]
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
+
   reductionSet <- .get.rdt.set();
-  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   df <- reshape2::melt(df)
 
   colnames(df) <- c("Component", "Dataset", "value")
@@ -273,12 +273,12 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
     scale_color_okabeito() +
     labs(x="Component #", y="Var. (%)", title="") + theme_minimal(base_size=15) +
     theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
-  
+
   
   Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
-  
+
   infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
   saveSet(infoSet);
 }
