@@ -1,4 +1,4 @@
-#Color makes more divergent, check MetaboAnalyst
+#Color makes more divergent, check OmicsAnalyst
 
 
 # Description

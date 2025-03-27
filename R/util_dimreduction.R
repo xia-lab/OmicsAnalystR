@@ -284,6 +284,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
+  save.image("factorsDimRed.RData");
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();
@@ -316,6 +317,11 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   cls <- meta.info[, inx];
   cls.type <- reductionSet$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
   base_size=15;
+  
+  if(is.null(cls.type)){
+    cls.type <- "disc";
+  }
+
   if (cls.type == "disc"){ ## code to execute if metadata class is discrete
     
     # make plot
