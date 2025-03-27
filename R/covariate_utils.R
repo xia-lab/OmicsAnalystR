@@ -467,6 +467,9 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
 
   cls.type <- unname(rdtSet$dataSet$meta.types[meta])
 
+  if(is.null(cls.type)){
+    cls.type <- "disc";
+  }
   xlab = meta
   h <- 6
   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
