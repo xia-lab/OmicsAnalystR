@@ -99,7 +99,7 @@ GetLoadingColNames<-function(dataName){
 
 GetVarianceArr<-function(dataName){
   reductionSet <- .get.rdt.set();
-  dataSet <- readDataset(dataName);
+  dataSet <- readDataset(dataName); 
   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   varArr <- df[,dataSet$type];
   varArr <- signif(varArr,4)*100;

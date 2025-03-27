@@ -7,6 +7,7 @@
 #'McGill University, Canada
 #'License: MIT
 doGeneIDMapping <- function(q.vec, org, type){
+   print("doGeneIDMapping")
   org <- data.org
   library(RSQLite)  
   db.path <- paste0(sqlite.path, org, "_genes.sqlite");
@@ -34,7 +35,7 @@ doGeneIDMapping <- function(q.vec, org, type){
     }
     hit.inx <- match(q.vec, db.map[, "accession"]);
   }
-  
+ 
   entrezs=db.map[hit.inx, "gene_id"];
   rm(db.map, q.vec); 
   gc();
@@ -44,6 +45,10 @@ doGeneIDMapping <- function(q.vec, org, type){
 
 
 doEntrez2SymbolMapping <- function(entrez.vec){
+ 
+  if(data.org=="other"){
+      return(entrez.vec);
+  }
     gene.map <-  queryGeneDB("entrez", data.org);
     gene.map[] <- lapply(gene.map, as.character)
 
@@ -306,9 +311,15 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   smpl.nms <- colnames(data);
   data <- as.matrix(data);
   rownames(data) <- var.nms;
-  
+
   data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
   data <- as.data.frame(data)
+    
+######remove the constant features
+  constant_row <- apply(data, 1, function(row) var(row, na.rm = TRUE) == 0)
+  data <- data[!constant_row,]
+
+ 
   var.nms <- rownames(data)
   
   msg <- paste("A total of ", ncol(data), " samples and ", nrow(data), " features were found")
@@ -410,8 +421,7 @@ SanityCheckMeta <- function(){
         dataSet <- readDataset(sel.nms[i])
         data.list[[i]] <- dataSet$meta;
         mdata.all[[i]] <- 1;
-    }
-
+    } 
     samples_intersect <- intersect_rownames(data.list);
     meta.info <- rdtSet$dataSet$meta.info[samples_intersect, , drop = FALSE];
     meta.info <- droplevels(meta.info);

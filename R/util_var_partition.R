@@ -1,9 +1,26 @@
-PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
+PlotPercentBars <- function(dataNm,top_n=10, fileName="", dpi=72, format="png"){
   rdtSet <- .get.rdt.set()
   varPart <- rdtSet$analSet$varPart.df[,-1];
-  vp <- sortCols(varPart);
+  vp <- varPart[order(varPart[, 1], decreasing = TRUE),,drop=F ]#sortCols(varPart);
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
-  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 10, height = 6, units = "in", bg = "white")
+ 
+   if (top_n < 10){
+      h <- 6;
+    } else if (top_n < 15){
+      h <- top_n/1.6;
+    } else if (top_n < 20){
+      h <- top_n/1.8;
+    } else if (top_n < 25){
+      h <- top_n/2;
+    } else if (top_n < 30){
+      h <- top_n/2.2;
+    } else if (top_n < 40){
+      h <- top_n/2.5;
+    } else {
+      h <- top_n/4.5;
+    };
+
+  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 10, height = h, units = "in", bg = "white")
   p<-plotPercentBars(vp[1:top_n, ]) +
     theme(
       plot.title = element_text(size = 16, face = "bold"),  
@@ -15,32 +32,53 @@ PlotPercentBars <- function(top_n=10, fileName="", dpi=72, format="png"){
     )
   print(p);
   dev.off();
+   
+  dataSet <- readDataset(dataNm);
+  dataSet$varPar$topNum <- top_n; 
+  RegisterData(dataSet)
   return(1)
 }
 
-PerformVarPartOverview <- function(top_n = 1000, fileName = "variance_partition_plot", dpi = 300, format = "png") {
+PerformVarPartOverview <- function(selMeta, top_n = 500, fileName = "variance_partition_plot", dpi = 300, format = "png",color) {
   library(variancePartition)
-  library(limma)
+  #library(limma)
   library(Cairo)
   library(car)
-
-  rdtSet <- .get.rdt.set()
-  
+   rdtSet <- .get.rdt.set() 
   # Ensure that normalized data and metadata are available
-  if (is.null(rdtSet$dataSet$norm) || is.null(rdtSet$dataSet$meta.info) || is.null(rdtSet$dataSet$meta.types)) {
-    stop("Normalized data, metadata, or meta.types not found.")
-  }
-  
+ 
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+
+
+dataSet <- readDataset(sel.nms);
+  df =  dataSet[["data.proc"]]
+ sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)  
+  sanitized_names <- names(dataSet[["enrich_ids"]])[match(sanitized_names,dataSet$enrich_ids)]
+  uniqFeats <- paste0( dataSet$type,".",sanitized_names)
+  rownames(df) <- uniqFeats;
+ 
+
+# types <- unlist(lapply(dataSetList, function(x) return(x$type)))
+# types <- paste(paste0("^",types,"."),collapse  = "|")
+
   # Extract normalized gene expression data
-  gene_expr <- rdtSet$dataSet$norm[c(1:100),];
+  gene_expr <- df
+  feature_variances <- apply( gene_expr, 1, var)
+  ordinx <- order(feature_variances, decreasing = TRUE)
+  gene_expr <-   gene_expr[ordinx,]
+  
   meta_data <- rdtSet$dataSet$meta.info
   meta_types <- rdtSet$dataSet$meta.types  # Continuous ("cont") or discrete ("disc") types
-
   
+  if(nrow(gene_expr)>top_n){
+    gene_expr <-  gene_expr[1:top_n,]
+  }
+     
   if (exists("fixed_effects.vec") && length(fixed_effects.vec) == 0 && 
       exists("random_effects.vec") && length(random_effects.vec) == 0) {
-    fixed_effects <- colnames(meta_data)
-    random_effects <- "";
+      fixed_effects <- colnames(meta_data)
+      random_effects <- "";
   }else{
     
     # Check if the fixed_effects and random_effects are empty or null
@@ -56,7 +94,7 @@ PerformVarPartOverview <- function(top_n = 1000, fileName = "variance_partition_
       random_effects <- random_effects.vec
     }
   }
-  
+ 
   # Align the sample names between gene expression data and metadata
   common_samples <- intersect(colnames(gene_expr), rownames(meta_data))
   
@@ -115,7 +153,12 @@ PerformVarPartOverview <- function(top_n = 1000, fileName = "variance_partition_
   
   # Reorder the entire varPart matrix based on the top genes
   varPart <- varPart[top_genes_idx, , drop = FALSE]
-  
+
+
+  if(ncol(varPart)>1){
+  varPart <- varPart[, c(selMeta, setdiff(names(varPart),selMeta))]
+  }
+ 
   # Plot the variance partitioning results and save the image
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
   
@@ -123,15 +166,24 @@ PerformVarPartOverview <- function(top_n = 1000, fileName = "variance_partition_
   p <- plotVarPart(varPart)
   print(p)
   dev.off()
-  
-  # Store the top gene results in rdtSet for future use
-  rdtSet$analSet$varPart.symbols <- rownames(varPart);
-  varPart<- cbind(Symbol = rdtSet$analSet$varPart.symbols, varPart);
-  rdtSet$analSet$varPart.fileName <- "varPart_results.csv";
-  rdtSet$analSet$varPart.df <- varPart;
 
+  symbols <- gsub(paste0(dataSet$type,"."),"",rownames(varPart))
+  ids <- unname(dataSet$enrich_ids[match(symbols,names(dataSet$enrich_ids))])
+  # Store the top gene results in rdtSet for future use
+  rdtSet$analSet$varPart.symbols <- symbols;
+  rdtSet$analSet$varPart.ids <-  ids;
+  varPart<-cbind(Symbol = rdtSet$analSet$varPart.symbols, varPart);
+  rdtSet$analSet$varPart.fileName <- "varPart_results.csv";
+  rdtSet$analSet$varPart.df <- varPart; 
+  dataSet$varPar$symbols <-  symbols;
+  dataSet$varPar$ids <- ids;
+  dataSet$varPar$topNum <- top_n;
+  dataSet$varPar$varPart.df <- varPart;
   fast.write.csv(varPart, file="varPart_results.csv")
-  return(.set.rdt.set(rdtSet))
+ 
+    RegisterData(dataSet)
+  .set.rdt.set(rdtSet)
+  return(1)
 }
 
 PrepareVarData <- function(type="NA"){
@@ -146,7 +198,7 @@ PrepareVarData <- function(type="NA"){
   rdtSet$dataSet$meta.info.proc <- process_metadata(rdtSet$dataSet$meta.info);
   meta.sel.inx <- mmeta.all == 1;
   meta.sel.nms <- c();  # Assuming no metadata selection for this case
-  
+  print(c(mmeta.all ,"mmeta.all "))
   if(length(meta.sel.nms) > 0) {
     for(i in 1:length(meta.sel.nms)){
       data.list[[meta.sel.nms[i]]] <- rdtSet$dataSet$meta.info.proc[,meta.sel.nms[i]]
@@ -174,7 +226,9 @@ PrepareVarData <- function(type="NA"){
     
     # Calculate variance for each feature
     feature_variances <- apply(dataSet$data.proc, 1, var)
-    
+    ordinx <- order(feature_variances, decreasing = TRUE)
+    dataSet$data.proc <-  dataSet$data.proc[ordinx,]
+
     # Sort features by variance and select the top 1000 (if applicable)
     #if (nrow(dataSet$data.proc) > 1000) {
     #  top_features <- order(feature_variances, decreasing = TRUE)[1:1000]
@@ -194,7 +248,7 @@ PrepareVarData <- function(type="NA"){
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc), "_", dataSet$type))
     }
   }
-  
+   
   # Convert vectors to data frames if necessary
   for (i in seq_along(data.list)) {
     if (is.vector(data.list[[i]])) {
@@ -225,7 +279,7 @@ PrepareVarData <- function(type="NA"){
 # Function to get the variance partition matrix (as a numeric matrix, excluding the symbol column)
 GetVarMat <- function() {
   rdtSet <- .get.rdt.set()
-  
+ 
   # Assuming varPart is stored in rdtSet$analSet$varPart.df
   if (is.null(rdtSet$analSet$varPart.df)) {
     stop("Variance partition matrix not found.")
@@ -245,10 +299,10 @@ GetVarIds <- function() {
   if (is.null(rdtSet$analSet$varPart.df)) {
     stop("Variance partition matrix not found.")
   }
-  
+ 
   # Return the row names (gene IDs)
-  varPart_ids <- rownames(rdtSet$analSet$varPart.df)
-  
+   varPart_ids <-  rdtSet$analSet$varPart.ids
+ #  varPart_ids <- gsub(rdtSet$dataSet$types,"", varPart_ids )
   return(varPart_ids)
 }
 
@@ -263,7 +317,6 @@ GetVarSymbols <- function() {
   
   # Extract the symbols column
   varPart_symbols <- rdtSet$analSet$varPart.df$Symbol
-  
   return(varPart_symbols)
 }
 

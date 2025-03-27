@@ -19,17 +19,20 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     type_lookup <- setNames(type_df$type, type_df$name)
     
     corr.mat <- qs::qread(reductionSet$corr.mat.path);
+    corr.p.mat<- qs::qread("corr.p.mat.qs");
+    corr.p.mat <- reshape2::melt(corr.p.mat) 
     sel.dats <- reductionSet$selDatsCorr;
     rowlen <- nrow(corr.mat);
     g <- igraph::graph_from_adjacency_matrix(corr.mat,mode = "undirected", diag = FALSE, weighted = 'correlation')
-    
-    # Assign types to nodes using the lookup table
+ 
+   # Assign types to nodes using the lookup table
     toMatch <- unlist(lapply(dataSetList, function(x) x$type));
     pattern <- paste0("^(.*)((", paste(toMatch, collapse = "|"), "))$")
     V(g)$type <- gsub(pattern, "\\2", V(g)$name);
     V(g)$label <- gsub(pattern, "", V(g)$name);
     
     edge_list <- igraph::as_data_frame(simplify(g, remove.loops = TRUE,edge.attr.comb="max"), "edges")
+ 
     v1 <- V(g)$name[V(g)$type == unique(types)[1]]
     v2 <- V(g)$name[V(g)$type == unique(types)[2]]
     # Get the edges that connect nodes of different types
@@ -37,8 +40,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     intra_inx <- V(g)[ends(g, E(g))[, 1]]$type == V(g)[ends(g, E(g))[, 2]]$type;
     inter_g <- delete_edges(g, E(g)[intra_inx])
     intra_g <- delete_edges(g, E(g)[inter_inx])
-    
-    
+   
     # for histogram only
     reductionSet$corr.graph.path <- "corr.graph.qs";
     qs::qsave(list(corr.graph.inter=inter_g, corr.graph.intra=intra_g), "corr.graph.qs")
@@ -68,7 +70,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     colnames(cor.list$inter) <- c("source", "target","correlation");
     colnames(cor.list$intra) <- c("source", "target","correlation");
     cor.list$all  <- rbind(cor.list$inter, cor.list$intra)
-    
+
     reductionSet$cor.list.path <- "cor.list.qs";
     qs::qsave(cor.list, file="cor.list.qs");
     if (crossOmicsOnly == "true") {
@@ -99,9 +101,22 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
       for(i in 1:length(sel.nms)){
         type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
       }
+        
+      cor_edge_list <- cor_edge_list %>%
+          dplyr::left_join(corr.p.mat, by = c("source" = "Var1", "target" = "Var2")) %>%
+           dplyr::mutate(pval = value)
+      cor_edge_list$value =NULL
+ 
+      cor_edge_list$source <- gsub(paste(paste0("_",toMatch,"$"), collapse = "|"), "", cor_edge_list$source )
+      cor_edge_list$target <- gsub(paste(paste0("_",toMatch,"$"), collapse = "|"), "", cor_edge_list$target )
+      cor_edge_list$source <- names(reductionSet$labels)[match( cor_edge_list$source,reductionSet$labels)]
+      cor_edge_list$target <- names(reductionSet$labels)[match( cor_edge_list$target,reductionSet$labels)]
+
+      reductionSet$corNet <- cor_edge_list;
+      write.csv(corr.mat,"corNet.csv",row.names=F)
+
       reductionSet$taxlvl <-"Feature"
       .set.rdt.set(reductionSet);
-      
       intres <- ProcessGraphFile(new_g, labels, type.list);
       return(intres);
     } else {
@@ -249,7 +264,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     reductionSet$m2mscore<-m2mscore
     reductionSet$toHighlight <- toHighlight
     .set.rdt.set(reductionSet);
-    
+
     
     intres <- ProcessGraphFile(new_g, labels, type.list);
     return(intres)

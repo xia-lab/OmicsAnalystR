@@ -4,6 +4,16 @@
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
+# general message only print when running local
+AddMsg <- function(msg){
+  if(!exists("msg.vec")){
+    msg.vec <<- "";
+  }
+  msg.vec <<- c(msg.vec, msg);
+  if(!.on.public.web){
+    print(msg);
+  }
+}
 
 # new range [a, b]
 rescale2NewRange <- function(qvec, a, b){
@@ -524,7 +534,7 @@ rowcoltt =  function(x, fac, tstatOnly, which, na.rm) {
       x[] <- as.numeric(x)
 
   cc = .Call("rowcolttests", x, f$fac, f$nrgrp, which-1L, na.rm)
-    
+ 
   res = data.frame(statistic = cc$statistic,
                    dm        = cc$dm,
                    row.names = dimnames(x)[[which]])
@@ -571,7 +581,7 @@ checkfac = function(fac) {
 ## fast T-tests/F-tests using genefilter
 PerformFastUnivTests <- function(data, cls, var.equal=TRUE, nonpar=F){
     print("Performing fast univariate tests ....2");
-
+  
     # note, feature in rows for gene expression
     data <- as.matrix(data);
     if(length(levels(cls)) > 2){
@@ -810,7 +820,6 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
             write.csv(dat, file, row.names=row.names); 
         });
 }
-
 
 
 saveSet <- function(obj=NA, set="", output=1){

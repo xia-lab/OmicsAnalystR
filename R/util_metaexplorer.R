@@ -8,7 +8,7 @@
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",includeRowNames=T,drawBorder=T, imgName, format="png", dpi=96,width=NA){
+PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
   plotjs <- paste0(imgName, ".json");
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
@@ -65,7 +65,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
     colBool = F;
   }
 
-    w = min(1200,ncol(met)*200+50)
+    w = min(1000,ncol(met)*150+50)
     h = min(2000,nrow(met)*14+50);
  
    met <- scale_mat(met,  "column")
@@ -73,7 +73,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                   colors = colors, 
           colorbar_grid = setup_colorbar_grid(y_start = 0.85)) %>%
       add_col_labels(size = 0.1, font = list(size = 14)) 
- 
+
     if (includeRowNames) {
       p <- p%>%
         add_row_labels(size = 0.2, font = list(size = 10), side = "right") 
@@ -105,7 +105,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
     saveRDS(p,"metadata_heatmap.rds");
 
      # Adjust the height and width (in pixels)
- 
+    options(device = "pdf") 
     as_list <- to_plotly_list(p)
     as_list[["layout"]][["width"]] <- w
     as_list[["layout"]][["height"]] <- max(h,500)
@@ -132,7 +132,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                        clustering_distance_rows = smplDist,
                        clustering_distance_cols = smplDist,
                        clustering_method = clstDist, 
-                      # border_color = border.col,
+                       border_color = NA,#border.col,
                        cluster_rows = rowBool, 
                        cluster_cols = colBool,
                        scale = "column",
@@ -151,7 +151,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
                        clustering_distance_rows = smplDist,
                        clustering_distance_cols = smplDist,
                        clustering_method = clstDist, 
-                      # border_color = border.col,
+                        border_color = NA,#border.col,
                        cluster_rows = rowBool, 
                        cluster_cols = colBool,
                        scale = "column",
@@ -212,7 +212,7 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
     }else if(colorGradient == "d3"){
         colors <- c("#2CA02CFF","white","#FF7F0EFF");
     }else {
-         colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+         colors <- c( "blue", "white",  "red") #rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
     }
 
  
@@ -291,7 +291,7 @@ scale_rows = function(x){
   return((x - m) / s)
 }
 
-PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
+PlotPairwiseMetadata <- function(meta1, meta2, colorGradient ,imgName, format="png", dpi=96) {
 
   rdtSet <- .get.rdt.set();
 
@@ -321,7 +321,28 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
   }
 
   # Prepare the data for plotting
-  data <- data.frame(meta1 = meta1_data, meta2 = meta2_data)
+  data <- unique(data.frame(meta1 = meta1_data, meta2 = meta2_data))
+
+
+color_scale <- if (colorGradient == "gray") {
+    scale_fill_manual(values = c("grey90","grey70","grey50","grey30","grey10"))
+} else if (colorGradient == "byr") {
+    scale_fill_brewer(palette = "RdYlBu")
+} else if (colorGradient == "viridis") {
+    scale_fill_viridis_d(option = "viridis")
+} else if (colorGradient == "plasma") {
+    scale_fill_viridis_d(option = "plasma")
+} else if (colorGradient == "npj") {
+    ggsci::scale_fill_npg()
+} else if (colorGradient == "aaas") {
+    ggsci::scale_fill_aaas()
+} else if (colorGradient == "d3") {
+    ggsci::scale_fill_d3("category10")
+} else if (colorGradient == "gbr") {
+    scale_fill_manual(values = c("red","green"))
+}else {
+    scale_fill_brewer(palette="Set1")  # Default
+}
 
   # Continuous vs Continuous (Scatter plot with regression line)
   if (meta1_type == "cont" && meta2_type == "cont") {
@@ -329,37 +350,69 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
     p <- ggplot(data, aes(x = meta1, y = meta2)) +
       geom_point(size = 2) +
       geom_smooth(method = "lm", se = FALSE, color = "blue") +
-      labs(title = paste("Scatter plot of", meta1, "vs", meta2),
+      labs(title = "",
            x = meta1, y = meta2) +
       theme_minimal()
-    
-  # Discrete vs Continuous (Box plot colored by disc, points colored by cont)
+     
+   library(Hmisc)
+ 
+    res =rcorr(data$meta1, data$meta2, type = "pearson");
+   corr.mat <- res$r
+   corr.p.mat <- res$P
+     stat.info <- paste0("Correlation: ",round(res$r["x","y"],4),"; ","p-value: ",round(res$P["x","y"],4)," based on peason correlation.");
+ 
+# Discrete vs Continuous (Box plot colored by disc, points colored by cont)
   } else if ((meta1_type == "disc" && meta2_type == "cont") || (meta1_type == "cont" && meta2_type == "disc")) {
-    
+ 
     # Identify which one is continuous and which one is discrete
     if (meta1_type == "disc") {
-      disc_var <- "meta1"
-      cont_var <- "meta2"
+      disc_var <- meta1
+      cont_var <- meta2
     } else {
-      disc_var <- "meta2"
-      cont_var <- "meta1"
+      disc_var <- meta2
+      cont_var <- meta1
     }
-
+  names(data) <- c(meta1,meta2)
+ 
     p <- ggplot(data, aes_string(x = disc_var, y = cont_var, fill = disc_var)) +
       geom_boxplot(outlier.shape = NA) +
       geom_jitter(aes_string(color = cont_var), size = 2, width = 0.2) +
-      scale_color_gradient(low = "lightblue", high = "darkblue") +
-      labs(title = paste("Box plot of", meta1, "vs", meta2),
+    scale_color_gradient(low = "lightblue", high = "darkblue") +
+      color_scale + 
+      labs(title ="",
            x = disc_var, y = cont_var, color = cont_var, fill = disc_var) +
-      theme_minimal()
-    
+    theme_minimal()+
+ theme(
+   axis.title = element_text(size = 15) 
+  )
+     
+    res <- anova(aov(data[[cont_var]] ~ data[[disc_var]]));
+      stat.info <- paste("p-value: ", signif(res$"Pr(>F)"[1], 5), "; [ANOVA] F-value: ", signif(res$"F value"[1], 5), sep="");
+   
   # Discrete vs Discrete (Bar plot)
   } else if (meta1_type == "disc" && meta2_type == "disc") {
+   if(length(unique(data$meta2))>10){
+ color_palette <- colorRampPalette(ggsci::pal_npg("nrc")(10))(length(unique(data$meta2)))  # Expands to needed length
+
+    }else{
+
+ color_palette <-ggsci::pal_npg("nrc")(10)
+  }
+  
     p <- ggplot(data, aes(x = as.factor(meta1), fill = as.factor(meta2))) +
       geom_bar(position = "dodge") +
-      labs(title = paste("Bar plot of", meta1, "vs", meta2),
+      labs(title = "",
            x = meta1, fill = meta2) +
-      theme_minimal()
+      theme_minimal()+
+      color_scale +
+   theme(
+      axis.title = element_text(size = 15) 
+    )
+tbl <- table(data$meta1, data$meta2)
+ res <- stats::fisher.test(tbl)
+
+stat.info <- paste0("p-value: ",round(res$p.value,4),"  based on Fisher’s Exact Test.");
+ 
   }
 
   # Handle rendering the plot
@@ -367,4 +420,6 @@ PlotPairwiseMetadata <- function(meta1, meta2, imgName, format="png", dpi=96) {
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=8, height=6, type=format, bg="white")
   print(p)
   dev.off()
+ 
+  return(stat.info)
 }

@@ -5,14 +5,29 @@
 ###################################################
 
 #default feature selection based on sig genes
-DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3){
+
+DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3) {
+ sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+if(!exists("mem.featSelectionForCorr")){
+    require("memoise");
+    mem.featSelectionForCorr <<- memoise(.do.feat.selectionForCorr);
+  }
+  return(mem.featSelectionForCorr(type,retainedNumber,retainedComp,sel.nms));
+ 
+}
+
+
+.do.feat.selectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3,sel.nms){
+  print(c(type,"DoFeatSelectionForCorr"))
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx];
+  
+
   if(type %in% c("default","custom")){
     for(i in 1:length(sel.nms)){
+ 
       dataName = sel.nms[i];
       dataSet <- readDataset(dataName);
       
@@ -27,7 +42,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       }else{
         sig.mat <- dataSet$custom.sig.mat
       }
-      
+   
       #if more than 1000 sig features, then limit to top 1000 only
       if(nrow(sig.mat) > 1000){
         sig.mat <- sig.mat[c(1:1000),];
@@ -41,8 +56,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
       sel.dats[[i]] <- dat
       labels <- c(labels, rownames(dat));
-      
-      
+            
       if(exists("m2m",dataSet)){ 
         
         all.mat.taxa <- dataSet$data.proc.taxa
@@ -115,7 +129,10 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
       sel.dats[[i]] <- dat
     }
+   
   }
+ 
+  names(sel.dats) = sel.nms
   reductionSet$selDatsCorr <- sel.dats;
   reductionSet$feat.sel.type <- type;
   .set.rdt.set(reductionSet);
@@ -146,15 +163,12 @@ ExportOmicsPairs <- function(fileName, type){
   
 }
 
-DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
-  labels <- vector();
+
+DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll="true",metaSel,group){
+  labels <- vector(); 
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
-  
-  if(length(sel.nms) != 2){
-    return(0)
-  }
-  
+   
   m2midx<-0
   for(i in 1:length(sel.nms)){
     dataName = sel.nms[i]
@@ -173,12 +187,27 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
   reductionSet$cor.method <- cor.method;
   sel.dats <- reductionSet$selDatsCorr;
   load_igraph();
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx];
+
+
+  if(ifAll != "true"){
+    meta.info = reductionSet$dataSet$meta.info
+    sampleInclude = row.names(meta.info[which(meta.info[[metaSel]]==group),])
   
+
+    if(length(sampleInclude)<4){
+         return(-1)
+    }else{
+     sel.dats <- lapply(sel.dats,function(x){
+         return(x[,sampleInclude])
+     })
+   
+   }
+   }
+ 
   residx <- reductionSet$residx
-  
+
   if(cor.method == "univariate"){
+    
     corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
     if(exists("selDatsCorr.taxa",reductionSet)){
       corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
@@ -187,7 +216,13 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
       
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
-    
+
+  library(Hmisc)
+ 
+    res = rcorr(as.matrix(cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))),type = cor.stat);
+   corr.mat <- res$r
+   corr.p.mat <- res$P
+      
   }else if(cor.method == "MI"){
     library(parmigene)
     res = knnmi.all(rbind(sel.dats[[1]], sel.dats[[2]]), k=5)
@@ -211,8 +246,9 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
     sel.res <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
     res <- pcor(sel.res, method=cor.stat);
     corr.mat <- res$estimate;
-    rownames(corr.mat) <- colnames(sel.res)
-    colnames(corr.mat) <- colnames(sel.res)
+        corr.p.mat <- res$p.value;
+    rownames(corr.mat) <-    colnames(corr.mat) <- colnames(sel.res)
+    rownames(corr.p.mat) <-    colnames(corr.p.mat) <-colnames(sel.res)
     
     if(exists("selDatsCorr.taxa",reductionSet)){
       
@@ -229,8 +265,10 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson"){
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
   }
+  reductionSet$labels <- labels
   reductionSet$corr.mat.path <- "corr.mat.qs"
   qs::qsave(corr.mat, "corr.mat.qs");
+  qs::qsave(corr.p.mat,"corr.p.mat.qs")
   .set.rdt.set(reductionSet);
   
   return(1);
@@ -245,6 +283,8 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
   
   reductionSet <- .get.rdt.set();
   graphs <- qs::qread(reductionSet$corr.graph.path);
+
+  
   fig.list <- list();
   for( i in 1:2){
     if(i == 1){
@@ -259,6 +299,7 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
     }
     
     df_res <- data.frame(get.edgelist(g),  as.numeric(E(g)$correlation))
+    df_res <- df_res[!duplicated(df_res), ]
     colnames(df_res) <- c("source", "target","correlation");
     df_res$type <- titleText;
     
@@ -333,6 +374,7 @@ PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
   if(netNm != "NA"){
     overall.graph <- ppi.comps[[netNm]];
   }
+ 
   G.degrees <- betweenness(overall.graph)
   
   G.degree.histogram <- as.data.frame(table(G.degrees))
@@ -375,4 +417,497 @@ expand.matrix <- function(A){
   B <- matrix(0,nrow = m, ncol = m)
   C <- matrix(0,nrow = n, ncol = n)
   cbind(rbind(B,t(A)),rbind(A,C))
+}
+
+
+
+###########generate chordgram
+GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format = "png", dpi = 300){
+  print(c(maxN,pval))
+  plotjs <- paste0(imgName, ".json");
+  reductionSet <- .get.rdt.set(); 
+  corr.mat <- qs::qread("corr.mat.qs");
+  corr.p.mat<- qs::qread("corr.p.mat.qs");
+  corr.mat <- reshape2::melt(corr.mat)
+  corr.p.mat <- reshape2::melt(corr.p.mat) 
+   corr.mat$pval <- corr.p.mat$value
+   sel.inx <- mdata.all==1; 
+ sel.nms <- names(mdata.all)[sel.inx];
+   
+ sel.dats <- reductionSet$selDatsCorr[sel.nms]; 
+
+  #corr.mat <-   corr.mat[corr.mat$Var1!=corr.mat$Var2,]
+   corr.mat <- corr.mat[abs(corr.mat$value)>thresh & corr.p.mat$value < pval,]
+  corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
+  corr.mat <- corr.mat[order(abs(corr.mat$value),decreasing = T),]
+ 
+  if(nrow(corr.mat)>maxN){
+    corr.mat <- corr.mat[1:maxN,]
+   }
+ 
+    dataSetList <- lapply(sel.nms, readDataset);
+ 
+corr.mat$Var1 <- gsub(paste0("_", dataSetList[[1]]$type), "", corr.mat$Var1);
+corr.mat$Var1 <- names(dataSetList[[1]]$enrich_ids)[match(corr.mat$Var1,dataSetList[[1]]$enrich_ids)]
+
+corr.mat$Var2 <- gsub(paste0("_", dataSetList[[2]]$type), "", corr.mat$Var2);
+corr.mat$Var2 <- names(dataSetList[[2]]$enrich_ids)[match(corr.mat$Var2,dataSetList[[2]]$enrich_ids)]
+
+
+  reductionSet$chordGram <- corr.mat
+  write.csv(corr.mat,"chord_diagram.csv",row.names=F)
+  library(jsonlite)
+  write_json(corr.mat,plotjs, pretty = TRUE)
+  .set.rdt.set(reductionSet);
+  return(nrow(corr.mat))
+}
+
+
+###############Functions for generating differential chord diagram
+###############
+DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",comp.meta="Diagnosis",selnm1,selnm2){
+if(!exists("mem.omicsDiffCorr")){
+    require("memoise");
+    mem.diffCorr <<- memoise(.do.omics.diffcorr);
+  }
+  return(mem.diffCorr(cor.method,cor.stat,comp.meta, selnm1,selnm2));
+ 
+}
+
+
+.do.omics.diffcorr <- function(cor.method="univariate",cor.stat="pearson",comp.meta="Diagnosis",selnm1,selnm2){
+  labels <- vector();
+  sel.nms <- c(selnm1,selnm2);
+   
+  m2midx<-0
+  for(i in 1:length(sel.nms)){
+    dataName = sel.nms[i]
+    dataSet <- readDataset(dataName);
+    labels <- c(labels, dataSet$enrich_ids);
+    if(exists("m2m",dataSet)){
+      labels.taxa <- lapply(dataSet$data.taxa, function(x) rownames(x))
+      labels.taxa <-  lapply(labels.taxa, function(x) setNames(x,x))
+    }else if(exists("labels.taxa")){
+      labels.taxa <- lapply(labels.taxa, function(x) c(x,dataSet$enrich_ids))
+    }
+  }
+  
+  reductionSet <- .get.rdt.set();
+  reductionSet$cor.stat <- cor.stat;
+  reductionSet$cor.method <- cor.method;
+  sel.dats <- reductionSet$selDatsCorr;
+  sel.dats <- sel.dats[names(sel.dats) %in% sel.nms]
+  sel.dats <- lapply(sel.dats, function(x){
+    if(nrow(x)>500){
+      return(x[1:500,])
+    }else{
+      return(x)
+    }
+  })
+  load_igraph();
+ 
+  residx <- reductionSet$residx
+  
+  meta.info =  reductionSet$dataSet$meta.info
+  corr.ls <- split(rownames(meta.info),meta.info[[comp.meta]])  
+
+  corr.ls <- corr.ls[unlist(lapply(corr.ls, length))>4]
+  
+  
+ 
+  if(cor.method == "univariate"){
+    library(Hmisc)
+    corr.mat.ls <- lapply(corr.ls, function(samp){
+       res = rcorr(as.matrix(cbind(t(sel.dats[[1]][,samp]), t(sel.dats[[2]][,samp]))),type = cor.stat);
+     })
+
+      if(exists("selDatsCorr.taxa",reductionSet)){
+      corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
+        cor(cbind(t(x), t(sel.dats[[residx]])), method=cor.stat)
+      })
+      
+      reductionSet$corr.mat.taxa <- corr.mat.taxa
+    }
+    
+  }
+
+  reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
+  qs::qsave(corr.mat.ls, "diffnet.mat.qs");
+  .set.rdt.set(reductionSet);
+  return(1);
+}
+ 
+GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", format = "png", dpi = 300,dt1,dt2,topN = 100,layout="kk"){
+
+  plotjs <- paste0(imgName, ".json");
+  reductionSet <- .get.rdt.set();
+  sel.dats <- reductionSet$selDatsCorr[c(dt1,dt2)];
+  dataSetList <- lapply(c(dt1,dt2), readDataset);
+  type1 <- dataSetList[[1]][["type"]]
+  type2 <- dataSetList[[2]][["type"]]
+  corr.mat.ls <- qs::qread("diffnet.mat.qs");
+ 
+  corr.mat.ls <- lapply(corr.mat.ls, function(x){
+    corr.mat<-reshape2::melt(x$r)
+    p.mat<-reshape2::melt(x$P)
+    corr.mat$pval <- p.mat$value
+    corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
+    #corr.mat <- corr.mat[abs(corr.mat$value)>thresh,]
+    return( corr.mat)
+  })
+  
+  sig.idx <- unique(unlist(lapply(corr.mat.ls, function(x) return(which(abs(x$value)>corr_thresh&x$pval< p_thresh)) )))
+  corr.mat.ls <- lapply(corr.mat.ls, function(x){
+    x <- x[sig.idx,]
+   # x$value[x$value<thresh] <-0
+    names(x) <-c("from","to","corr","pval")
+    x$weight <- abs(x$corr)
+    x$from = as.character(x$from)
+    x$to = as.character(x$to)
+    return(x)
+  })
+
+corr.mat.ls <- lapply(corr.mat.ls,function(x){
+   df=x
+   df$type1 = type1
+   df$type2 = type2
+   df$source = gsub(paste0("_",type1,"$"),"",df$from)
+   df$target = gsub(paste0("_",type2,"$"),"",df$to)
+   df$source = names(dataSetList[[1]]$enrich_ids)[match(df$source,dataSetList[[1]]$enrich_ids)]
+   df$target = names(dataSetList[[2]]$enrich_ids)[match(df$target,dataSetList[[2]]$enrich_ids)]
+   df <- df[order(-df$weight,df$pval),]
+   df <- df[which(df$weight>corr_thresh &df$pval < p_thresh), ] 
+   if(nrow(df)>topN){
+   df <- df[1:topN,]
+   }
+
+   return(df)
+})
+
+  reductionSet$diffList <- corr.mat.ls 
+  .set.rdt.set(reductionSet);
+  library(jsonlite)
+  write_json(corr.mat.ls,plotjs, pretty = TRUE)
+  return(1);
+
+
+  library(igraph)
+  library(ggplot2)
+  library(ggraph)
+  nodes <- data.frame(
+    id=1:length( unique(c(corr.mat.ls[[1]]$from, corr.mat.ls[[1]]$to))),
+   label = unique(c(corr.mat.ls[[1]]$from, corr.mat.ls[[1]]$to))
+   )
+  nodes$type <- ifelse(nodes$label %in% rownames(sel.dats[[1]]),type1,type2)
+  
+  
+  edges.ls <-lapply(corr.mat.ls, function(x){
+    x$from <- nodes$id[match(x$from,nodes$label)]
+    x$to <- nodes$id[match(x$to,nodes$label)]
+    return(x)
+  })
+  edges = edges.ls[[1]] 
+  nodes$label <- gsub(type1,"",  nodes$label)
+  nodes$label <- gsub(type2,"",  nodes$label)
+  nodes$label <- gsub("_$","",  nodes$label)
+  graphall <- graph_from_data_frame(edges[edges$weight>0,], vertices = nodes, directed = FALSE)
+
+  min_edge_length = 1
+   layout_fixed <- layout_with_kk(graphall)
+  #layout_fixed <- layout.norm(layout_fixed, xmin = -min_edge_length, xmax = min_edge_length,  ymin = -min_edge_length, ymax = min_edge_length)
+  unique_types <- unique(nodes$type)
+  
+  node_shapes <- setNames(c(21,22),unique_types)
+  
+   node_colors <-setNames(c("#00b300","#ffaa00"),unique_types)   # Node color by type
+ 
+  layout_df <- data.frame(
+    x = layout_fixed[, 1],
+    y = layout_fixed[, 2],
+    name = V(graphall)$name  # Node names for alignment
+  )
+  edges.ls <- lapply(edges.ls, function(x){
+    x <- x[x$weight>corr_thresh & x$pval<p_thresh,]
+    return(x)
+  })
+   
+  edges.ls <- edges.ls[unlist(lapply(edges.ls,nrow))>0]
+  subgraph_ls <- lapply(edges.ls, function(x){
+    subg<-induced_subgraph(graphall, vids = V(graphall)[V(graphall) %in% x$from |V(graphall) %in% x$to])
+    return(subg)
+    })
+
+   
+  graph_res <-lapply(names(subgraph_ls), function(title){
+    
+    g<-plot_graph_with_fixed_layout(subgraph_ls[[title]],layout_df,title,node_colors,node_shapes)
+    return(g)
+  })
+
+  combined_plot <-  patchwork::wrap_plots(graph_res, ncol = 2, guides = "collect") +
+    patchwork::plot_layout(guides = "collect", heights = unit(c(1, 1), "null"), widths = unit(1, "null")) &
+    theme(plot.margin = margin(15, 15, 15, 15))
+ 
+  
+    imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  
+  if(length(graph_res)>2){
+   h=8
+  }else{
+
+   h=6
+  }
+  Cairo::Cairo(file = imgName, type = format, dpi = dpi, width = 9, height = h, units = "in", bg = "white")
+  print(combined_plot)
+  dev.off()
+  
+  reductionSet$analSet$diffgraph.ls <- graph_res
+  .set.rdt.set(reductionSet);
+  return(1)
+}
+
+plot_graph_with_fixed_layout <- function(graph, layout_df, title,node_colors,node_shapes) {
+  # Merge layout_df to preserve positions for all nodes
+  layout_sub <- merge(data.frame(name = V(graph)$name), layout_df, by = "name", sort = FALSE)
+  edge_colors <- ifelse(E(graph)$corr > 0, "red", "blue")  
+  # Set 'name' explicitly as vertex labels
+  E(graph)$color <- edge_colors  # Scale edge width
+  V(graph)$color <- node_colors[V(graph)$type]  # Node fill color
+  V(graph)$border.color <- V(graph)$color 
+  V(graph)$degree <- degree(graph) 
+  E(graph)$width <- E(graph)$weight 
+ 
+  # Plot the graph
+  ggraph(graph, layout = "manual", x = layout_sub$x, y = layout_sub$y) +
+    # Edges: color and width based on correlation and weight
+    geom_edge_link0(aes(edge_color = color, edge_width = width), alpha = 0.8) +
+    
+    # Nodes: Shape and fill dynamically mapped to 'type'
+    geom_node_point(aes(shape = type, fill = type,size=4 ),  color = "black", stroke = 0.5) +
+    
+    # Node labels
+     geom_node_text(aes(label = label), size = 2.5, color = "black", repel = TRUE) +
+    
+    # Scales for edge and node properties
+    scale_edge_color_identity(guide = "none") +  # Use edge colors directly
+    scale_edge_width(range = c(0.5, 1.2)) +  # Scale edge width
+    scale_shape_manual(values = node_shapes) +  # Shapes by type
+    scale_fill_manual(values = node_colors) +   # Fill colors by type
+    scale_size_continuous(range = c(2, 6)) +
+    ggtitle(title)+
+    
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5, size = 13,margin = margin(t = 10, b = 10)),
+          legend.position = "none" )
+}
+
+
+GetChordSymbols1 <- function() {
+  rdtSet <- .get.rdt.set()
+  symbols <- rdtSet$chordGram[,"Var1"]
+   return(symbols)
+}
+
+GetChordSymbols2 <- function() {
+  rdtSet <- .get.rdt.set()
+  symbols <- rdtSet$chordGram[,"Var2"]
+   return(symbols)
+}
+
+GetChordColNames <- function() {
+  rdtSet <- .get.rdt.set()
+   if (is.null(rdtSet$chordGram)) {
+    stop("correlation result table not found.")
+  }
+ 
+ chord_colnames <- setdiff(colnames(rdtSet$chordGram),c("Var1","Var2")) # Exclude the symbol column
+  
+  return(chord_colnames)
+}
+
+ 
+GetChordFileName <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$chordGram)) {
+    stop("correlation result table not found.")
+  }
+
+  return("chord_diagram.csv")
+}
+
+GetChordMat <- function() {
+  rdtSet <- .get.rdt.set()
+ 
+   if (is.null(rdtSet$chordGram)) {
+    stop("correlation result table not found.")
+  }
+ 
+  chord_matrix <- as.matrix(subset(rdtSet$chordGram, select = -c(Var1,Var2))) # Removing the symbol column
+ 
+  return(chord_matrix)
+}
+
+GetchordIds <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$chordGram)) {
+    stop("correlation result table not found.")
+  }
+  ids <- rownames(rdtSet$chordGram)
+  
+  return(ids)
+}
+
+GetCorrNetSymbols1 <- function() {
+  rdtSet <- .get.rdt.set()
+  symbols <- rdtSet$corNet[,"source"]
+  return(symbols)
+}
+
+GetCorrNetSymbols2 <- function() {
+  rdtSet <- .get.rdt.set()
+  symbols <- rdtSet$corNet[,"target"]
+  return(symbols)
+}
+
+GetCorrNetColNames <- function() {
+  rdtSet <- .get.rdt.set()
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation result table not found.")
+  }
+  
+  corNet_colnames <- setdiff(colnames(rdtSet$corNet),c("source","target")) # Exclude the symbol column
+  
+  return(corNet_colnames)
+}
+
+
+GetCorrNetFileName <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation result table not found.")
+  }
+  
+  return("corNet.csv")
+}
+
+GetCorrNetMat <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation result table not found.")
+  }
+  
+  corNet_matrix <- as.matrix(subset(rdtSet$corNet, select = -c(source,target))) # Removing the symbol column
+  #print(head( corNet_matrix ))
+  return(corNet_matrix)
+}
+
+GetCorrNetIds <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  if (is.null(rdtSet$corNet)) {
+    stop("correlation result table not found.")
+  }
+  ids <- rownames(rdtSet$corNet)
+  
+  return(ids)
+}
+
+ 
+plotFeatCorr <- function(reductionSet=NA,imgName,feat1="PC.O.18.2.0.16.0.0",feat2="DNMT3A",selMeta,group,dpi=72,format="png"){
+  
+  reductionSet <- .get.rdt.set();
+  
+  imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
+  library(ggplot2)
+  sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+  dataSetList <- lapply(sel.nms, readDataset);
+  id1 = paste0(dataSetList[[1]]$enrich_ids[feat1],"_",dataSetList[[1]]$type)
+  id2 = paste0(dataSetList[[2]]$enrich_ids[feat2],"_",dataSetList[[2]]$type)
+  selDatsCorr <- reductionSet$selDatsCorr[sel.nms]
+  data<-data.frame(x= t(selDatsCorr[[1]])[,id1] ,y=t(selDatsCorr[[2]])[,id2])
+  if(group!="NA"){
+  meta.info = reductionSet[["dataSet"]][["meta.info"]]
+  selSamps = rownames(meta.info[meta.info[[selMeta]]==group,])
+   data <- data[rownames(data) %in%selSamps, ]
+  }
+ 
+  
+    
+    p<-ggplot(data, aes(x = x, y = y)) +
+      geom_point(size = 3) + # Dots represent the samples
+      geom_smooth(method = "lm", se = FALSE) +             
+      labs(title = "",
+           x = feat1,
+           y = feat2 ) +
+      theme_minimal()+
+      theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5), # Add panel border
+            plot.margin = margin(10, 10, 10, 10),
+            axis.title = element_text(size = 11, color = "black"),
+            axis.text = element_text(size = 10, color = "black")) 
+    
+  w <- 7.5
+  h<-6
+  Cairo::Cairo(file = imgName, unit = "in", dpi = dpi, width = w, height = h, type = format, bg = "white")
+  print(p)
+  dev.off()
+  
+}
+
+
+
+GetDiffNetSymbols1 <- function(group) {
+   rdtSet <- .get.rdt.set()
+  diffnet <- rdtSet$diffList[[group]]
+  return(diffnet$source)
+}
+
+GetDiffNetSymbols2 <- function(group) {
+  rdtSet <- .get.rdt.set()
+  diffnet <- rdtSet$diffList[[group]]
+  return(diffnet$target)
+}
+
+GetDiffNetColNames <- function(group) {
+  rdtSet <- .get.rdt.set() 
+  if (is.null(rdtSet$diffList[[group]])) {
+    stop("correlation result table not found.")
+  }
+  diffNet_colnames <- c("corr" , "pval")# Exclude the symbol column
+  return(diffNet_colnames)
+}
+
+
+GetDiffNetFileName <- function(group) {
+  rdtSet <- .get.rdt.set() 
+  if (is.null(rdtSet$diffList[[group]])) {
+    stop("correlation result table not found.")
+  }
+  write.csv(rdtSet$diffList[[group]][,c("source", "target","corr" , "pval")],"diffNet.csv",rownames=F)
+  return("diffNet.csv")
+}
+
+GetDiffNetMat <- function(group) {
+  rdtSet <- .get.rdt.set()
+diffNet <- rdtSet$diffList[[group]]
+  if (is.null(diffNet)) {
+    stop("correlation result table not found.")
+  }
+  diffNet_matrix <- as.matrix(diffNet[,c("corr" , "pval")])  
+  return(diffNet_matrix)
+}
+
+GetDiffNetIds <- function(group) {
+  rdtSet <- .get.rdt.set()
+  diffNet <- rdtSet$diffList[[group]]
+  if (is.null(diffNet)) {
+    stop("correlation result table not found.")
+  }
+  ids <- 1:nrow(diffNet)
+  
+  return(ids)
 }

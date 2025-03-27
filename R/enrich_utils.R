@@ -14,6 +14,7 @@ PerformHeatmapEnrichment <- function(file.nm, fun.type, IDs, type="heatmap0"){
 
 PerformScatterOrNetEnrichment <- function(file.nm, fun.type, IDs, type){
   # prepare query
+  print("PerformScatterOrNetEnrichment")
   id_type <<- "entrez";
   ora.vec <- unlist(strsplit(IDs, "; "));
   names(ora.vec) <- ora.vec;
@@ -134,8 +135,9 @@ PerformKeggEnrichment <- function(file.nm, fun.type, ids){
 
 # note: hit.query, resTable must synchronize
 # ora.vec should contains entrez ids, named by their gene symbols
-PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type){
+PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   # prepare lib
+  
   setres <- .loadEnrichLib(fun.type, data.org)
   current.geneset <- setres$current.geneset;
   current.setids <- setres$current.setids;
@@ -158,7 +160,11 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type){
   hits.inx <- ora.vec %in% current.universe;
   ora.vec <- ora.vec[hits.inx];
   ora.nms <- ora.nms[hits.inx];
-  
+ 
+  if(length(ora.vec)==0){
+  return(0)
+  }
+
   q.size<-length(ora.vec);
   
   # get the matched query for each pathway
@@ -241,15 +247,18 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type){
   # write csv
   csv.nm <- paste(file.nm, ".csv", sep="");
   fast.write.csv(resTable, file=csv.nm, row.names=F);
-  
+   
   #record table for report
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$enrTables[[type]] <- list()
   infoSet$imgSet$enrTables[[type]]$table <- resTable;
   infoSet$imgSet$enrTables[[type]]$library <- fun.type
   infoSet$imgSet$enrTables[[type]]$algo <- "Overrepresentation Analysis"
+  infoSet$imgSet$enrTables[[type]]$hits.query <- hits.query
+  infoSet$imgSet$enrTables[[type]]$current.geneset <- current.geneset
+  
   saveSet(infoSet);
-
+  
   return(1);
 }
 
@@ -257,7 +266,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type){
 .loadEnrichLib <- function(fun.type, data.org){
   folderNm <- data.org;
   my.path <- paste(lib.path, folderNm, "/", fun.type, ".rds", sep="");
-  
+  print(my.path)
   my.lib <- readRDS(my.path);
   
   if(substr(fun.type, 0, 2)=="go"){
@@ -307,94 +316,6 @@ PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
   current.setids <- setres$current.setids;
   current.setlink <- setres$current.setlink;
   current.universe <- unique(unlist(current.geneset));
-
-  # prepare query
-  ora.nms <- names(ora.vec);
-  lens <- lapply(current.geneset, 
-                 function(x) {
-                   length(unique(x))
-                 }
-  );
-  inx = lens > 2
-  
-  current.geneset = current.geneset[inx]
-  current.geneset = current.geneset[which(!names(current.geneset) %in% toremove)]
-  
-  # prepare for the result table
-  set.size<-length(current.geneset);
-  res.mat<-matrix(0, nrow=set.size, ncol=5);
-  rownames(res.mat)<-names(current.geneset);
-  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
-  
-  # need to cut to the universe covered by the pathways, not all genes 
-  
-  hits.inx <- ora.vec %in% current.universe;
-  
-  #calculate weight for stouffer
-  if(fun.type == "kegg"){
-    stouffer_gene_percent <<- length(hits.inx)/length(current.universe)
-  }else if(fun.type == "keggm"){
-    stouffer_compound_percent <<- length(hits.inx)/length(current.universe)
-  }
-  
-  ora.vec <- ora.vec[hits.inx];
-  ora.nms <- ora.nms[hits.inx];
-  
-  q.size<-length(ora.vec);
-  
-  # get the matched query for each pathway
-  hits.query <- lapply(current.geneset, 
-                       function(x) {
-                         ora.nms[ora.vec%in%unlist(x)];
-                       }
-  );
-  hits.query <- lapply(hits.query, function(x){unique(x)})
-  
-  names(hits.query) <- names(current.geneset);
-  hit.num<-unlist(lapply(hits.query, function(x){length(x)}), use.names=FALSE);
-  
-  # total unique gene number
-  uniq.count <- length(current.universe);
-  
-  # unique gene count in each pathway
-  set.size <- unlist(lapply(current.geneset, length));
-  
-  res.mat[,1]<-set.size;
-  res.mat[,2]<-q.size*(set.size/uniq.count);
-  res.mat[,3]<-hit.num;
-  
-  # use lower.tail = F for P(X>x)
-  raw.pvals <- phyper(hit.num-1, set.size, uniq.count-set.size, q.size, lower.tail=F);
-  res.mat[,4]<- raw.pvals;
-  res.mat[,5] <- p.adjust(raw.pvals, "fdr");
-  all.res.mat <<- res.mat
-  hits.query <<- hits.query
-  if(fun.type == "integ"){
-    integ.query<- list()
-    integ.query<- hits.query
-  }
-  # now, clean up result, synchronize with hit.query
-  
-  return(all.res.mat);
-}
-
-
-PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
-  toremove <- c("Metabolic pathways",
-                "Biosynthesis of secondary metabolites",
-                "Microbial metabolism in diverse environments",
-                "Biosynthesis of antibiotics",
-                "Carbon metabolism",
-                "2-Oxocarboxylic acid metabolism",
-                "Fatty acid metabolism",
-                "Biosynthesis of amino acids",
-                "Degradation of aromatic compounds");
-  # prepare lib
-  setres <- .loadEnrichLib(fun.type, data.org)
-  current.geneset <- setres$current.geneset;
-  current.setids <- setres$current.setids;
-  current.setlink <- setres$current.setlink;
-  current.universe <- unique(unlist(current.geneset));
   
   # prepare query
   ora.nms <- names(ora.vec);
@@ -465,7 +386,7 @@ PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
   
   return(all.res.mat);
 }
-
+ 
 
 SaveSingleOmicsEnr <- function(file.nm,res.mat){
   inx = res.mat[,3]>0
@@ -526,4 +447,122 @@ SaveSingleOmicsEnr <- function(file.nm,res.mat){
   resTable$Features = hitss
   csv.nm <- paste(file.nm, ".csv", sep="");
   fast.write.csv(resTable, file=csv.nm, row.names=F);
+}
+
+InitEnrichmentNetwork <- function(file.nm, fun.type,type){
+   print(file.nm)
+    sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+  dataSetList <- lapply(sel.nms, readDataset);
+  
+  if(fun.type=="kegg"){
+   kp = unlist(lapply(dataSetList,function(x) x[["type"]] %in% c("rna_b","prot")))
+
+  }else if(fun.type=="keggm"){
+   kp = lapply(dataSetList,function(x) x[["type"]] %in% c("met_t","met_u"))
+
+  }else if(fun.type=="tam_hmdd"|fun.type=="tam_func"|fun.type=="mirfamily"){
+   kp = lapply(dataSetList,function(x) x[["type"]] %in% c("mirna"))
+ 
+  }else if(fun.type=="integ"){
+  kp = lapply(dataSetList,function(x) x[["type"]] %in% c("met_t","met_u","rna_b","prot"))
+ }
+
+  if(type=="limma"){
+    idList <- lapply(dataSetList[kp],function(x){
+       return(x[["sig.mat"]]$ids)
+     })
+   }
+  sig.mat <- do.call(rbind,lapply(dataSetList[kp],function(x) x[["sig.mat"]]))
+   
+  
+  id_type <<- "entrez";
+  ora.vec <- unique(unlist(idList));
+  names(ora.vec) <- ora.vec;
+  res <- PerformEnrichAnalysis(file.nm, fun.type, ora.vec, type,T);
+  if(res==0){
+  return(0)
+  }
+ infoSet <- readSet(infoSet, "infoSet");
+   infoSet$imgSet$enrTables[[type]]$sig.mat <- sig.mat
+   infoSet$imgSet$enrTables[[type]]$selDataNm <-  sel.nms[kp];
+     saveSet(infoSet);
+  .prepareEnrichNet(netNm=file.nm,type, "mixed")
+  return(1)
+}
+
+.prepareEnrichNet<-function( netNm, type, overlapType){
+    if(!exists("my.enrich.net")){ 
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/utils_enrichnet.Rc");      
+    }
+    return(my.enrich.net(netNm, type, overlapType));
+}
+
+
+GetEnrichList <- function(dataNm, type,fileNm){
+  print(dataNm)
+  dataSet<- readDataset(dataNm);
+  if(type=="limma"){
+   if(nrow(dataSet[["sig.mat"]])==0){
+    return(0)
+
+    }
+   if(dataSet$idType=="name"|dataSet$idType=="symbol"){
+     #all_str <- dataSet[["sig.mat"]]$label
+     df <- data.frame("#id" = dataSet[["sig.mat"]]$label, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
+
+     }else{
+     df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
+     #all_str <- dataSet[["sig.mat"]]$ids
+  } 
+
+   }else if(type=="var"){
+    if(is.null(dataSet[["varPar"]])){
+    return(0)
+    }
+if(dataSet$idType=="name"|dataSet$idType=="symbol"){
+ 
+     df <- data.frame("#id" = dataSet[["varPar"]]$label, percentage = round(dataSet[["varPar"]]$varPart.df[[2]],4),check.names = FALSE)
+
+     }else{
+     df <- data.frame("#id" = dataSet[["varPar"]]$ids, percentage = round(dataSet[["varPar"]]$varPart.df[[2]],4),check.names = FALSE)
+
+  } 
+df <- df[1:min(nrow(df),dataSet$varPar$topNum),]
+}
+
+write.table(df, file = fileNm, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+  #writeLines(all_str, fileNm)
+  return(1)
+}
+
+GetNetEnrichlist <- function(netNm, mode, dataName="",enrNm=""){
+   if(mode=="fileNms"){
+     netFile <- RJSONIO::fromJSON(netNm)
+     netEnrTypes<<- netFile$nodeTypes
+     netEnridtypes <<- netFile$idTypes
+
+    return(netFile$fileNms)
+   }else if(mode=="types"){
+      type_map <- c(
+  "met_t" = "met",
+  "rna_b" = "gene",
+  "prot"  = "protein",
+  "mic_m" = "mic",
+  "mirna" = "mir"
+)
+
+      return(unname(type_map[netEnrTypes]))
+   }else if(mode=="idtypes"){
+     return(netEnridtypes)
+  }else if(mode=="data"){
+     netFile <- RJSONIO::fromJSON(netNm)
+   idx = which(netFile$fileNms==dataName)
+   nodes <- netFile$nodes[unlist(lapply(netFile$nodes, function(x) x$molType==netFile$nodeTypes[idx]))] 
+  df = data.frame("#id" = unlist(lapply(nodes,function(x) x$featureId)), btw =  unlist(lapply(nodes,function(x) x$size)),check.names = FALSE)
+  write.table(df, file = enrNm, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+return(1)
+ }
+   
+
 }

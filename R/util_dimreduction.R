@@ -8,7 +8,6 @@
 ###################################################
 
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
-    
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
   sel.nms <- names(mdata.all)[mdata.all==1];
@@ -72,58 +71,61 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   } else if (reductionOpt == "mofa") {
 
     if(.on.public.web){
-        reductionSet$reductionOpt <- reductionOpt;
         saveSet(infoSet);
         reductionSet$enrich.nms1 <- enrich.nms1;
         qs::qsave(reductionSet, "rdt.set.qs");
         saveRDS(data.list, file = "mofaInput.rds");
         return(2);
     } else {
-    if(!exists("run_mofa")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/mofa_core.Rc");   
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_mofa.Rc");    
-    }
+        if(!exists("run_mofa")){ # public web on same user dir
+            compiler::loadcmp("../../rscripts/OmicsAnalystR/R/mofa_core.Rc");   
+            compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_mofa.Rc");    
+        }
 
-    #library(MOFA2);
-    # set up model
-    # Sanitize the row names of each matrix to remove non-ASCII characters and append the omics type.
-    data.list <- lapply(data.list, function(matrix, omics) {
-      # Replace non-ASCII characters with an underscore or another ASCII character
-      sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(matrix), perl = TRUE)
-      # Append the omics type to the sanitized row names
-      rownames(matrix) <- paste0(sanitized_names, "_", omics)
-      return(as.matrix(matrix))  # Ensure the sanitized data is still in matrix form
-    }, omics.type)  # Use the corresponding omics.type for each matrix
+        #library(MOFA2);
+        # set up model
+        # Sanitize the row names of each matrix to remove non-ASCII characters and append the omics type.
+        data.list <- lapply(data.list, function(matrix, omics) {
+            # Replace non-ASCII characters with an underscore or another ASCII character
+            sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(matrix), perl = TRUE)
+            # Append the omics type to the sanitized row names
+            rownames(matrix) <- paste0(sanitized_names, "_", omics)
+            return(as.matrix(matrix))  # Ensure the sanitized data is still in matrix form
+        }, omics.type);  # Use the corresponding omics.type for each matrix
 
-    MOFAobject <- create_mofa_from_matrix(data.list);
-    data_opts <- get_default_data_options(MOFAobject);
-    model_opts <- get_default_model_options(MOFAobject);
-    model_opts$num_factors <- 5;
-    train_opts <- get_default_training_options(MOFAobject);
+        MOFAobject <- create_mofa_from_matrix(data.list);
+        data_opts <- get_default_data_options(MOFAobject);
+        model_opts <- get_default_model_options(MOFAobject);
+        model_opts$num_factors <- 5;
+        train_opts <- get_default_training_options(MOFAobject);
 
-    MOFAobject <- prepare_mofa(
+        MOFAobject <- prepare_mofa(
           object = MOFAobject,
           data_options = data_opts,
           model_options = model_opts,
           training_options = train_opts
-    );
+        );
 
-    model <- run_mofa(MOFAobject, save_data = FALSE, outfile="mofa_model.hdf5");
+        model <- run_mofa(MOFAobject, save_data = FALSE, outfile="mofa_model.hdf5");
 
-    factors <- get_factors(model, as.data.frame = T);
-    pos.xyz <- reshape2::dcast(factors, sample ~ factor, value.var = "value")
-    rownames(pos.xyz) <- pos.xyz$sample
-    pos.xyz <- pos.xyz[,-1]
+        factors <- get_factors(model, as.data.frame = T);
+        pos.xyz <- reshape2::dcast(factors, sample ~ factor, value.var = "value")
+        rownames(pos.xyz) <- pos.xyz$sample
+        pos.xyz <- pos.xyz[,-1]
 
-    weights <- get_weights(model, as.data.frame = T);
-    loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
-    loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
-    loading.pos.xyz <- loading.pos.xyz[,-1]
-    loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
-    loading.pos.xyz$type <- omics.vec;
-    var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
-    var.exp <- round(var.exp, digits = 3);
+        weights <- get_weights(model, as.data.frame = T);
+        loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
+        loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
+        loading.pos.xyz <- loading.pos.xyz[,-1]
+        loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
+        loading.pos.xyz$type <- omics.vec;
+        var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]]/100;
+        var.exp <- round(var.exp, digits = 3);
+
+        # flag to be consistent with public
+        reductionSet[["mofa.complete"]] <- TRUE;
     }
+
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
     library(mixOmics)
     diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta];
@@ -229,7 +231,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 #used to get MOFA results
 GetRdtQs <- function(){
     res <- qs::qread("rdt.set.qs");    
-    ##result.set <<- res;
+#    rdt.set <<- res;
     return(1);
 }
 
@@ -241,6 +243,7 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
 }
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
+
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   library(see)
@@ -249,10 +252,9 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   sel.nms <- names(mdata.all)[sel.inx]
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  reductionSet <- .get.rdt.set();
 
-  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+  reductionSet <- .get.rdt.set();
+   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   df <- reshape2::melt(df)
 
   colnames(df) <- c("Component", "Dataset", "value")
@@ -271,12 +273,12 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
     scale_color_okabeito() +
     labs(x="Component #", y="Var. (%)", title="") + theme_minimal(base_size=15) +
     theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
-  
+
   
   Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
-  
+
   infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
   saveSet(infoSet);
 }

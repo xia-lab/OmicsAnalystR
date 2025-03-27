@@ -124,8 +124,8 @@ ComputePathHeatmapTable <- function(dataSet){
     metadf$Cluster <- reductionSet$clustVec;
     sample.cluster[[reductionSet$clustType]] <- smpl.int.rk;
     metadf <- metadf[smpl.int.rk,];
-    meta.types <- c(meta.types, "disc");
-    names(meta.types)[length(names(meta.types))] <- "Cluster";
+    meta.types <- c( meta.types,"disc");
+    names(meta.types)[length(meta.types)] <- "Cluster";
   }
   meta <- metadf;
   meta <- meta[which(rownames(meta) %in% orig.smpl.nms), ,drop=F];
@@ -203,6 +203,122 @@ ComputePathHeatmapTable <- function(dataSet){
   return(json.res);
 }
 
+ComputeKmeans <- function(clusterNum="-1"){
+   
+  print(clusterNum)
+ 
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+  data.list <- list()
+  for(i in 1:length(sel.nms)){
+    dat = readDataset(sel.nms[i])
+    data.list[[i]] <- dat$data.proc
+  }
+  reductionSet <- .get.rdt.set();
+  reductionSet$omicstype <- sel.nms
+  
+  clusterNum <- as.numeric(clusterNum)
+  if(clusterNum==-1){
+    clusterNum =3
+   }
+  combined_data <-  do.call(rbind, data.list)
+    
+  res <- kmeans(t(combined_data), centers = clusterNum, nstart = 25)
+   
+  clust <- res$cluster
+  
+  kmNMI = .calNMI(clust, as.numeric(dat$cls));
+
+
+  global_mean <- colMeans(t(combined_data))
+  TSS <- sum( rowSums( (t(combined_data) - global_mean)^2 ) )
+  BSS_i <- numeric(clusterNum)
+  for (i in 1:clusterNum) {
+    cluster_size <- res$size[i]
+    cluster_centroid <- res$centers[i, ]
+    dist2 <- sum((cluster_centroid - global_mean)^2)  # squared distance
+    BSS_i[i] <- cluster_size * dist2
+  }
+    
+  reductionSet$clustType <- "K-means"
+  reductionSet$clustVec <- clust
+  reductionSet$clustRes <- res 
+  reductionSet$clustNmi <- kmNMI
+  reductionSet$clustRes$frac_explained <-  BSS_i / TSS
+  
+  
+  reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
+  #save results
+  res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
+   
+  reductionSet$clustResTable <- res.table;
+  
+  write.csv(res.table, "kmeans_clustering_results.csv");
+  
+  .set.rdt.set(reductionSet);
+  return(1)
+}
+
+# do k-means++
+ComputeKmeansPP <- function(clusterNum="-1"){
+   
+  clusterNum <- as.numeric(clusterNum)
+  if(clusterNum==-1){
+    clusterNum <- 3
+  }
+
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+  data.list <- list()
+  for(i in 1:length(sel.nms)){
+    dat <- readDataset(sel.nms[i])
+    data.list[[i]] <- dat$data.proc
+  }
+  combined_data <-  do.call(rbind, data.list); 
+ 
+  # use kmeans++
+  clust <- maotai::kmeanspp(t(combined_data), k = clusterNum); 
+
+  kmNMI = .calNMI(clust, as.numeric(dat$cls));
+
+  global_mean <- colMeans(t(combined_data))
+  TSS <- sum( rowSums( (t(combined_data) - global_mean)^2 ) )
+  BSS_i <- numeric(clusterNum)
+
+   
+  for (i in 1:clusterNum) {
+    my.hits <- clust == i;
+    cluster_size <- sum(my.hits);
+    cluster_centroid <- colMeans(t(combined_data)[my.hits])
+    dist2 <- sum((cluster_centroid - global_mean)^2)  # squared distance
+    BSS_i[i] <- cluster_size * dist2
+  }
+ 
+  reductionSet <- .get.rdt.set();
+  reductionSet$omicstype <- sel.nms;
+
+  reductionSet$clustType <- "K-means++"
+  reductionSet$clustVec <- clust
+  reductionSet$clustNmi <- kmNMI
+  reductionSet$clustRes$frac_explained <-  BSS_i / TSS
+  
+  
+  reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
+
+   #save results
+  res.table <- data.frame( Cluster=clust,reductionSet$dataSet$meta.info);
+  
+  reductionSet$clustResTable <- res.table;
+  
+  #write.csv(res.table, "kmeans_clustering_results.csv");
+  write.csv(res.table, "kmeanspp_clustering_results.csv");
+  .set.rdt.set(reductionSet);
+  return(1)
+}
+
+ 
 ComputeSpectrum <- function(method="1", clusterNum="-1"){
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
@@ -228,22 +344,22 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   }
   
   res <- Spectrum::Spectrum(data.list, method=method, fixk=clusterNum, maxk=10, missing=TRUE, fontsize=8, dotsize=2, showres=F, silent=T)
+
   clust <- res$assignments
   
   SNFNMI = .calNMI(clust, as.numeric(dat$cls));
-  
+ 
   reductionSet$clustType <- "Spectrum"
   reductionSet$clustVec <- clust
   reductionSet$clustRes <- res
   reductionSet$clustDistMat <- res$similarity_matrix
   reductionSet$clustNmi <- SNFNMI
 
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
-  #save results
-  res.table <- data.frame(reductionSet$dataSet$meta.info, Cluster=clust);
-  reductionSet$dataSet$meta.info$Cluster <- clust;
+ reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
 
+  #save results
+  res.table <- data.frame( Cluster=clust,reductionSet$dataSet$meta.info);
   reductionSet$clustResTable <- res.table;
 
   write.csv(res.table, "spectrum_clustering_results.csv");
@@ -278,10 +394,11 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   reductionSet$clustRes <- result
   reductionSet$clustNmi <- SNFNMI
   
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
+ reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
 
-  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=clust);
+
+  res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
   write.csv(res.table, "perturbation_clustering_results.csv");
   reductionSet$clustResTable <- res.table;
 
@@ -304,7 +421,7 @@ GetClusterMembers<-function(clust){
 }
 
 GetDiagnosticSummary<- function(type){
-  if(type %in% c("perturbation", "spectrum", "snf")){
+  if(type %in% c("perturbation", "spectrum", "snf","kmeans")){
     reductionSet <- .get.rdt.set();
     clustNum <- length(unique(reductionSet$clustVec))
     return(c(clustNum, signif(reductionSet$clustNmi)))
@@ -467,17 +584,15 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
     C = clusterNum
   }
   group = spectralClustering(W, C); 
-  SNFNMI = .calNMI(group, truelabel)
-  
+  SNFNMI = .calNMI(group, truelabel) 
   reductionSet$clustType <- "SNF"
   reductionSet$clustVec <- group
   reductionSet$clustRes <- res
   reductionSet$clustDistMat <- W
-  reductionSet$clustNmi <- SNFNMI
-  reductionSet$dataSet$meta.info$Cluster <- group;
-  reductionSet$dataSet$meta.types <- c(reductionSet$dataSet$meta.types, "disc");
-  names(reductionSet$dataSet$meta.types)[length(reductionSet$dataSet$meta.types)] <- "Cluster";
-  res.table <- data.frame(reductionSet$dataSet$meta.info, cluster=group);
+  reductionSet$clustNmi <- SNFNMI 
+   reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
+  names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
+  res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
   write.csv(res.table, "snf_clustering_results.csv");
   reductionSet$clustResTable <- res.table;
 
@@ -526,7 +641,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
   dpi <- as.numeric(dpi);
   imgNm <- paste(imgName, "dpi", dpi, ".", format, sep="");
   load_cairo();
-  if(alg %in% c("snf", "spectrum") ){
+  if(alg %in% c("snf", "spectrum","kmeans") ){
     h=8
     fig.list <- list()
     library(ggpubr);
@@ -587,7 +702,10 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
     #fig.list[[1]] <-  function(){plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])}
     #p1 <- ggarrange(plotlist=fig.list, ncol = 1, nrow = 1)
     plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
-  }
+  }else if(alg == "kmeans"){
+    plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$frac_explained)
+
+ }
   dev.off();
   
   infoSet <- readSet(infoSet, "infoSet");
@@ -617,6 +735,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   
   fig.list <- list()
   for(i in 1:length(sel.nms)){
+   print(sel.nms[i])
     dataSet = readDataset(sel.nms[i])
     x <- dataSet$data.proc
     pca <- prcomp(t(na.omit(x)));
@@ -660,5 +779,98 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
   p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
   print(p1)
   dev.off();
+}
+
+
+PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
+  
+  imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
+  rdtSet <- .get.rdt.set();
+   
+  metaData <- rdtSet$clustResTable;
+  metaData = metaData[order( metaData$Cluster),]
+  smp.nms <- rownames(metaData);
+  meta.num <- ncol(metaData)
+
+  var.nms <- rownames(metaData);
+  rdtSet$imgSet$clusterHeat <- imgName;
+
+  met <- sapply(metaData, function(x) as.integer(x))
+  rownames(met) <- smp.nms;
+
+
+
+  # set up parameter for heatmap
+  if(colorGradient=="gbr"){
+    colors <- colorRampPalette(c("green", "black", "red"), space="rgb")(256);
+    }else if(colorGradient == "heat"){
+    colors <- heat.colors(256);
+    }else if(colorGradient == "topo"){
+    colors <- topo.colors(256);
+    }else if(colorGradient == "gray"){
+        colors <- grDevices::colorRampPalette(c("grey90", "grey10"), space="rgb")(256);
+    }else if(colorGradient == "byr"){
+        colors <- rev(grDevices::colorRampPalette(RColorBrewer::brewer.pal(10, "RdYlBu"))(256));
+    }else if(colorGradient == "viridis") {
+        colors <- rev(viridis::viridis(10))
+    }else if(colorGradient == "plasma") {
+        colors <- rev(viridis::plasma(10))
+    }else if(colorGradient == "npj"){
+        colors <- c("#00A087FF","white","#E64B35FF")
+    }else if(colorGradient == "aaas"){
+        colors <- c("#4DBBD5FF","white","#E64B35FF");
+    }else if(colorGradient == "d3"){
+        colors <- c("#2CA02CFF","white","#FF7F0EFF");
+    }else {
+         colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+    }
+   
+  if(clustSelOpt == "both"){
+    rowBool = T;
+    colBool = T;
+  }else if(clustSelOpt == "row"){
+    rowBool = T;
+    colBool = F;
+  }else if(clustSelOpt == "col"){
+    rowBool = F;
+    colBool = T;
+  }else{
+    rowBool = F;
+    colBool = F;
+  }
+
+    w = min(500,ncol(met)*100+50)
+    h = min(2000,nrow(met)*14+50);
+ 
+   met <- scale_mat(met,  "column")
+ 
+
+  ##plot static
+  plot_dims <- get_pheatmap_dims(met, NA, "overview", width);
+  h <- plot_dims$height;
+  w <- plot_dims$width;
+  viewOpt <- "overview";
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
+       displayText = metaData;
+    if(viewOpt == "overview"){
+       displayText = F;
+    }
+ 
+    
+    pheatmap::pheatmap(met, 
+                       fontsize=12, fontsize_row=8, 
+                       clustering_distance_rows = smplDist,
+                       clustering_distance_cols = smplDist,
+                       clustering_method = clstDist, 
+                        border_color = NA,#border.col,
+                       cluster_rows = F, 
+                       cluster_cols = F,
+                       scale = "column",
+                       show_rownames= includeRowNames,
+                       color = colors,
+                       display_numbers=displayText);
+  dev.off();
+
+  return(.set.rdt.set(rdtSet));
 }
 
