@@ -217,7 +217,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
     dataSet$name.map <- list();
   }
   
-  # map to cpd db from metaboanalyst
+  # map to cpd db from omicsanalyst
   dataSet <- MetaboliteMappingExact(dataSet, qvec, idtype)
   
   # do some sanity check

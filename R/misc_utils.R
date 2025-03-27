@@ -972,7 +972,7 @@ get_pheatmap_dims <- function(dat, annotation, view.type, width, cellheight = 15
 }
 
 readDataset <- function(fileName=""){
-        obj <- NULL;
+    obj <- NULL;
 
     if(globalConfig$anal.mode == "api"){
       if(exists('user.path')){
@@ -990,6 +990,7 @@ readDataset <- function(fileName=""){
     }
     return(obj);
 }
+
 
 saveDataQs <-function(data, name, dataName){
     qs::qsave(data, file=paste0(dataName, "_data/", name));

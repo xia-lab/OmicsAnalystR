@@ -30,12 +30,12 @@ static const R_CallMethodDef CallEntries[] = {
     {NULL, NULL, 0}
 };
 
- void R_init_MetaboAnalystR(DllInfo *dll)
+ void R_init_OmicsAnalystR(DllInfo *dll)
  {
    R_registerRoutines(dll, CEntries, CallEntries,NULL,NULL);
    R_useDynamicSymbols(dll, FALSE);
  }
 
-//void R_init_MetaboAnalystR(DllInfo *info) {
-//  R_RegisterCCallable("MetaboAnalystR", "add",  (DL_FUNC) &CEntries);
+//void R_init_OmicsAnalystR(DllInfo *info) {
+//  R_RegisterCCallable("OmicsAnalystR", "add",  (DL_FUNC) &CEntries);
 //}

@@ -48,6 +48,12 @@ UpdateFeatureName <-function(dataName, old.nm, new.nm){
   return(RegisterData(dataSet));
 }
 
+SetDimMethod <- function(method){
+  reductionSet<-.get.rdt.set();
+  reductionSet$reductionOpt <- method;
+  .set.rdt.set(reductionSet);
+}
+
 
 GetLoadingFileName <-function(dataName){
   reductionSet<-.get.rdt.set();
@@ -149,4 +155,23 @@ GetMultiSummary <- function(){
 SetReductionOpt <- function(opt){
   reductionSet<-.get.rdt.set();
   reductionSet$reductionOpt <- opt;
+}
+
+
+CheckDetailsTablePerformed <-function(type, dataName){
+  reductionSet<-.get.rdt.set();
+  dataSet <- readDataset(dataName);
+  omicstype <- dataSet$type;
+
+  performed <- T;
+  if(grepl("loading", type)){
+    reductOpt <- gsub("loading_","", type);
+    performed <- !is.null(reductionSet[[reductOpt]]$loading.pos.xyz);
+  }else if(startsWith(type, "OmicsData #")){
+    performed <- !is.null(dataSet$analSet$cov$sig.mat);
+  }
+
+  print(paste("checkPerformed=", type, "====",performed));
+
+  return(performed)
 }
