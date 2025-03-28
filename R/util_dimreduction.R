@@ -69,7 +69,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
   } else if (reductionOpt == "mofa") {
-
     if(.on.public.web){
         saveSet(infoSet);
         reductionSet$enrich.nms1 <- enrich.nms1;
@@ -197,7 +196,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     rownames(var.exp) <- colnames(pos.xyz);
     loading.pos.xyz$type <- omics.vec;
   }
-  
+ 
   # preserve original order
   loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
@@ -249,14 +248,15 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   library(see)
   load_ggplot();
   sel.inx <- mdata.all==1;
+ 
   sel.nms <- names(mdata.all)[sel.inx]
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-
+ 
   reductionSet <- .get.rdt.set();
    df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   df <- reshape2::melt(df)
-
+ 
   colnames(df) <- c("Component", "Dataset", "value")
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
