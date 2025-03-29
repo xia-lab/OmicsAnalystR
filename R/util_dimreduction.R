@@ -243,7 +243,6 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
 }
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   library(see)

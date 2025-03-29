@@ -34,6 +34,11 @@ GetMetaDims <- function(){
 GetUniqueMetaNames <-function(metadata){
   rdtSet <- .get.rdt.set();
   data.type <- rdtSet$dataSet[["meta.types"]][metadata];
+
+  if(is.null(data.type)){
+    data.type <- "disc";
+  }
+
   if(data.type == "cont"){
     return("--- NA ---");
   } else {
