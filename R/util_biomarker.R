@@ -88,11 +88,14 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
 meta.info <- meta.info[rownames(meta.info) %in% sample_include,,drop=F]
    meta.info[[sel.meta]] <- droplevels(meta.info[[sel.meta]])
 }
-if(factor2=="all"){
 meta.info[[sel.meta]] <- as.character(meta.info[[sel.meta]])
+if(factor2=="all"){
 idx = which(meta.info[[sel.meta]]!=factor1)
 meta.info[[sel.meta]][idx] <- "Others"
 meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,"Others"))
+}else{
+meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,factor2))
+
 }
    stt <- table(meta.info[[sel.meta]])
  
@@ -658,7 +661,7 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
 
 
 PlotDetailROC <- function(rdtSet,imgName, thresh, sp, se, dpi=72, format="png"){
-  print(c(imgName,thresh,sp,se))
+ 
   rdtSet <- .get.rdt.set();
   
   imgName = paste(imgName, "_dpi", dpi, ".", format, sep="");
@@ -749,8 +752,7 @@ PrepareROCDetails <- function(feat.nm){
   roc.mat.combined[!is.finite(roc.mat.combined)] <- NA
   
   # Write the ROC details to a CSV file
-
-  print(c(feat.nm,"feat.nm"))
+ 
   filename <- paste(feat.nm, "_roc.csv", sep="")
   fast.write.csv(signif(roc.mat.combined, 4), file=filename, row.names=FALSE)
   
@@ -777,6 +779,7 @@ rdtSet <- .get.rdt.set();
  
 target_group <- levels(cls)[1]
 other_group <- levels(cls)[2]
+ 
   # Convert to one-against-all if target_group is specified and data is multiclass
  
   # Number of subsampling runs to produce smooth curve
@@ -823,13 +826,16 @@ other_group <- levels(cls)[2]
       auc.mat[irun, inum] <- slot(ROCR::performance(pred, "auc"), "y.values")[[1]]
       
       perf.outp[[inum]][[irun]] <- prob.out
-         if (!all(levels(y.test) ==levels(factor(pred@labels[[1]]))) ) {
-      auc.mat[irun, inum] <- 1-      auc.mat[irun, inum]
-  perf.outp[[inum]][[irun]] <- 1-prob.out;
-}
-     
-      pred.out <- as.factor(ifelse(prob.out > 0.5, target_group, other_group))
+        pred.out <- as.factor(ifelse(prob.out > 0.5, max(target_group, other_group),min(target_group, other_group)))
       accu.mat[irun, inum] <- Get.Accuracy(table(pred.out, y.test))
+
+     if (!all(levels(y.test) ==levels(factor(pred@labels[[1]]))) ) {
+       auc.mat[irun, inum] <- 1-      auc.mat[irun, inum]
+       perf.outp[[inum]][[irun]] <- 1-prob.out;
+        
+     }
+    
+    
     }
   }
  
@@ -1511,7 +1517,9 @@ PlotProbView <- function(imgName, format = "png", dpi = 72, mdl.inx, show, showP
   if (mdl.inx == -1) {
     mdl.inx <- rdtSet$analSet$multiROC$best.model.inx
   }
+ 
   probs <- MergeDuplicates(unlist(rdtSet$analSet$multiROC$pred.cv[[mdl.inx]]))
+   
   prob.vec[names(probs)] <- probs
   
   nms <- names(prob.vec)
@@ -1523,18 +1531,17 @@ PlotProbView <- function(imgName, format = "png", dpi = 72, mdl.inx, show, showP
   # Apply one-against-all transformation based on the target_group
  
 
-  # Check the transformed `cls` vector
+  # Check the transformed `cls` vector 
   print(cls)  # Confirm it shows only "IGT" and "other"
-  
  
   # Proceed with plotting
-  pred.out <- factor(ifelse(prob.vec > 0.5, target_group, other_group), levels = c(target_group, other_group))
+  pred.out <- factor(ifelse(prob.vec > 0.5, max(target_group, other_group),min(target_group, other_group)), levels = c(target_group, other_group))
   act.cls <- factor(cls, levels = c(target_group, other_group))
   
   prob.res <- data.frame(Probability = prob.vec, Predicted = pred.out, Actual = act.cls)
   write.table(prob.res, file = "roc_pred_prob.csv", sep = ",", col.names = TRUE)
-  
-  conf.res <- table(act.cls,pred.out);
+ 
+  conf.res <- table(act.cls,pred.out); 
   rdtSet$analSet$conf.table <- xtable::xtable(conf.res, caption = "Confusion Matrix (Cross-Validation)")
   rdtSet$analSet$conf.mat <- print(rdtSet$analSet$conf.table, type = "html", print.results = FALSE, caption.placement = "top", html.table.attributes = "border=1 width=150")
   
@@ -1817,16 +1824,18 @@ PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, n
     pred <- ROCR::prediction(prob.out, y.test);
     auc.vec[irun] <- slot(ROCR::performance(pred, "auc"), "y.values")[[1]];
    perf.outp[[irun]] <- prob.out;
-     if (!all(levels(y.test) ==levels(factor(pred@labels[[1]]))) ) {
-  auc.vec[irun] <- 1-auc.vec[irun] 
-   perf.outp[[irun]] <- 1-prob.out;
-}
-    pred.out <- factor(ifelse(prob.out > 0.5, target_group, other_group ),levels=c(target_group, other_group));
-
+ 
+ pred.out <- factor(ifelse(prob.out > 0.5, max(target_group, other_group),min(target_group, other_group) ),levels=c(target_group, other_group));
+  
   #print(c(levels(pred.out),"pred.out"))
   accu.vec[irun] <- Get.Accuracy(table(pred.out, y.test));
+
+     if (!all(levels(y.test) ==levels(factor(pred@labels[[1]]))) ) {
+  auc.vec[irun] <- 1-auc.vec[irun] 
+    perf.outp[[irun]] <- 1-prob.out;
+  accu.vec[irun] <- 1-   accu.vec[irun];
+ }
   }
- 
   #############################################################################
   ## prepare results for default plotting
   ## 1) get best model based on AUROC for prob.view and imp.feature calculation
@@ -1838,7 +1847,7 @@ PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, n
   preds <- ROCR::prediction(prob.vec, act.vec);
   auc <- mean(auc.vec);
   auc.ci <- GetCIs(as.matrix(auc.vec));
-  
+ 
   #########################################
   # if there is holdout sample, do prediction
   if(!is.null(rdtSet$dataSet$test.data)){
@@ -2150,7 +2159,7 @@ PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, 
   nms <- names(prob.vec);
   
   # get html confusion matrix
-  pred.out <- factor(ifelse(prob.vec > 0.5, target_group, other_group), levels = c(target_group, other_group));
+  pred.out <- factor(ifelse(prob.vec > 0.5,  max(target_group, other_group),min(target_group, other_group)), levels = c(target_group, other_group));
     act.cls <- factor(cls, levels = c(target_group, other_group));
   
   prob.res <- data.frame(Probability=prob.vec, Predicted=pred.out, Actual=act.cls);
@@ -2255,7 +2264,6 @@ PlotTestAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=72){
   w <- 9; h <- 7;
   
   Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
-  
   y.vec <- rdtSet$analSet$ROCtest$accu.mat[1,];
   ylim.ext <- GetExtendRange (y.vec, 12); # first increase ylim by 1/12
   boxplot(y.vec, col="#0000ff22", ylim=ylim.ext, outline=FALSE, boxwex=c(0.5, 0.5), ylab="Predictive Accuracy");
@@ -2266,7 +2274,7 @@ PlotTestAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=72){
   rdtSet$imgSet$roc.testpred <- imgName;
   
   if(!is.null(rdtSet$dataSet$test.cls)){
-    test.pred <- ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, target_group, other_group);
+    test.pred <- ifelse(rdtSet$analSet$ROCtest$test.res > 0.5, max(target_group, other_group),min(target_group, other_group));
     test.cls <- as.numeric(rdtSet$dataSet$test.cls)-1;
     
     hit <- sum(test.pred == test.cls);

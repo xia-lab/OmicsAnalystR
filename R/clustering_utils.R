@@ -592,7 +592,7 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   reductionSet$clustNmi <- SNFNMI 
    reductionSet$dataSet$clust.meta.types <- c("disc",reductionSet$dataSet$meta.types);
   names(reductionSet$dataSet$clust.meta.types)[1] <- "Cluster";
-  res.table <- data.frame(Cluster=clust,reductionSet$dataSet$meta.info);
+  res.table <- data.frame(Cluster=group,reductionSet$dataSet$meta.info);
   write.csv(res.table, "snf_clustering_results.csv");
   reductionSet$clustResTable <- res.table;
 
