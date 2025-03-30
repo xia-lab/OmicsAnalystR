@@ -23,8 +23,10 @@ my.json.scatter <- function(filenm){
     omicstype.vec <- c(omicstype.vec, dataSet$type)
     if(i == 1){
       seeds <- rownames(dataSet$sig.mat) 
+      idTypes <- dataSet$idType;
     }else{
       seeds <- c(seeds, rownames(dataSet$sig.mat))
+      idTypes <- c(idTypes, dataSet$idType);
     }
     meta <- dataSet$meta;
     sel.meta <-dataSet$sel.meta;
@@ -98,7 +100,6 @@ my.json.scatter <- function(filenm){
   cluster = reductionSet$loadingCluster
   aLoading=list();
   aLoading$objects = "NA";
-  
   names = reductionSet[[reductionOpt]]$loading.pos.xyz$label
   ids = reductionSet[[reductionOpt]]$loading.pos.xyz$ids
   rownames(loading.data) = names
@@ -118,13 +119,13 @@ my.json.scatter <- function(filenm){
     }
   }
   ids_and_omicstype = paste0(reductionSet[[reductionOpt]]$loading.pos.xyz$ids, "_", type.vec);
-  
+ 
+
   colors<- ComputeColorGradient(pvals, "black", F, F);
   colorb <- colors;
   sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 25));
   loading.nodes <- vector(mode="list"); #is node2 loading?
-  
-  
+   
   seed.inx <- names %in% unique(seeds);
   seed_arr <- rep("notSeed",length(names));
   seed_arr[seed.inx] <- "seed";
@@ -158,7 +159,7 @@ my.json.scatter <- function(filenm){
     );
   }
   
-  netData <- list(omicstype=omicstype.vec, nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=reductionSet$reductionOpt , objectsLoading=aLoading$objects, sigMat=sig.mats);
+  netData <- list(omicstype=omicstype.vec, fileNms=sel.nms,idTypes=idTypes,nodes=nodes, edges="", modules=modules, objects=a$objects, ellipse=meshes, meta=metadf,metatypes=reductionSet$dataSet$meta.types, loading=loading.nodes, reductionOpt=reductionSet$reductionOpt , objectsLoading=aLoading$objects, sigMat=sig.mats);
   
   # user can compare dimred results to single-omics PCA
   # do not include PCA

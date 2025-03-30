@@ -536,10 +536,12 @@ write.table(df, file = fileNm, sep = "\t", quote = FALSE, row.names = FALSE, col
   return(1)
 }
 
-GetNetEnrichlist <- function(netNm, mode, dataName="",enrNm=""){
+GetNetEnrichlist <- function(netNm, mode, dataName="",enrNm="",queryFrom="dr",query=""){
+   print(queryFrom)
+
    if(mode=="fileNms"){
      netFile <- RJSONIO::fromJSON(netNm)
-     netEnrTypes<<- netFile$nodeTypes
+     netEnrTypes <<- netFile$omicstype
      netEnridtypes <<- netFile$idTypes
 
     return(netFile$fileNms)
@@ -556,13 +558,57 @@ GetNetEnrichlist <- function(netNm, mode, dataName="",enrNm=""){
    }else if(mode=="idtypes"){
      return(netEnridtypes)
   }else if(mode=="data"){
-     netFile <- RJSONIO::fromJSON(netNm)
+    if(queryFrom=="corr"){
+netFile <- RJSONIO::fromJSON(netNm)
    idx = which(netFile$fileNms==dataName)
    nodes <- netFile$nodes[unlist(lapply(netFile$nodes, function(x) x$molType==netFile$nodeTypes[idx]))] 
   df = data.frame("#id" = unlist(lapply(nodes,function(x) x$featureId)), btw =  unlist(lapply(nodes,function(x) x$size)),check.names = FALSE)
+
+  }else if(queryFrom=="dr"){
+loading = qs::qread("loading.qs")[[dataName]]
+    print(head(loading))
+df = data.frame("#id" = loading$ids, loading=round(loading$Loading,4),check.names = FALSE)
+
+}
+     
   write.table(df, file = enrNm, sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
 return(1)
  }
    
+
+}
+
+
+GetDREnrichList <- function(query,tupNum){
+  rdtSet <- .get.rdt.set();
+ tupNum <- as.numeric(tupNum)
+  loading <- rdtSet[[rdtSet$reductionOpt]]$loading.pos.xyz
+  loading <- split(loading[,c(1:3,6)],loading$filenm)
+ 
+  if(query=="1"){ 
+    loading <- lapply(loading,function(x){
+       z= x[order(abs(x$Loading1),decreasing = T),c("Loading1","ids")]
+       names(z)[1] = "Loading"
+       z=z[1:(tupNum*nrow(z)/100),]
+       return(z)
+    })
+  }else if(query=="2"){
+    loading <- lapply(loading,function(x){
+      z= x[order(abs(x$Loading1),decreasing = T),c("Loading2","ids")]
+      names(z)[1] = "Loading"
+      z=z[1:(tupNum*nrow(z)/100),]
+      return(z)
+    })
+    
+  }else if(query=="3"){
+    loading <- lapply(loading,function(x){
+      z= x[order(abs(x$Loading1),decreasing = T),c("Loading3","ids")]
+      names(z)[1] = "Loading"
+      z=z[1:(tupNum*nrow(z)/100),]
+      return(z)
+    })
+  }
+
+ qs::qsave(loading,"loading.qs") 
 
 }
