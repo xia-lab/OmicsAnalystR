@@ -231,8 +231,6 @@ print(pval.type)
   both.mat$fdr.no <- -log10(both.mat$fdr.no)
   both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];  
   
-  
-
   # make plot
   if( "F" %in% colnames(rest)){
     fstat <- rest[, "F"];
@@ -281,7 +279,6 @@ print(pval.type)
   sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
   rownames(sig.mat) <- sig.mat$ids;
   dataSet$sig.mat <- sig.mat
-
   if(sig.num> 0){
     res <- 1;
     fileName <- paste0("covariate_result_",sub("^(.*)[.].*", "\\1", dataSet$name), ".csv")

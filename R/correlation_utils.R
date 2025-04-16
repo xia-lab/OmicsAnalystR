@@ -560,10 +560,10 @@ GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", f
   corr.mat.ls <- lapply(corr.mat.ls, function(x){
     x <- x[sig.idx,]
    # x$value[x$value<thresh] <-0
-    names(x) <-c("from","to","corr","pval")
+    names(x) <-c("source","target","corr","pval")
     x$weight <- abs(x$corr)
-    x$from = as.character(x$from)
-    x$to = as.character(x$to)
+    x$source = as.character(x$source)
+    x$target = as.character(x$target)
     return(x)
   })
 
@@ -571,10 +571,10 @@ corr.mat.ls <- lapply(corr.mat.ls,function(x){
    df=x
    df$type1 = type1
    df$type2 = type2
-   df$source = gsub(paste0("_",type1,"$"),"",df$from)
-   df$target = gsub(paste0("_",type2,"$"),"",df$to)
-   df$source = names(dataSetList[[1]]$enrich_ids)[match(df$source,dataSetList[[1]]$enrich_ids)]
-   df$target = names(dataSetList[[2]]$enrich_ids)[match(df$target,dataSetList[[2]]$enrich_ids)]
+   df$label1 = gsub(paste0("_",type1,"$"),"",df$source)
+   df$label2 = gsub(paste0("_",type2,"$"),"",df$target)
+   df$label1 = names(dataSetList[[1]]$enrich_ids)[match(df$label1,dataSetList[[1]]$enrich_ids)]
+   df$label2 = names(dataSetList[[2]]$enrich_ids)[match(df$label2,dataSetList[[2]]$enrich_ids)]
    df <- df[order(-df$weight,df$pval),]
    df <- df[which(df$weight>corr_thresh &df$pval < p_thresh), ] 
    if(nrow(df)>topN){
@@ -583,7 +583,11 @@ corr.mat.ls <- lapply(corr.mat.ls,function(x){
 
    return(df)
 })
-
+   
+  rm = which(lapply(corr.mat.ls,nrow)==0)
+  if(length(rm)>0){
+corr.mat.ls <- corr.mat.ls[-rm]
+  }
   reductionSet$diffList <- corr.mat.ls 
   .set.rdt.set(reductionSet);
   library(jsonlite)

@@ -39,7 +39,7 @@ PlotPercentBars <- function(dataNm,top_n=10, fileName="", dpi=72, format="png"){
   return(1)
 }
 
-PerformVarPartOverview <- function(selMeta, top_n = 500, fileName = "variance_partition_plot", dpi = 300, format = "png",color) {
+PerformVarPartOverview <- function(selectedData,selMeta, top_n = 500, fileName = "variance_partition_plot", dpi = 300, format = "png",color) {
   library(variancePartition)
   #library(limma)
   library(Cairo)
@@ -47,11 +47,10 @@ PerformVarPartOverview <- function(selMeta, top_n = 500, fileName = "variance_pa
    rdtSet <- .get.rdt.set() 
   # Ensure that normalized data and metadata are available
  
-  sel.inx <- mdata.all==1;
-  sel.nms <- names(mdata.all)[sel.inx];
-
-
-dataSet <- readDataset(sel.nms);
+#  sel.inx <- mdata.all==1;
+ # sel.nms <- names(mdata.all)[sel.inx];
+ 
+dataSet <- readDataset(selectedData);
   df =  dataSet[["data.proc"]]
  sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)  
   sanitized_names <- names(dataSet[["enrich_ids"]])[match(sanitized_names,dataSet$enrich_ids)]

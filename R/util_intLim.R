@@ -65,7 +65,8 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
   }
    dt1 = as.matrix(dataSet1$data.proc)[1:min(nrow(dataSet1$data.proc),topNum),]
    dt2 = as.matrix(dataSet2$data.proc)[1:min(nrow(dataSet2$data.proc),topNum),]
-
+rownames(dt1) <- paste0(rownames(dt1),"_",dataSet1$type)
+rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
   meta.info=reductionSet$dataSet$meta.info
   cls.type <-  reductionSet[["dataSet"]][["meta.types"]]
   idx <- which(cls.type[colnames(meta.info)]=="cont")
@@ -81,6 +82,8 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
   }else{
     continuous = T
   }
+
+
    if(outcome==1){
     inputData =list(outcome=dt1,independentArray = dt2,sampleMetaData = meta.info)  
     independent.var.type=2
@@ -96,7 +99,6 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
    return(0)
  }
  reductionSet$intLim <- list(stype=analysis.var,continuous=continuous,outcomeArray=dt1,independentArray = dt2,sampleMetaData=meta.info,myres=myres)
-  
  .set.rdt.set(reductionSet)
 return(1)
 }
@@ -543,6 +545,7 @@ ProcessResults <- function(reductionSet,inputResults,
      
     # Print and return the results.
     message(paste(nrow(finmydat), 'pairs found given cutoffs'))
+
     return(reductionSet)
   } 
 

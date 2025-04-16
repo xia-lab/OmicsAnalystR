@@ -17,12 +17,13 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     
     # Create a lookup table
     type_lookup <- setNames(type_df$type, type_df$name)
-    
+   
     corr.mat <- qs::qread(reductionSet$corr.mat.path);
     corr.p.mat<- qs::qread("corr.p.mat.qs");
     corr.p.mat <- reshape2::melt(corr.p.mat) 
     sel.dats <- reductionSet$selDatsCorr;
     rowlen <- nrow(corr.mat);
+
     g <- igraph::graph_from_adjacency_matrix(corr.mat,mode = "undirected", diag = FALSE, weighted = 'correlation')
  
    # Assign types to nodes using the lookup table

@@ -137,12 +137,20 @@ PerformKeggEnrichment <- function(file.nm, fun.type, ids){
 # ora.vec should contains entrez ids, named by their gene symbols
 PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   # prepare lib
-  
+  print(c("type",type))
   setres <- .loadEnrichLib(fun.type, data.org)
-  current.geneset <- setres$current.geneset;
+   current.geneset <- setres$current.geneset;
   current.setids <- setres$current.setids;
   current.setlink <- setres$current.setlink;
   current.universe <- unique(unlist(current.geneset));
+  ###remove the NA pathway
+  rm <- which(is.na(names(current.geneset)))
+  if(length(rm)>0){
+  current.geneset <- current.geneset[-rm]
+  current.setids <- current.setids[-rm]
+
+  }
+
 
   # prepare query
   ora.nms <- names(ora.vec);
@@ -176,22 +184,22 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   hits.query <- lapply(hits.query, function(x){unique(x)});
   names(hits.query) <- names(current.geneset);
   hit.num<-unlist(lapply(hits.query, function(x){length(x)}), use.names=FALSE);
-  
+   lib.num<-unlist(lapply(current.geneset, function(x){length(x)}), use.names=FALSE);
   # total unique gene number
   uniq.count <- length(current.universe);
   
   # unique gene count in each pathway
   set.size <- unlist(lapply(current.geneset, length));
-  
+
   res.mat[,1]<-set.size;
   res.mat[,2]<-q.size*(set.size/uniq.count);
-  res.mat[,3]<-hit.num;
+  res.mat[,3]<-paste0(hit.num,"/", lib.num);
   
   # use lower.tail = F for P(X>x)
   raw.pvals <- phyper(hit.num-1, set.size, uniq.count-set.size, q.size, lower.tail=F);
   res.mat[,4]<- raw.pvals;
   res.mat[,5] <- p.adjust(raw.pvals, "fdr");
-  
+ 
   # now, clean up result, synchronize with hit.query
   res.mat <- res.mat[hit.num>0,,drop = F];
   hits.query <- hits.query[hit.num>0];
@@ -199,7 +207,8 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   if(nrow(res.mat)> 1){
     # order by p value
     ord.inx<-order(res.mat[,4]);
-    res.mat <- signif(res.mat[ord.inx,],3);
+    res.mat <- res.mat[ord.inx,]
+  #  res.mat <- signif(res.mat[ord.inx,],3);
     hits.query <- hits.query[ord.inx];
     
     imp.inx <- res.mat[,4] <= 0.05;
@@ -221,7 +230,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   #get gene symbols
   resTable <- data.frame(Pathway=rownames(res.mat), res.mat);
   current.msg <<- "Functional enrichment analysis was completed";
-  
+  if(!grepl("pathway",file.nm )){
   # write json
   require(RJSONIO);
   fun.anot = hits.query; 
@@ -243,11 +252,10 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   sink(json.nm)
   cat(json.mat);
   sink();
-  
+ }
   # write csv
   csv.nm <- paste(file.nm, ".csv", sep="");
   fast.write.csv(resTable, file=csv.nm, row.names=F);
-   
   #record table for report
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$enrTables[[type]] <- list()
@@ -268,13 +276,22 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   my.path <- paste(lib.path, folderNm, "/", fun.type, ".rds", sep="");
   print(my.path)
   my.lib <- readRDS(my.path);
-  
+ 
   if(substr(fun.type, 0, 2)=="go"){
     if(is.null(names(my.lib))){ # some go lib does not give names
       names(my.lib) <- c("link", "term", "sets");
     }
   }
-  
+  res <- list();
+  if(fun.type=="integ"){
+   current.geneset <- my.lib
+  qs::qsave(current.geneset, "current_geneset.qs");
+ res$current.setlink <- "";
+    res$current.setids <- names(current.geneset);
+    res$current.geneset <- current.geneset;
+
+  return(res);
+  }
   current.geneset <- my.lib$sets;
   
   #remove empty pathways
@@ -285,7 +302,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   names(set.ids) <- names(current.geneset) <- my.lib$term;
   
   qs::qsave(current.geneset, "current_geneset.qs");
-  res <- list();
+
   
   if(fun.type == "keggm"){
     res$current.setlink <- "";
@@ -507,13 +524,25 @@ GetEnrichList <- function(dataNm, type,fileNm){
     return(0)
 
     }
+  print(head(dataSet[["sig.mat"]]))
+
+
    if(dataSet$idType=="name"|dataSet$idType=="symbol"){
      #all_str <- dataSet[["sig.mat"]]$label
-     df <- data.frame("#id" = dataSet[["sig.mat"]]$label, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
-
+      if("logFC" %in%  colnames(dataSet[["sig.mat"]])){
+ df <- data.frame("#id" = dataSet[["sig.mat"]]$label, logFC = dataSet[["sig.mat"]]$logFC,check.names = FALSE)
+   }else{
+df <- data.frame("#id" = dataSet[["sig.mat"]]$label, F = dataSet[["sig.mat"]]$F,check.names = FALSE)
+ 
+}
      }else{
-     df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, coef = dataSet[["sig.mat"]]$coefficient,check.names = FALSE)
-     #all_str <- dataSet[["sig.mat"]]$ids
+     
+      if("logFC" %in% colnames(dataSet[["sig.mat"]])){
+     df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, logFC = dataSet[["sig.mat"]]$logFC,check.names = FALSE)
+   }else{
+df <- data.frame("#id" = dataSet[["sig.mat"]]$ids, F = dataSet[["sig.mat"]]$F,check.names = FALSE)
+ 
+}
   } 
 
    }else if(type=="var"){
@@ -610,5 +639,178 @@ GetDREnrichList <- function(query,tupNum){
   }
 
  qs::qsave(loading,"loading.qs") 
+
+}
+
+PrepDashboardList <- function(mode,jsonnm){
+ 
+  rdtSet <- .get.rdt.set();
+  sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+  dataSetList <- lapply(sel.nms, readDataset);
+ 
+listnms = lapply(dataSetList,function(x) return(x[["readableType"]]))
+
+featls <- lapply(dataSetList, function(x) x[["sig.mat"]])
+names(featls) <- listnms
+jsonls <- list(featls=featls)
+jsonls$filenms <- lapply(dataSetList,function(x) return(x[["name"]]))
+jsonls$types <- lapply(dataSetList,function(x) return(x[["type"]]))
+jsonls$idTypes <- lapply(dataSetList,function(x) return(x[["idType"]]))
+if("logFC" %in% colnames(dataSetList[1][["sig.mat"]])){
+jsonls$mode<-"comp"
+}else{
+jsonls$mode<-"anova"
+}
+
+ jsonfile <- RJSONIO::toJSON(jsonls);
+  sink(jsonnm)
+  cat(jsonfile);
+  sink();
+return(1)
+}
+
+
+
+#############################
+##############GETTERS########
+#############################
+
+GetFeatureRownames <- function(selectedBar,mode){
+   sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+selectedBar <- as.numeric(selectedBar)+1
+dataSet <- readDataset(sel.nms[selectedBar]) 
+
+if(mode=="default"){ 
+ return(rownames(dataSet[["sig.mat"]]))
+}
+}
+
+GetFeatureIds <- function(selectedBar,mode){
+ 
+  sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+selectedBar <- as.numeric(selectedBar)+1
+
+dataSet <- readDataset(sel.nms[selectedBar])
+
+if(mode=="default"){
+ mat <- dataSet[["sig.mat"]]
+ print(head(mat$ids))
+ return(mat$ids)
+}
+}
+
+GetFeatureLabels <- function(selectedBar,mode){
+ 
+  sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+selectedBar <- as.numeric(selectedBar)+1
+
+dataSet <- readDataset(sel.nms[selectedBar])
+ 
+if(mode=="default"){
+ mat <- dataSet[["sig.mat"]] 
+ return(mat$label)
+}
+
+}
+
+
+GetFeatureColnms <- function(selectedBar,mode){
+ 
+  sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+selectedBar <- as.numeric(selectedBar)+1
+
+dataSet <- readDataset(sel.nms[selectedBar])
+ 
+if(mode=="default"){
+ mat <- dataSet[["sig.mat"]] 
+ return( setdiff(colnames(mat),c("ids","label")))
+}
+
+}
+
+GetFeatureSigMat <- function(selectedBar,mode) {
+ sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+selectedBar <- as.numeric(selectedBar)+1
+
+dataSet <- readDataset(sel.nms[selectedBar])
+ 
+if(mode=="default"){
+ mat <- dataSet[["sig.mat"]] 
+ mat <- as.matrix(mat[,setdiff(colnames(mat),c("ids","label"))])
+ return( mat)
+}
+ 
+}
+
+PerformDashEnrichment <- function(file.nm, fun.type, type, dtInx){
+  # prepare query
+  print("PerformDashEnrichment")
+print(c(fun.type, type, dtInx))
+ sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)[sel.inx];
+dtInx <- as.numeric(unlist(strsplit(dtInx,split=",")))+1
+ print(dtInx)
+dataSetList <- lapply(sel.nms[dtInx], readDataset);
+   id_type <<- "entrez";
+ ora.vec<- unique(unlist(unique(lapply(dataSetList,function(x) x[["sig.mat"]][["ids"]]))))
+  names(ora.vec) <- ora.vec;
+  print(head(ora.vec))
+  res <- PerformEnrichAnalysis(file.nm, fun.type, ora.vec, type);
+  return(res);   
+}
+
+
+GetPathRownames <- function(type){
+
+infoSet <- readSet(infoSet, "infoSet");
+ return(rownames(infoSet[["imgSet"]][["enrTables"]][[type]][["table"]]))
+
+}
+
+
+
+GetPathIds <- function(type){
+
+infoSet <- readSet(infoSet, "infoSet"); 
+
+pathIds <- infoSet$imgSet$enrTables[[type]]$table$Pathway
+return(pathIds)
+
+}
+
+
+
+GetPathHits <- function(type){
+
+infoSet <- readSet(infoSet, "infoSet"); 
+
+hits <- infoSet$imgSet$enrTables[[type]]$table$Hits
+return(hits)
+
+}
+
+
+GetPathPval <- function(type){
+
+infoSet <- readSet(infoSet, "infoSet"); 
+
+pvals <- infoSet$imgSet$enrTables[[type]]$table$P.Value
+return(round(as.numeric(pvals),4))
+
+}
+
+
+GetPathAdjPval <- function(type){
+
+infoSet <- readSet(infoSet, "infoSet"); 
+
+fdrs <- infoSet$imgSet$enrTables[[type]]$table$FDR
+return(round(as.numeric(fdrs),4))
 
 }
