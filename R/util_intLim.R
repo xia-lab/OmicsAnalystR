@@ -16,12 +16,12 @@
 
 IntLim.Anal <- function(imgName="NA", imgFormat="png",  
                          analysis.var, ref = NULL, thresh=0.05,coefThresh=1,pval_type="raw",
-                         contrast.cls = "anova",dt1,dt2,outcome=1,topNum=1000){
+                         contrast.cls = "anova",dt1,dt2,topNum=1000){
   if(!exists("mem.intlim")){
     require("memoise");
     mem.intlim <<- memoise(.perform.intLim.anal);
   }
-  result <- mem.intlim(imgName, imgFormat, analysis.var,ref, contrast.cls,dt1,dt2,outcome,topNum);
+  result <- mem.intlim(imgName, imgFormat, analysis.var,ref, contrast.cls,dt1,dt2,topNum);
   if(result==1){
    reductionSet <- .get.rdt.set();
   reductionSet <- ProcessResults(reductionSet,inputResults=reductionSet$intLim$myres,
@@ -37,7 +37,7 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
 
 .perform.intLim.anal <- function( imgName="NA", imgFormat="png",  
                          analysis.var, ref = NULL, #thresh=0.05,coefThresh=1,pval_type="raw",
-                         contrast.cls = "anova",dt1,dt2,outcome=1,topNum=1000){
+                         contrast.cls = "anova",dt1,dt2,topNum=1000){
  
   dataSet1 <- readDataset(dt1);
   dataSet2 <- readDataset(dt2);
@@ -82,15 +82,15 @@ rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
   }else{
     continuous = T
   }
+    inputData =list(outcome=dt2,independentArray = dt1,sampleMetaData = meta.info) 
 
-
-   if(outcome==1){
-    inputData =list(outcome=dt1,independentArray = dt2,sampleMetaData = meta.info)  
-    independent.var.type=2
-  }else{
-    inputData =list(outcome=dt2,independentArray = dt1,sampleMetaData = meta.info)  
-    independent.var.type=1
-  }
+  # if(outcome==1){
+ #   inputData =list(outcome=dt1,independentArray = dt2,sampleMetaData = meta.info)  
+  #  independent.var.type=2
+ # }else{
+ # inputData =list(outcome=dt2,independentArray = dt1,sampleMetaData = meta.info) 
+  #  independent.var.type=1
+  #}
   
    
   myres <- RunIntLim(inputData, stype= analysis.var,  covar=covariates.vec, 
@@ -98,7 +98,7 @@ rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
  if(!is.list(myres)){
    return(0)
  }
- reductionSet$intLim <- list(stype=analysis.var,continuous=continuous,outcomeArray=dt1,independentArray = dt2,sampleMetaData=meta.info,myres=myres)
+ reductionSet$intLim <- list(stype=analysis.var,continuous=continuous,outcomeArray=dt2,independentArray = dt1,sampleMetaData=meta.info,myres=myres)
  .set.rdt.set(reductionSet)
 return(1)
 }

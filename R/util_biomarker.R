@@ -7,7 +7,7 @@
 #'@export
 #'
 PrepareROCData <- function(sel.meta="NA",factor1,factor2){
-
+  print(c(factor1,factor2))
   rdtSet <- .get.rdt.set();
    msg.vec <<- 0;
   data.list <- list();
@@ -102,11 +102,11 @@ meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,factor2))
 if(length(which(stt<10))==2){
   
   msg.vec <<- paste0("errorLess than 10 samples in both groups ",names(stt)[1]," and ",names(stt)[2],". Please select other groups containing more than 10 samples for biomarker analysis.")
-  return;
+  return(0);
 }else if(length(which(stt<10))==1){
   
   msg.vec <<- paste0("errorLess than 10 samples in group ",names(stt)[which(stt<10)],". Please select other groups containing more than 10 samples for biomarker analysis.")
-  return;
+  return(0);
 }else if(length(which(stt<20))==2){
   msg.vec <<- paste0("warnBiomarker analysis require large sample size. Both groups selected have less than 20 samples.")
   
@@ -150,7 +150,7 @@ if(length(which(stt<10))==2){
 #'
 CalculateFeatureRanking <- function(clust.num=5){
   #save.image("calculate.RData");
-  
+  print("here")
   rdtSet <- .get.rdt.set()
   LRConverged <<- "FALSE"; 
  
@@ -238,6 +238,7 @@ CalculateFeatureRanking <- function(clust.num=5){
   if(rdtSet$analSet$mode == "univ"){
     fast.write.csv(feat.rank.mat, file="metaboanalyst_roc_univ.csv");
   }
+  print("here2")
   return(.set.rdt.set(rdtSet));  
 }
 
@@ -870,6 +871,7 @@ other_group <- levels(cls)[2]
    other_group=other_group
   )
   
+  print('here')
   return(.set.rdt.set(rdtSet))
 }
 

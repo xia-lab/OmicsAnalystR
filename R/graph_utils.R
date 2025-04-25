@@ -42,6 +42,7 @@ DecomposeGraph <- function(gObj, minNodeNum = 2, jsonBool = F){
   
   # first compute subnet stats
   net.stats <- ComputeSubnetStats(comps);
+  print(net.stats)
   ord.inx <- order(as.numeric(net.stats[,2]), decreasing=TRUE);
   net.stats <- net.stats[ord.inx,];
   comps <- comps[ord.inx];
@@ -56,8 +57,7 @@ DecomposeGraph <- function(gObj, minNodeNum = 2, jsonBool = F){
  
   # now record
   ppi.comps <<- comps;
-  net.stats <<- net.stats;
-  
+  net.stats <<- net.stats; 
   sub.stats <- unlist(lapply(comps, vcount)); 
   return(sub.stats);
 }
@@ -100,6 +100,7 @@ ComputeSubnetStats <- function(comps){
       g <- comps[[j]];
       nd.queries <- V(g)$name;
       sel.nms <- names(mdata.all)[mdata.all==1];
+     print(c(sel.nms,"sel.nms"))
       nd.res <- "";
       for( i in 1:length(sel.nms)){
            dataSet <- readDataset(sel.nms[[i]]);

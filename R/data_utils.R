@@ -326,7 +326,6 @@ DoDimensionReductionIntegrative <- function(reductionOpt, diabloMeta, diabloPar)
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_dimreduction.Rc");    
     }
     dr.res <- reduce.dimension(reductionOpt, diabloMeta, diabloPar);
-
     return(dr.res)
 }
 

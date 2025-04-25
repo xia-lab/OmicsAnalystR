@@ -645,8 +645,8 @@ GetDREnrichList <- function(query,tupNum){
 PrepDashboardList <- function(mode,jsonnm){
  
   rdtSet <- .get.rdt.set();
-  sel.inx <- mdata.all==1; 
-  sel.nms <- names(mdata.all)[sel.inx];
+ # sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)#[sel.inx];
   dataSetList <- lapply(sel.nms, readDataset);
  
 listnms = lapply(dataSetList,function(x) return(x[["readableType"]]))
