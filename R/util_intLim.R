@@ -92,9 +92,13 @@ rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
   #  independent.var.type=1
   #}
   
-   
   myres <- RunIntLim(inputData, stype= analysis.var,  covar=covariates.vec, 
                      continuous=continuous,  save.covar.pvals = F, suppressWarnings = TRUE)
+  myres$label1 <- names(dataSet1$enrich_ids)[match(gsub(paste0("_",dataSet1$type),"",rownames(myres[["interaction.pvalues"]])),dataSet1$enrich_ids)]
+  names(myres$label1) <- rownames(myres[["interaction.pvalues"]])
+  myres$label2 <- names(dataSet2$enrich_ids)[match(gsub(paste0("_",dataSet2$type),"",colnames(myres[["interaction.pvalues"]])),dataSet2$enrich_ids)]
+  names(myres$label2) <- colnames(myres[["interaction.pvalues"]])
+myres$pattern <- c(dataSet1$type,dataSet2$type)
  if(!is.list(myres)){
    return(0)
  }
@@ -489,7 +493,9 @@ ProcessResults <- function(reductionSet,inputResults,
                 interaction_coeff=finmydat.coef[,"value"],
                 rsquared =finmydat.rsq[,"value"],
                 Pval=finmydat[,"value"],
-                FDRadjPval =finmydat.adj[,"value"] 
+                FDRadjPval =finmydat.adj[,"value"],
+                label1 = unname(inputResults$label1),
+                label2 = unname(inputResults$label2)[match(as.character(finmydat[,"Var2"]),names(inputResults$label2))]
               )
       fast.write.csv(finmydat, file=paste0("IntLim_raw.csv"))
       
@@ -545,7 +551,8 @@ ProcessResults <- function(reductionSet,inputResults,
      
     # Print and return the results.
     message(paste(nrow(finmydat), 'pairs found given cutoffs'))
-
+reductionSet$intLim$pvalcutoff <-pvalcutoff
+reductionSet$intLim$rsquaredCutoff <-rsquaredCutoff
     return(reductionSet)
   } 
 
@@ -701,6 +708,59 @@ getQuantileForCoefficient <-function(tofilter, interactionCoeffPercentile){
   
   return(c(0 - abs_cutoff, abs_cutoff))
   
+}
+
+
+PrepForNetwork <- function(numToKeep,intLimOpt){
+ 
+  reductionSet <- .get.rdt.set(); 
+  sel.nms <- names(mdata.all)[mdata.all == 1];
+  cor_edge_list <-  reductionSet$intLim_sigmat[,c(1,2,3,5)]
+  names(cor_edge_list) <-c("source","target","correlation","pval")
+ if(intLimOpt=="increase"){
+    cor_edge_list <- cor_edge_list[cor_edge_list$correlation>0,]
+  }else if(intLimOpt=="decrease"){
+    cor_edge_list <- cor_edge_list[cor_edge_list$correlation<0,]
+  }
+  numToKeep <- as.numeric(numToKeep)
+  if (numToKeep > length(unique(cor_edge_list$correlation))) {
+    numToKeep <- length(unique(cor_edge_list$correlation))
+  }
+  if (nrow(cor_edge_list) >= 3) {
+    toMatch <- reductionSet$intLim$myres$pattern
+    labels <- c(reductionSet$intLim$myres$label1,reductionSet$intLim$myres$label2)
+    top.edge <- sort(abs(unique(cor_edge_list$correlation)))[c(1:numToKeep)];
+    top.inx <- match(abs(cor_edge_list$correlation), top.edge);
+    cor_edge_list <- cor_edge_list[!is.na(top.inx), ,drop=F];
+    
+    nodes <- unique(data.frame(name=c(cor_edge_list$source,cor_edge_list$target),stringsAsFactors = F))
+    pattern <- paste0("^(.*)((", paste(toMatch, collapse = "|"), "))$")
+    
+     nodes$type <- gsub(pattern, "\\2", nodes$name);
+     toMatch2 <- unlist(lapply(toMatch, function(x) paste0("_", x)));
+     pattern2 <- paste0("(", paste(toMatch2, collapse = "|"), ")$")
+     nodes$featureId <- gsub(pattern2, "", nodes$name);
+     nodes$label <- labels[match(nodes$name,names(labels))]
+     
+    new_g <- igraph::graph_from_data_frame(cor_edge_list, vertices=nodes,directed = FALSE)
+    new_g <- igraph::simplify(new_g, edge.attr.comb = "mean")
+    
+    cor_edge_list <-  reductionSet$intLim_sigmat[,c(1,2,3,5,7,8)]
+    names(cor_edge_list)[1:4] <-c("source","target","correlation","pval")
+    
+    reductionSet$corNet <- cor_edge_list;
+    write.csv(cor_edge_list,"corNet.csv",row.names=F)
+    
+    reductionSet$taxlvl <-"Feature"
+    .set.rdt.set(reductionSet);
+     
+    intres <- ProcessIntLIMGraphFile(new_g);
+    return(intres);
+  } else {
+    msg.vec <<- "Less than 3 correlations have been identified using current parameters. Failed to create correlation network";
+    .set.rdt.set(reductionSet);
+    return(0)
+  }
 }
 
 #####feature detailed table

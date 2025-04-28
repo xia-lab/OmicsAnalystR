@@ -102,18 +102,17 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
       for(i in 1:length(sel.nms)){
         type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
       }
-        
+
       cor_edge_list <- cor_edge_list %>%
           dplyr::left_join(corr.p.mat, by = c("source" = "Var1", "target" = "Var2")) %>%
            dplyr::mutate(pval = value)
       cor_edge_list$value =NULL
- 
+
       cor_edge_list$source <- gsub(paste(paste0("_",toMatch,"$"), collapse = "|"), "", cor_edge_list$source )
       cor_edge_list$target <- gsub(paste(paste0("_",toMatch,"$"), collapse = "|"), "", cor_edge_list$target )
       cor_edge_list$source <- names(reductionSet$labels)[match( cor_edge_list$source,reductionSet$labels)]
       cor_edge_list$target <- names(reductionSet$labels)[match( cor_edge_list$target,reductionSet$labels)]
-
-      reductionSet$corNet <- cor_edge_list;
+       reductionSet$corNet <- cor_edge_list;
       write.csv(corr.mat,"corNet.csv",row.names=F)
 
       reductionSet$taxlvl <-"Feature"
@@ -135,7 +134,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
       cor_edge_list_intra <- reductionSet$corr.mat.intra.taxa[[taxlvl]] 
       
     }else{
-      print("correlation2")
+ 
       sel.inx <- mdata.all==1;
       sel.nms <- names(mdata.all)[sel.inx];
       micidx <- reductionSet$micidx
@@ -226,7 +225,6 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     } else {
       cor_edge_list <- dplyr::bind_rows(cor_edge_list_inter, cor_edge_list_intra)
     }
-    
     #filter interomics only
     numToKeep <- as.numeric(numToKeep)
     if(numToKeep > length(unique(cor_edge_list$correlation)) ){

@@ -42,7 +42,6 @@ DecomposeGraph <- function(gObj, minNodeNum = 2, jsonBool = F){
   
   # first compute subnet stats
   net.stats <- ComputeSubnetStats(comps);
-  print(net.stats)
   ord.inx <- order(as.numeric(net.stats[,2]), decreasing=TRUE);
   net.stats <- net.stats[ord.inx,];
   comps <- comps[ord.inx];
@@ -100,7 +99,6 @@ ComputeSubnetStats <- function(comps){
       g <- comps[[j]];
       nd.queries <- V(g)$name;
       sel.nms <- names(mdata.all)[mdata.all==1];
-     print(c(sel.nms,"sel.nms"))
       nd.res <- "";
       for( i in 1:length(sel.nms)){
            dataSet <- readDataset(sel.nms[[i]]);
@@ -478,7 +476,7 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
   node.data = data.frame(nms, lbls);
   graph = set_vertex_attr(graph, "label", value=lbls)
   seed.proteins <<- nms;
-  
+    print(head( node.data))
   if(!is.null(typeList) && is.null(V(graph)$type)){
     typeVec <- rep("NA", length(nms))
     inx.list <- list();
@@ -491,7 +489,49 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
     graph = set_vertex_attr(graph, "type", value=typeVec)
   }
   
+  seed.genes <<- seed.proteins;
+  e=get.edgelist(graph)
+  edge.data= data.frame(Source=e[,1], Target=e[,2])
+  print(head( edge.data))
+  seed.expr <<- rep(0, length(node.data));
+  substats <- DecomposeGraph(graph);
   
+  if(is.null(substats)){
+    msg.vec <<- "No subnetworks containing at least 3 edges are identified"
+    return(0);
+  }
+  
+  net.nm <- names(ppi.comps)[1];
+  net.nmu <<- net.nm;
+  current.net.nm <<- net.nm;
+  #ppi.comps[["overall"]] <- graph
+  ppi.comps <<- ppi.comps
+  g <- ppi.comps[[net.nm]];
+  ppi.net <<- list(db.type="abc",
+                   db.type="ppi", 
+                   order=1, 
+                   seeds=nms, 
+                   table.nm=" ", 
+                   node.data = node.data,
+                   edge.data = edge.data
+  );
+  data.idType <<- "NA"; 
+  if(generateJson){
+    convertIgraph2JSON(current.net.nm , "omicsanalyst_net_0.json");
+  }
+  return(1);
+}
+
+
+
+ProcessIntLIMGraphFile <- function(graph=new_g,  generateJson = F){  
+  library(igraph)
+  overall.graph <<- graph
+  nms <- V(graph)$name; 
+  lbls <- V(graph)$label
+  node.data = data.frame(nms, lbls); 
+  seed.proteins <<- nms;
+    
   seed.genes <<- seed.proteins;
   e=get.edgelist(graph)
   edge.data= data.frame(Source=e[,1], Target=e[,2])
