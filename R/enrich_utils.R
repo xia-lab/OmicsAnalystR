@@ -159,7 +159,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   set.size<-length(current.geneset);
   res.mat<-matrix(0, nrow=set.size, ncol=5);
   rownames(res.mat)<-names(current.geneset);
-  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
+  colnames(res.mat)<-c("Total", "Expected", "Hits", "Pval", "FDR");
   
   # need to cut to the universe covered by the pathways, not all genes 
   if(tolower(fun.type) %in% c("chea", "jaspar", "encode", "mir")){ 
@@ -234,9 +234,9 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   # write json
   require(RJSONIO);
   fun.anot = hits.query; 
-  fun.padj = resTable[,6]; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
-  fun.pval = resTable[,5]; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
-  hit.num = resTable[,4]; if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
+  fun.padj = resTable$FDR; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
+  fun.pval = resTable$Pval; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
+  hit.num = paste0(resTable$Hits,"/",resTable$Total); if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
   fun.ids <- as.vector(current.setids[current.setids %in% names(fun.anot)]);
   if(length(fun.ids) ==1) { fun.ids <- matrix(fun.ids) };
   json.res <- list(
@@ -350,7 +350,7 @@ PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
   set.size<-length(current.geneset);
   res.mat<-matrix(0, nrow=set.size, ncol=5);
   rownames(res.mat)<-names(current.geneset);
-  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
+  colnames(res.mat)<-c("Total", "Expected", "Hits", "Pval", "FDR");
   
   # need to cut to the universe covered by the pathways, not all genes 
   
@@ -439,9 +439,9 @@ SaveSingleOmicsEnr <- function(file.nm,res.mat){
   require(RJSONIO);
   hi= hits.query
   fun.anot = hi; 
-  fun.padj = resTable[,6]; if(length(fun.padj) ==1) { fun.pval <- matrix(fun.padj)};
-  fun.pval = resTable[,5]; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval)};
-  hit.num = resTable[,4]; if(length(hit.num) ==1) { hit.num <- matrix(hit.num)};
+  fun.padj = resTable$FDR; if(length(fun.padj) ==1) { fun.pval <- matrix(fun.padj)};
+  fun.pval = resTable$Pval; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval)};
+  hit.num = paste0(resTable$Hits,"/",resTable$Total); if(length(hit.num) ==1) { hit.num <- matrix(hit.num)};
   fun.ids <- as.vector(current.setids[names(fun.anot)]);
   if(length(fun.ids) ==1) {fun.ids <- matrix(fun.ids)};
   
