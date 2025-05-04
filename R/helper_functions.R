@@ -5,6 +5,52 @@
 ##############################################
 ##############################################
 
+
+GetNodeMat <- function(){
+  #reductionSet <- .get.rdt.set();
+
+  #if(is.null(reductionSet$imgSet$node_table)){
+    df <- .readDataTable('node_table.csv')
+    df[,-c(1:2)] <- lapply(df[,-c(1:2)], function(col) as.numeric(as.character(col)))
+    #reductionSet$imgSet$node_table <<- df;
+  #}
+  return(as.matrix(df[,-c(1:2)]))  # ensure matrix of numerics
+}
+
+GetNodeRowNames <- function(){
+  #reductionSet <- .get.rdt.set();
+
+  #if(is.null(reductionSet$imgSet$node_table)){
+  df <- .readDataTable('node_table.csv')
+    #reductionSet$imgSet$node_table <<- df;
+
+  #}
+  df$Id;
+}
+
+GetNodeGeneSymbols <- function(){
+  #reductionSet <- .get.rdt.set();
+
+  #if(is.null(reductionSet$imgSet$node_table)){
+  df <- .readDataTable('node_table.csv')
+    #reductionSet$imgSet$node_table <<- df;
+
+  #}
+  df$Label;
+}
+
+GetNodeColNames <- function(){
+  #reductionSet <- .get.rdt.set();
+
+  #if(is.null(reductionSet$imgSet$node_table)){
+  df <- .readDataTable('node_table.csv')
+    #reductionSet$imgSet$node_table <<- df;
+
+  #}
+  return(colnames(df[,-c(1:2)]));
+
+}
+
 GetCovSigFileName <-function(dataName){
   dataSet <- readDataset(dataName);
   dataSet$analSet$cov$sig.nm;
@@ -169,6 +215,8 @@ CheckDetailsTablePerformed <-function(type, dataName){
     performed <- !is.null(reductionSet[[reductOpt]]$loading.pos.xyz);
   }else if(startsWith(type, "OmicsData #")){
     performed <- !is.null(dataSet$analSet$cov$sig.mat);
+  }else if(type == "node"){
+    performed <- file.exists("node_table.csv");
   }
 
   print(paste("checkPerformed=", type, "====",performed));

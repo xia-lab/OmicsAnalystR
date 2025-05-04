@@ -594,7 +594,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient, imgName="", dpi=96, imgFormat="png", interactive=F){
+PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient="", imgName="", dpi=96, imgFormat="png", interactive=F){
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
