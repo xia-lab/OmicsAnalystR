@@ -257,9 +257,11 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
  
   reductionSet <- .get.rdt.set();
-   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-  df <- reshape2::melt(df)
- 
+  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+  #df <- reshape2::melt(df) # reshape deprecated, use data.table
+  library(data.table);
+  df <- as.data.frame(melt(as.data.table(df))); 
+
   colnames(df) <- c("Component", "Dataset", "value")
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
