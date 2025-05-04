@@ -106,7 +106,7 @@ print(pval.type)
     } else {
       myargs <- as.list(paste(contrast.cls, "-", ref, sep = ""));
     }
-   
+ 
     myargs[["levels"]] <- design;
 
     contrast.matrix <- do.call(makeContrasts, myargs);
@@ -151,7 +151,7 @@ print(pval.type)
     })
  
     rest <- limma::topTable(fit, number = Inf);
- 
+    print(head(rest))
     ### get results with no adjustment
     design <- model.matrix(formula(paste0("~ 0", paste0(" + ", analysis.var, collapse = ""))), data = covariates);
     colnames(design)[1:length(grp.nms)] <- grp.nms;
@@ -231,8 +231,6 @@ print(pval.type)
   both.mat$fdr.no <- -log10(both.mat$fdr.no)
   both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];  
   
-  
-
   # make plot
   if( "F" %in% colnames(rest)){
     fstat <- rest[, "F"];
@@ -243,7 +241,9 @@ print(pval.type)
   p.value <- rest[,"P.Value"];
   ord.inx <- order(rest[,"P.Value"], decreasing = FALSE);
   rest <- rest[ord.inx,,drop=F];
-  colnames(rest)[1] <- "coefficient"; 
+   if(analysis.type != "disc"){
+    colnames(rest)[1] <- "coefficient"; 
+  }
   rest$ids <- rownames(rest);
 
 
@@ -279,7 +279,6 @@ print(pval.type)
   sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
   rownames(sig.mat) <- sig.mat$ids;
   dataSet$sig.mat <- sig.mat
-
   if(sig.num> 0){
     res <- 1;
     fileName <- paste0("covariate_result_",sub("^(.*)[.].*", "\\1", dataSet$name), ".csv")

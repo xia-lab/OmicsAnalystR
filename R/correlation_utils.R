@@ -274,7 +274,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
   return(1);
 }
 
-PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
+PlotCorrViolin <- function(imgNm, dpi=72, format="png",corNetOpt){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
@@ -282,6 +282,48 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
   library(scales)
   
   reductionSet <- .get.rdt.set();
+
+ if(corNetOpt=="intLim"){
+  df_res <- reductionSet$intLim_filtres[,c(1,2,3,5)]
+
+  colnames(df_res) <- c("source", "target","correlation","pval");
+  df_res<-df_res[df_res$pval<reductionSet$intLim$pvalcutoff,]
+  df_res$type <-  "Between-omics coefficient";
+  threshold1 <- min(reductionSet$intLim_sigmat$interaction_coeff[reductionSet$intLim_sigmat$interaction_coeff>0])
+  threshold2 <- max(reductionSet$intLim_sigmat$interaction_coeff[reductionSet$intLim_sigmat$interaction_coeff<0])
+  sig.pos <- oob_censor(df_res$correlation, c(threshold1, max(df_res$correlation)))
+  sig.neg <- oob_censor(df_res$correlation, c(min(df_res$correlation), threshold2))
+  sig.pos.num <- length(na.omit(sig.pos))
+  sig.neg.num <- length(na.omit(sig.neg))
+   fig.list<-list()
+  fig.list[[1]] <- ggplot2::ggplot(df_res, aes(x = type, y = correlation, fill = type)) +
+    geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) + 
+    labs(x = "Between-omics coefficient") +labs(y=paste0("coefficient (p-value <",reductionSet$intLim$pvalcutoff,")"))+
+    geom_jitter(height = 0, width = 0.05, alpha=0,show.legend = FALSE) +
+    theme(legend.position = "none") +     scale_x_discrete(labels = NULL) +
+    scale_y_continuous(limits = c(min(df_res$correlation), max(df_res$correlation))) +
+    geom_hline(yintercept = threshold1, linetype = "dashed", color = "red", size = 0.5) +
+    annotate("text", x =0.5, y = threshold1, label = sig.pos.num, vjust = -1) +
+    geom_hline(yintercept = threshold2, linetype = "dashed", color = "red", size = 0.5) +
+    annotate("text", x =0.5, y = threshold2, label = sig.neg.num, vjust = 1.5) +
+    theme_bw()+
+    theme(text=element_text(size=13), plot.title = element_text(size = 11, hjust=0.5), panel.grid.minor = element_blank(), panel.grid.major = element_blank())
+  fig.list[[2]] <- ggplot() + theme_void()
+  load_cairo();
+  library(ggpubr)
+  Cairo(file=imgNm, width=10, height=8, unit="in", type="png", bg="white", dpi=dpi);
+  p1 <- ggarrange(plotlist=fig.list, ncol = 2)
+  print(p1)
+  dev.off();
+  
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$correlation_distribution <- imgNm;
+  saveSet(infoSet);
+  return(1);
+}
+
+
+
   graphs <- qs::qread(reductionSet$corr.graph.path);
 
   
@@ -312,8 +354,7 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png"){
       geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) + 
       labs(x = titleText) +
       geom_jitter(height = 0, width = 0.05, alpha=0,show.legend = FALSE) +
-      theme(legend.position = "none") +  #xlab(dataSet$analysisVar) +
-      #stat_summary(fun=mean, colour="yellow", geom="point", shape=18, size=3, show.legend = FALSE) +
+      theme(legend.position = "none") + 
       scale_x_discrete(labels = NULL) +
       scale_y_continuous(limits = c(-1, 1)) +
       geom_hline(yintercept = threshold, linetype = "dashed", color = "red", size = 0.5) +
@@ -560,10 +601,10 @@ GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", f
   corr.mat.ls <- lapply(corr.mat.ls, function(x){
     x <- x[sig.idx,]
    # x$value[x$value<thresh] <-0
-    names(x) <-c("from","to","corr","pval")
+    names(x) <-c("source","target","corr","pval")
     x$weight <- abs(x$corr)
-    x$from = as.character(x$from)
-    x$to = as.character(x$to)
+    x$source = as.character(x$source)
+    x$target = as.character(x$target)
     return(x)
   })
 
@@ -571,10 +612,10 @@ corr.mat.ls <- lapply(corr.mat.ls,function(x){
    df=x
    df$type1 = type1
    df$type2 = type2
-   df$source = gsub(paste0("_",type1,"$"),"",df$from)
-   df$target = gsub(paste0("_",type2,"$"),"",df$to)
-   df$source = names(dataSetList[[1]]$enrich_ids)[match(df$source,dataSetList[[1]]$enrich_ids)]
-   df$target = names(dataSetList[[2]]$enrich_ids)[match(df$target,dataSetList[[2]]$enrich_ids)]
+   df$label1 = gsub(paste0("_",type1,"$"),"",df$source)
+   df$label2 = gsub(paste0("_",type2,"$"),"",df$target)
+   df$label1 = names(dataSetList[[1]]$enrich_ids)[match(df$label1,dataSetList[[1]]$enrich_ids)]
+   df$label2 = names(dataSetList[[2]]$enrich_ids)[match(df$label2,dataSetList[[2]]$enrich_ids)]
    df <- df[order(-df$weight,df$pval),]
    df <- df[which(df$weight>corr_thresh &df$pval < p_thresh), ] 
    if(nrow(df)>topN){
@@ -583,7 +624,11 @@ corr.mat.ls <- lapply(corr.mat.ls,function(x){
 
    return(df)
 })
-
+   
+  rm = which(lapply(corr.mat.ls,nrow)==0)
+  if(length(rm)>0){
+corr.mat.ls <- corr.mat.ls[-rm]
+  }
   reductionSet$diffList <- corr.mat.ls 
   .set.rdt.set(reductionSet);
   library(jsonlite)

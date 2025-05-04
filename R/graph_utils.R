@@ -56,8 +56,7 @@ DecomposeGraph <- function(gObj, minNodeNum = 2, jsonBool = F){
  
   # now record
   ppi.comps <<- comps;
-  net.stats <<- net.stats;
-  
+  net.stats <<- net.stats; 
   sub.stats <- unlist(lapply(comps, vcount)); 
   return(sub.stats);
 }
@@ -485,7 +484,7 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
   node.data = data.frame(nms, lbls);
   graph = set_vertex_attr(graph, "label", value=lbls)
   seed.proteins <<- nms;
-  
+    print(head( node.data))
   if(!is.null(typeList) && is.null(V(graph)$type)){
     typeVec <- rep("NA", length(nms))
     inx.list <- list();
@@ -498,7 +497,49 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
     graph = set_vertex_attr(graph, "type", value=typeVec)
   }
   
+  seed.genes <<- seed.proteins;
+  e=get.edgelist(graph)
+  edge.data= data.frame(Source=e[,1], Target=e[,2])
+  print(head( edge.data))
+  seed.expr <<- rep(0, length(node.data));
+  substats <- DecomposeGraph(graph);
   
+  if(is.null(substats)){
+    msg.vec <<- "No subnetworks containing at least 3 edges are identified"
+    return(0);
+  }
+  
+  net.nm <- names(ppi.comps)[1];
+  net.nmu <<- net.nm;
+  current.net.nm <<- net.nm;
+  #ppi.comps[["overall"]] <- graph
+  ppi.comps <<- ppi.comps
+  g <- ppi.comps[[net.nm]];
+  ppi.net <<- list(db.type="abc",
+                   db.type="ppi", 
+                   order=1, 
+                   seeds=nms, 
+                   table.nm=" ", 
+                   node.data = node.data,
+                   edge.data = edge.data
+  );
+  data.idType <<- "NA"; 
+  if(generateJson){
+    convertIgraph2JSON(current.net.nm , "omicsanalyst_net_0.json");
+  }
+  return(1);
+}
+
+
+
+ProcessIntLIMGraphFile <- function(graph=new_g,  generateJson = F){  
+  library(igraph)
+  overall.graph <<- graph
+  nms <- V(graph)$name; 
+  lbls <- V(graph)$label
+  node.data = data.frame(nms, lbls); 
+  seed.proteins <<- nms;
+    
   seed.genes <<- seed.proteins;
   e=get.edgelist(graph)
   edge.data= data.frame(Source=e[,1], Target=e[,2])

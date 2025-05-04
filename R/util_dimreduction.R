@@ -30,6 +30,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       featureNms <- rownames(dataSet$data.proc);
       omics.vec <- rep(dataSet$type, nrow(dataSet$data.proc));
       uniqFeats <- paste0(rownames(dataSet$data.proc),"_", dataSet$type)
+      filenms <- sel.nms[i]
     } else {
       comp.res1 = rbind(comp.res1, dataSet$comp.res)
       enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
@@ -37,6 +38,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       featureNms <- c(featureNms, rownames(dataSet$data.proc));
       omics.vec <- c(omics.vec,rep(dataSet$type, nrow(dataSet$data.proc)));
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
+      filenms <- c(filenms,sel.nms[i])
     }
   }
   reductionSet <- .get.rdt.set();
@@ -48,6 +50,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet$reductionOpt <- reductionOpt;
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
+  reductionSet$filenms <- filenms;
 
   if(reductionOpt == "mcia") {
     
@@ -201,7 +204,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
-
+  loading.pos.xyz$filenm <-   filenms
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
 
@@ -253,9 +256,11 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
  
   reductionSet <- .get.rdt.set();
-   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-  df <- reshape2::melt(df)
- 
+  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+  #df <- reshape2::melt(df) # reshape deprecated, use data.table
+  library(data.table);
+  df <- as.data.frame(melt(as.data.table(df))); 
+
   colnames(df) <- c("Component", "Dataset", "value")
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
