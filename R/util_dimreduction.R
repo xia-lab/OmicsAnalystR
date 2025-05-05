@@ -293,7 +293,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  save.image("factorsDimRed.RData");
+  #save.image("factorsDimRed.RData");
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();
