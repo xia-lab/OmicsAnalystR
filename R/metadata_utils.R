@@ -34,6 +34,11 @@ GetMetaDims <- function(){
 GetUniqueMetaNames <-function(metadata){
   rdtSet <- .get.rdt.set();
   data.type <- rdtSet$dataSet[["meta.types"]][metadata];
+
+  if(is.null(data.type)){
+    data.type <- "disc";
+  }
+
   if(data.type == "cont"){
     return("--- NA ---");
   } else {
@@ -589,7 +594,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient, imgName="", dpi=96, imgFormat="png", interactive=F){
+PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient="", imgName="", dpi=96, imgFormat="png", interactive=F){
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();

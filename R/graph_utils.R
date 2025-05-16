@@ -447,6 +447,14 @@ GetShortestPaths <- function(from, to){
   return(all.paths);
 }
 
+CheckNetStatsExist <- function(){
+    if(exists('net.stats')){
+        return(1);
+    }else{
+        return(0);
+    }
+}
+
 GetNetsName <- function(){
   rownames(net.stats);
 }

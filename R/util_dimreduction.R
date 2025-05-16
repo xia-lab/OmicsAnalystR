@@ -250,7 +250,6 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
 }
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   library(see)
@@ -262,9 +261,16 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
  
   reductionSet <- .get.rdt.set();
-   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-  df <- reshape2::melt(df)
- 
+  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+
+  # reshape deprecated, use data.table
+  #df <- reshape2::melt(df) 
+
+  library(data.table);
+  df <- as.data.frame(df)
+  df$myID <- rownames(df);
+  df <- as.data.frame(melt(as.data.table(df), "myID")); 
+
   colnames(df) <- c("Component", "Dataset", "value")
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
@@ -292,7 +298,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  save.image("factorsDimRed.RData");
+  #save.image("factorsDimRed.RData");
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();
