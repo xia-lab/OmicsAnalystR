@@ -25,7 +25,7 @@ print(pval.type)
   dataSet <- readDataset(dataName);
  
   rdtSet <- .get.rdt.set();
-  msg.lm <- ""
+   msg.lm <- ""
   # load libraries
   library(limma)
   library(dplyr)
@@ -149,7 +149,7 @@ print(pval.type)
     }, warning=function(w){
       msg.lm <- c(msg.lm,w)
     })
- 
+
     rest <- limma::topTable(fit, number = Inf);
     print(head(rest))
     ### get results with no adjustment

@@ -67,7 +67,7 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
       uniqFeats <- c(uniqFeats,  names(dataSet$enrich_ids)[match(rownames(dataSet$data.proc),dataSet$enrich_ids)])
     }
   }
-   
+      print("here-3")
   # Convert vectors to data frames if necessary
   for (i in seq_along(data.list)) {
     if (is.vector(data.list[[i]])) {
@@ -97,6 +97,7 @@ meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,"Others")
 meta.info[[sel.meta]] <- factor(meta.info[[sel.meta]],levels=c(factor1,factor2))
 
 }
+   print("here-2")
    stt <- table(meta.info[[sel.meta]])
  
 if(length(which(stt<10))==2){
@@ -114,7 +115,7 @@ if(length(which(stt<10))==2){
   msg.vec <<- paste0("warnBiomarker analysis require large sample size. ","Group ", names(stt)[which(stt<20)]," has less than 20 samples.")
   
 }
- 
+   print("here-1")
   # Check if there are new samples to update `norm`
   new.inx <- is.na(rdtSet$dataSet$cls.all) | rdtSet$dataSet$cls.all == "";
   if(sum(new.inx) > 0){
@@ -132,7 +133,7 @@ if(length(which(stt<10))==2){
     rdtSet$dataSet$omics.vec <- omics.vec
     rdtSet$dataSet$uniqFeats <- uniqFeats
   }
-  
+  print("here")
   return(.set.rdt.set(rdtSet));
 }
 
@@ -2672,7 +2673,7 @@ return(.set.rdt.set(rdtSet));
 
 ####getter functions 
 GetRocValues <- function(){
-    rdtSet <- .get.rdt.set();
+    rdtSet <- .get.rdt.set(); 
     return(as.matrix(rdtSet$analSet$roc.mat))
 
 }

@@ -9,11 +9,11 @@
 DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3) {
  sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
-if(!exists("mem.featSelectionForCorr")){
-    require("memoise");
-    mem.featSelectionForCorr <<- memoise(.do.feat.selectionForCorr);
-  }
-  return(mem.featSelectionForCorr(type,retainedNumber,retainedComp,sel.nms));
+#if(!exists("mem.featSelectionForCorr")){
+ #   require("memoise");
+  #  mem.featSelectionForCorr <<- memoise(.do.feat.selectionForCorr);
+ # }
+  return(.do.feat.selectionForCorr(type,retainedNumber,retainedComp,sel.nms));
  
 }
 
@@ -23,14 +23,12 @@ if(!exists("mem.featSelectionForCorr")){
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
-  
-
-  if(type %in% c("default","custom")){
+ 
+  if(type %in% c("default","custom","var")){
     for(i in 1:length(sel.nms)){
  
       dataName = sel.nms[i];
       dataSet <- readDataset(dataName);
-      
       if(i==1){
         all.mat <- dataSet$data.proc
       }else{
@@ -39,6 +37,9 @@ if(!exists("mem.featSelectionForCorr")){
       
       if(type == "default"){
         sig.mat <- dataSet$sig.mat
+      }else if(type == "var"){
+        sig.mat <- dataSet$varPar$varPart.df[1:dataSet$varPar$topNum,];
+        rownames(sig.mat) <-  sig.mat$ID
       }else{
         sig.mat <- dataSet$custom.sig.mat
       }
@@ -87,10 +88,10 @@ if(!exists("mem.featSelectionForCorr")){
   }else{
     sel.dats <- list();
     reductionSet$corr.axis.nms <- list();
+    print(sel.nms)
     for(i in 1:length(sel.nms)){
       dataName = sel.nms[i]
       dataSet <- readDataset(dataName);
-
       inx = which(reductionSet[[type]]$loading.pos.xyz$ids %in% rownames(dataSet$data.proc));
       loading.df <- reductionSet[[type]]$loading.pos.xyz[inx, ]
       
@@ -115,18 +116,29 @@ if(!exists("mem.featSelectionForCorr")){
           toKeep <- c(toKeep, names(loading)[c(1:numToKeep)])
         }
       }
-      
-      library(stringr)
+       library(stringr)
       
       # Check if all elements start with "X"
       all_start_with_x <- all(str_detect(toKeep, "^X"))
       if(all_start_with_x){
         toKeep <- substring(toKeep, 2, nchar(toKeep))
       }
-      
+      print(type)
       dat <- dataSet$data.proc
+    if(type=="mofa"){
+     rownames(dat) <- paste0(rownames(dat),"_",dataSet$type)
+       toKeep<- gsub(pates0())
+        dat <- dat[rownames(dat) %in% toKeep, ]
+      }else if(type=="mcia"){
+
+      toKeep <- gusb(paste0(rownames(dat),".",dataSet$type),"",toKeep)
       dat <- dat[rownames(dat) %in% toKeep, ]
       rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
+    }else{
+      dat <- dat[rownames(dat) %in% toKeep, ]
+      rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
+    }
+     
       sel.dats[[i]] <- dat
     }
    
@@ -135,7 +147,7 @@ if(!exists("mem.featSelectionForCorr")){
   names(sel.dats) = sel.nms
   reductionSet$selDatsCorr <- sel.dats;
   reductionSet$feat.sel.type <- type;
-  .set.rdt.set(reductionSet);
+   .set.rdt.set(reductionSet);
   return(1)
 }
 
@@ -208,7 +220,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
 
   if(cor.method == "univariate"){
     
-    corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
+   # corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
     if(exists("selDatsCorr.taxa",reductionSet)){
       corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
         cor(cbind(t(x), t(sel.dats[[residx]])), method=cor.stat)
@@ -218,7 +230,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
     }
 
   library(Hmisc)
- 
+   
     res = rcorr(as.matrix(cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))),type = cor.stat);
    corr.mat <- res$r
    corr.p.mat <- res$P
@@ -287,10 +299,10 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png",corNetOpt){
   df_res <- reductionSet$intLim_filtres[,c(1,2,3,5)]
 
   colnames(df_res) <- c("source", "target","correlation","pval");
-  df_res<-df_res[df_res$pval<reductionSet$intLim$pvalcutoff,]
+  df_res <- df_res[rownames(df_res) %in% rownames(reductionSet$intLim_sigmat),]
   df_res$type <-  "Between-omics coefficient";
-  threshold1 <- min(reductionSet$intLim_sigmat$interaction_coeff[reductionSet$intLim_sigmat$interaction_coeff>0])
-  threshold2 <- max(reductionSet$intLim_sigmat$interaction_coeff[reductionSet$intLim_sigmat$interaction_coeff<0])
+  threshold1 <- min( df_res$correlation[df_res$correlation>0])
+  threshold2 <- max( df_res$correlation[ df_res$correlation<0])
   sig.pos <- oob_censor(df_res$correlation, c(threshold1, max(df_res$correlation)))
   sig.neg <- oob_censor(df_res$correlation, c(min(df_res$correlation), threshold2))
   sig.pos.num <- length(na.omit(sig.pos))
@@ -571,8 +583,7 @@ if(!exists("mem.omicsDiffCorr")){
     }
     
   }
-
-  reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
+ reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
   qs::qsave(corr.mat.ls, "diffnet.mat.qs");
   .set.rdt.set(reductionSet);
   return(1);
@@ -587,7 +598,6 @@ GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", f
   type1 <- dataSetList[[1]][["type"]]
   type2 <- dataSetList[[2]][["type"]]
   corr.mat.ls <- qs::qread("diffnet.mat.qs");
- 
   corr.mat.ls <- lapply(corr.mat.ls, function(x){
     corr.mat<-reshape2::melt(x$r)
     p.mat<-reshape2::melt(x$P)
@@ -811,8 +821,21 @@ GetCorrNetSymbols1 <- function() {
 }
 
 GetCorrNetSymbols2 <- function() {
-  rdtSet <- .get.rdt.set()
+  rdtSet <- .get.rdt.set() 
+
   symbols <- rdtSet$corNet[,"target"]
+  return(symbols)
+}
+
+GetCorrNetLabel1 <- function() {
+  rdtSet <- .get.rdt.set() 
+  symbols <- rdtSet$corNet[,"label1"]
+  return(symbols)
+}
+
+GetCorrNetLabel2 <- function() {
+  rdtSet <- .get.rdt.set()
+  symbols <- rdtSet$corNet[,"label2"]
   return(symbols)
 }
 
@@ -822,7 +845,7 @@ GetCorrNetColNames <- function() {
     stop("correlation result table not found.")
   }
   
-  corNet_colnames <- setdiff(colnames(rdtSet$corNet),c("source","target")) # Exclude the symbol column
+  corNet_colnames <- setdiff(colnames(rdtSet$corNet),c("source","target","label1","label2")) # Exclude the symbol column
   
   return(corNet_colnames)
 }
@@ -845,7 +868,7 @@ GetCorrNetMat <- function() {
     stop("correlation result table not found.")
   }
   
-  corNet_matrix <- as.matrix(subset(rdtSet$corNet, select = -c(source,target))) # Removing the symbol column
+  corNet_matrix <- as.matrix(subset(rdtSet$corNet, select = -c(source,target,label1,label2))) # Removing the symbol column
   #print(head( corNet_matrix ))
   return(corNet_matrix)
 }
@@ -912,10 +935,26 @@ GetDiffNetSymbols1 <- function(group) {
 }
 
 GetDiffNetSymbols2 <- function(group) {
-  rdtSet <- .get.rdt.set()
+  rdtSet <- .get.rdt.set() 
   diffnet <- rdtSet$diffList[[group]]
   return(diffnet$target)
 }
+
+
+
+GetDiffNetLabel1 <- function(group) {
+   rdtSet <- .get.rdt.set()
+  diffnet <- rdtSet$diffList[[group]]
+  return(diffnet$label1)
+}
+
+GetDiffNetLabel2 <- function(group) {
+  rdtSet <- .get.rdt.set() 
+  diffnet <- rdtSet$diffList[[group]]
+  return(diffnet$label2)
+}
+
+
 
 GetDiffNetColNames <- function(group) {
   rdtSet <- .get.rdt.set() 

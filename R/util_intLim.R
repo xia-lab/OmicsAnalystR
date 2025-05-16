@@ -17,11 +17,11 @@
 IntLim.Anal <- function(imgName="NA", imgFormat="png",  
                          analysis.var, ref = NULL, thresh=0.05,coefThresh=1,pval_type="raw",
                          contrast.cls = "anova",dt1,dt2,topNum=1000){
-  if(!exists("mem.intlim")){
-    require("memoise");
-    mem.intlim <<- memoise(.perform.intLim.anal);
-  }
-  result <- mem.intlim(imgName, imgFormat, analysis.var,ref, contrast.cls,dt1,dt2,topNum);
+  #if(!exists("mem.intlim")){
+   # require("memoise");
+    #mem.intlim <<- memoise(.perform.intLim.anal);
+  #}
+  result <- .perform.intLim.anal(imgName, imgFormat, analysis.var,ref, contrast.cls,dt1,dt2,topNum);
   if(result==1){
    reductionSet <- .get.rdt.set();
   reductionSet <- ProcessResults(reductionSet,inputResults=reductionSet$intLim$myres,
@@ -95,7 +95,7 @@ rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
  # inputData =list(outcome=dt2,independentArray = dt1,sampleMetaData = meta.info) 
   #  independent.var.type=1
   #}
-  
+  print(covariates.vec)
   myres <- RunIntLim(inputData, stype= analysis.var,  covar=covariates.vec, 
                      continuous=continuous,  save.covar.pvals = F, suppressWarnings = TRUE)
   myres$label1 <- names(dataSet1$enrich_ids)[match(gsub(paste0("_",dataSet1$type),"",rownames(myres[["interaction.pvalues"]])),dataSet1$enrich_ids)]
@@ -161,21 +161,20 @@ RunLM <- function(inputData,type, covar=c(),
     colnames(sampleMetaData) <- adjNames$sampleDataColnames
     
     # Convert covariates to matrix. Ensure that matrix is one-hot encoded.
-    f <- paste('~ 0 + ', paste(covar, collapse = ' + '))
+    f <- paste('~ ', paste(covar, collapse = ' + '))
     dat <-  sampleMetaData[,covar,drop=F]
    
     covarMatrix <- stats::model.matrix(stats::as.formula(f), data = dat)
-    covar <- colnames(covarMatrix)
-    
+    covar <- colnames(covarMatrix) 
     # Since names will be changed now, we need to remove plus signs again. For example,
     # if we have a variable 'treatment' that has values 'med1', 'med2', and 'med1+med2',
     # the column names will now include 'treatmentmed1' and 'treatmentmed1+med2'.
     adjNames <- RemovePlusInCovars(covar, colnames(covarMatrix))
     covar <- adjNames$covar
     colnames(covarMatrix) <- adjNames$sampleDataColnames
+
   }
-  
-  # Find all standard deviations.
+   # Find all standard deviations.
   type1sd <- as.numeric(apply(type1,1,function(x){stats::sd(as.numeric(x),na.rm=TRUE)}))
   type2sd <- as.numeric(apply(type2,1,function(x){stats::sd(as.numeric(x),na.rm=TRUE)}))
   covarsd <- as.numeric(apply(covarMatrix,2,function(x){
@@ -221,9 +220,8 @@ RunLM <- function(inputData,type, covar=c(),
                            type = type, covar = covar, covarMatrix = covarMatrix,
                             continuous = continuous, save.covar.pvals = save.covar.pvals,
                              suppressWarnings = suppressWarnings)
- 
   
-  return(myres)
+   return(myres)
 }
 
 
@@ -233,7 +231,7 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
   outcomeArrayData <- data.frame(outcome)
   independentArrayData <- data.frame(independentVariable)
   num <-  nrow(independentArrayData) 
-  # Set up formula and interaction term.
+  # Set up formula and interaction term
   form.add <- "Y ~ a + type + a:type"
   interactionTerm <- "a:type"
   
@@ -244,7 +242,7 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
   if (length(covar) > 0) {
     form.add <- paste(form.add, paste(covar, collapse = " + "), sep = " + ")
   }
-  
+  print(form.add)
   # Initialize stats to collect.
   list.pvals <- list()
   list.coefficients <- list()
@@ -639,8 +637,7 @@ GetVolcanoDnMat <- function(reductionSet=NA){
 PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
  
     reductionSet <- .get.rdt.set();
-   
-  imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
+   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
    library(ggplot2)
  
     # Set type.
@@ -681,8 +678,8 @@ PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
         geom_smooth(method = "lm", se = FALSE) + 
         ggsci::scale_color_aaas(alpha = 0.85) +            
         labs(title = "",
-             x = independentAnalyteOfInterest,
-             y = outcomeAnalyteOfInterest,
+            x = reductionSet$intLim$myres$label1[independentAnalyteOfInterest],
+            y =  reductionSet$intLim$myres$label2[outcomeAnalyteOfInterest],
              color = stype) +
         theme_minimal()+
       theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5), # Add panel border
@@ -775,7 +772,7 @@ GetVolcMat <- function() {
     stop("IntLIM reatult table not found.")
   }
  
-  varPart_matrix <- as.matrix(subset(rdtSet$intLim_sigmat, select = -c(Analyte1,Analyte2,pLog))) # Removing the symbol column
+  varPart_matrix <- as.matrix(subset(rdtSet$intLim_sigmat, select = -c(Analyte1,Analyte2,label1,label2,pLog))) # Removing the symbol column
   
   return(varPart_matrix)
 }
@@ -817,6 +814,31 @@ GetVolcSymbols2 <- function() {
   
   return(varPart_symbols)
 }
+
+ 
+GetVolcLabel1 <- function() {
+  rdtSet <- .get.rdt.set()
+  
+   if (is.null(rdtSet$intLim_sigmat)) {
+    stop("IntLIM reatult table not found.")
+  }
+   
+  varPart_symbols <- rdtSet$intLim_sigmat[,"label1"]
+  
+  return(varPart_symbols)
+}
+
+GetVolcLabel2 <- function() {
+  rdtSet <- .get.rdt.set()
+  
+   if (is.null(rdtSet$intLim_sigmat)) {
+    stop("IntLIM reatult table not found.")
+  }
+   
+  varPart_symbols <- rdtSet$intLim_sigmat[,"label2"]
+  
+  return(varPart_symbols)
+}
  
 GetVolcColNames <- function() {
   rdtSet <- .get.rdt.set()
@@ -824,7 +846,7 @@ GetVolcColNames <- function() {
     stop("IntLIM reatult table not found.")
   }
  
-  varPart_colnames <- setdiff(colnames(rdtSet$intLim_sigmat),c("Analyte1","Analyte2","pLog")) # Exclude the symbol column
+  varPart_colnames <- setdiff(colnames(rdtSet$intLim_sigmat),c("Analyte1","Analyte2","label1","label2","pLog")) # Exclude the symbol column
   
   return(varPart_colnames)
 }
