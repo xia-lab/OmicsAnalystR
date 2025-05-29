@@ -4,67 +4,61 @@
 ## Author: Jeff Xia, jeff.xia@mcgill.ca
 ###################################################
 
-UpdateDE<-function(dataName, fc.lvl, p.lvl = 0.05){
-  dataSet <- readDataset(dataName);
+UpdateDE <- function(dataName, fc.lvl, p.lvl = 0.05){
+  save.image("updateDE.RData")
+  dataSet <- readDataset(dataName)
+  res     <- dataSet$comp.res
 
-  res <- dataSet$comp.res
-
-  if(is.null(res)){
-    current.msg <<- "There is no result generated. Have you performed analysis?";
-    return (c(0, 0, 0));
+  if (is.null(res)){
+    current.msg <<- "There is no result generated. Have you performed analysis?"
+    return(c(0, 0, 0))
   }
 
-  hit.inx <- as.numeric(res[, "P.Value"]) <= p.lvl & abs(as.numeric(res$coefficient)) >= fc.lvl #pval
-  
-  if(sum(hit.inx) == 0){
-    return (c(1, 0, nrow(res)));
-  }
-
-  # note, hit.inx can contain NA, not T/F
-  hit.inx <- which(hit.inx);
-  res.sig<-res[hit.inx, , drop=F];
-
-  sig.count <- nrow(res.sig);
-  non.sig.count <- nrow(res)-sig.count;
-  
-  dataSet$sig.mat = res.sig;
-
-
-if(exists("m2m",dataSet)){
- 
-  res2 <- dataSet$comp.res.taxa
-  
-  hit.inx <- lapply(res2,function(x) as.numeric(x[, "p_adj"]) <= p.lvl) #pval
- 
-  # note, hit.inx can contain NA, not T/F
-  hit.inx <- lapply(hit.inx, function(x) which(x) );
-  res.sig2 <- list()
-  for(i in 1:length(res2)){
-    if(length(hit.inx[i])==0){
-      res.sig2[[i]] <- c(1, 0, nrow(res2[i]))
-      
-    }else{
-      
-      res.sig2[[i]] <- res2[[i]][hit.inx[[i]], , drop=F]
+  ## ---------- figure out per-gene fold-change -------------------------
+  if ("coefficient" %in% colnames(res)){              # old layout
+    fc.vec <- abs(as.numeric(res$coefficient))
+  } else {                                            # new layout
+    ave.idx <- match("AveExpr", colnames(res))
+    if (is.na(ave.idx) || ave.idx <= 1){
+      stop("Cannot locate comparison columns (before AveExpr).")
     }
-
-  }  
-  
-  dataSet$sig.count.tax <- lapply(res.sig2, function(x)nrow(x) );
-  non.sig.count2 <- list()
-  for(i in 1:length(res2)){
-    non.sig.count2[[i]] <- nrow(res2[[i]])-dataSet$sig.count.tax[[i]]; 
+    comp.mat <- as.matrix(res[ , 1:(ave.idx-1), drop = FALSE])
+    mode(comp.mat) <- "numeric"
+    fc.vec  <- apply(comp.mat, 1, function(x) max(abs(x), na.rm = TRUE))
   }
-  dataSet$non.sig.count.tax <- non.sig.count2
-  
-  names(res.sig2)<- colnames(dataSet$taxa_table)
-  dataSet$sig.mat.tax = res.sig2;
-}
 
-  RegisterData(dataSet);
+  ## ---------- hit index (p-value & FC) --------------------------------
+  hit.inx <- (as.numeric(res[ , "P.Value"]) <= p.lvl) & (fc.vec >= fc.lvl)
 
+  if (sum(hit.inx, na.rm = TRUE) == 0){
+    return(c(1, 0, nrow(res)))
+  }
+  hit.rows   <- which(hit.inx)
+  res.sig    <- res[hit.rows, , drop = FALSE]
+
+  sig.count      <- nrow(res.sig)
+  non.sig.count  <- nrow(res) - sig.count
+  dataSet$sig.mat <- res.sig
+
+  ## ---------- taxa branch (unchanged except kept original p_adj filter) ----
+  if (exists("m2m", dataSet)){
+    res2      <- dataSet$comp.res.taxa
+    hit.inx2  <- lapply(res2, function(x) as.numeric(x[ , "p_adj"]) <= p.lvl)
+    hit.inx2  <- lapply(hit.inx2, function(x) which(x))
+    res.sig2  <- lapply(seq_along(res2), function(i){
+                        if (length(hit.inx2[[i]]) == 0) return(res2[[i]][0 , , drop = FALSE])
+                        res2[[i]][hit.inx2[[i]], , drop = FALSE]
+                      })
+    names(res.sig2)           <- colnames(dataSet$taxa_table)
+    dataSet$sig.mat.tax       <- res.sig2
+    dataSet$sig.count.tax     <- lapply(res.sig2, nrow)
+    dataSet$non.sig.count.tax <- Map(function(r,s) nrow(r)-s, res2, dataSet$sig.count.tax)
+  }
+
+  RegisterData(dataSet)
   return(c(1, sig.count, non.sig.count))
 }
+
 
 #####to get result for each taxonomy level
 
