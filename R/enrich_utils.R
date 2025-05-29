@@ -149,9 +149,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   current.geneset <- current.geneset[-rm]
   current.setids <- current.setids[-rm]
 
-  }
-
-
+  } 
   # prepare query
   ora.nms <- names(ora.vec);
   
@@ -159,7 +157,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   set.size<-length(current.geneset);
   res.mat<-matrix(0, nrow=set.size, ncol=5);
   rownames(res.mat)<-names(current.geneset);
-  colnames(res.mat)<-c("Total", "Expected", "Hits", "Pval", "FDR");
+  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
   
   # need to cut to the universe covered by the pathways, not all genes 
   if(tolower(fun.type) %in% c("chea", "jaspar", "encode", "mir")){ 
@@ -235,10 +233,11 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   require(RJSONIO);
   fun.anot = hits.query; 
   fun.padj = resTable$FDR; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
-  fun.pval = resTable$Pval; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
+  fun.pval = resTable$P.Value; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
   hit.num = paste0(resTable$Hits,"/",resTable$Total); if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
   fun.ids <- as.vector(current.setids[current.setids %in% names(fun.anot)]);
   if(length(fun.ids) ==1) { fun.ids <- matrix(fun.ids) };
+   print( fun.pval)
   json.res <- list(
     fun.link = current.setlink[1],
     fun.anot = fun.anot,
@@ -264,7 +263,6 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   infoSet$imgSet$enrTables[[type]]$algo <- "Overrepresentation Analysis"
   infoSet$imgSet$enrTables[[type]]$hits.query <- hits.query
   infoSet$imgSet$enrTables[[type]]$current.geneset <- current.geneset
-  
   saveSet(infoSet);
   
   return(1);
@@ -818,7 +816,7 @@ if(mode=="default"){
 
 PerformDashEnrichment <- function(file.nm, fun.type, type, dtInx){
   # prepare query
-  print("PerformDashEnrichment")
+  print(mdata.all)
 print(c(fun.type, type, dtInx))
  sel.inx <- mdata.all==1; 
   sel.nms <- names(mdata.all)[sel.inx];
@@ -826,7 +824,7 @@ dtInx <- as.numeric(unlist(strsplit(dtInx,split=",")))+1
  print(dtInx)
  id_type <<- "entrez";
 if(type=="default"){
-dataSetList <- lapply(sel.nms[dtInx], readDataset);
+ dataSetList <- lapply(sel.nms[dtInx], readDataset);
  ora.vec<- unique(unlist(unique(lapply(dataSetList,function(x) x[["sig.mat"]][["ids"]]))))
 }else if(type %in% c("mcia","mofa","diablo")){
   rdtSet <- .get.rdt.set();
@@ -889,4 +887,35 @@ infoSet <- readSet(infoSet, "infoSet");
 fdrs <- infoSet$imgSet$enrTables[[type]]$table$FDR
 return(round(as.numeric(fdrs),4))
 
+}
+
+
+
+GetHitInfo <- function(pathnm,mode,dtInx){
+  if(mode=="default"){
+    sel.inx <- mdata.all==1; 
+    sel.nms <- names(mdata.all)[sel.inx];
+    dtInx <- as.numeric(unlist(strsplit(dtInx,split=",")))+1
+    infoSet <- readSet(infoSet, "infoSet");
+    hit.query<-infoSet$imgSet$enrTables[[mode]]$hits.query
+    hit.query <- hit.query[[pathnm]]
+    dataSetList <- lapply(sel.nms[dtInx], readDataset);
+    hitList <- lapply(dataSetList, function(x) x$sig.mat)
+    hitList <- lapply(hitList, function(x) x[x$ids %in% hit.query,])
+    
+    hitList <- lapply(hitList, function(x){
+      colors <- ifelse(x[,1]>0,"red","blue")
+      nms <-paste("<font color=",colors,">", "<b>", x$label, "</b>", "</font>",sep="")
+
+      return( paste(unique(nms), collapse="; "))
+    } )
+    
+    hitList <- unlist(hitList)
+    
+   return(hitList)
+  }
+
+  
+  
+  
 }

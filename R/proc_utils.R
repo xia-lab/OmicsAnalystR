@@ -390,7 +390,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   }else if (grepl("mirna", omics.type)){
     readableType <- "miRNA";
   }else{
-    readableType <-  omics.type;
+    readableType <-  "Other";
   }
   dataSet$readableType <- readableType;
   dataSet$enrich_ids = rownames(dataSet$data.proc)

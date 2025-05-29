@@ -72,6 +72,13 @@ GetCovSigSymbols<-function(dataName){
   dataSet$analSet$cov$sig.mat$label
 }
 
+
+GetCovSigIDs<-function(dataName){
+  dataSet <- readDataset(dataName);
+  dataSet$analSet$cov$sig.mat$ids
+}
+
+
 GetCovSigColNames<-function(dataName){
   dataSet <- readDataset(dataName);
   drops <- c("ids","label");
