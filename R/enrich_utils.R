@@ -157,7 +157,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   set.size<-length(current.geneset);
   res.mat<-matrix(0, nrow=set.size, ncol=5);
   rownames(res.mat)<-names(current.geneset);
-  colnames(res.mat)<-c("Total", "Expected", "Hits", "Pval", "FDR");
+  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
   
   # need to cut to the universe covered by the pathways, not all genes 
   if(tolower(fun.type) %in% c("chea", "jaspar", "encode", "mir")){ 
@@ -233,10 +233,11 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   require(RJSONIO);
   fun.anot = hits.query; 
   fun.padj = resTable$FDR; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
-  fun.pval = resTable$Pval; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
+  fun.pval = resTable$P.Value; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
   hit.num = paste0(resTable$Hits,"/",resTable$Total); if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
   fun.ids <- as.vector(current.setids[current.setids %in% names(fun.anot)]);
   if(length(fun.ids) ==1) { fun.ids <- matrix(fun.ids) };
+   print( fun.pval)
   json.res <- list(
     fun.link = current.setlink[1],
     fun.anot = fun.anot,

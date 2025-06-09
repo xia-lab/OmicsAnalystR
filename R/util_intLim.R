@@ -62,8 +62,7 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
       vars <- analysis.var;
       covariates.vec <- c()
     }
-  }
-
+  } 
 dt1 = as.matrix(dataSet1$data.proc)
 dt1 <- dt1[rownames(dt1) %in% dataSet1[["sig.mat"]][["ids"]],]
 dt2 = as.matrix(dataSet2$data.proc)
