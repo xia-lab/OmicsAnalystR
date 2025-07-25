@@ -72,7 +72,7 @@ Init.Data <- function(){
     sqlite.path <<- "/home/zgy/sqlite/";  #zzggyy local
   }else if(file.exists("/media/zzggyy/disk/")){
     sqlite.path <<- "/media/zzggyy/disk/sqlite/";  #zzggyy local
-  } else if(file.exists("/Users/lzy/sqlite")){
+  }else if(file.exists("/Users/lzy/sqlite")){
     sqlite.path <<- "/Users/lzy/sqlite/";  #ly local
   }else {
     sqlite.path <<- "/Users/jessicaewald/sqlite/sqlite/"; #jess local
