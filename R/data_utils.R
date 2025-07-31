@@ -22,6 +22,26 @@
   return(1);
 }
 
+.init.sqlite.path <- function(){ 
+if(file.exists("/data/sqlite/")){
+    sqlite.path <<- "/data/sqlite/";  #vip server
+  } else if(file.exists("/home/glassfish/sqlite/")){
+    sqlite.path <<- "/home/glassfish/sqlite/";  #public server
+  }else if(file.exists("/Users/xialab/Dropbox/sqlite/")){
+    sqlite.path <<- "/Users/xialab/Dropbox/sqlite/";  #xia local
+  }else if(file.exists("/Users/jeffxia/Dropbox/sqlite/")){
+    sqlite.path <<- "/Users/jeffxia/Dropbox/sqlite/";  #xia local 2
+  }else if(file.exists("/home/zgy/sqlite")){
+    sqlite.path <<- "/home/zgy/sqlite/";  #zzggyy local
+  }else if(file.exists("/media/zzggyy/disk/")){
+    sqlite.path <<- "/media/zzggyy/disk/sqlite/";  #zzggyy local
+  } else if(file.exists("/Users/lzy/sqlite")){
+    sqlite.path <<- "/Users/lzy/sqlite/";  #ly local
+  }else {
+    sqlite.path <<- "/Users/jessicaewald/sqlite/sqlite/"; #jess local
+  }
+}
+
 #'Initialize resources for analysis
 #'@description call this function before performing any analysis
 #'@param onWeb whether the script is running in local or on web
@@ -60,24 +80,8 @@ Init.Data <- function(){
   lib.path <<- "../../data/";
   data.org <<- NULL;
   module.count <<- 0;
-  if(file.exists("/data/sqlite/")){
-    sqlite.path <<- "/data/sqlite/";  #vip server
-  } else if(file.exists("/home/glassfish/sqlite/")){
-    sqlite.path <<- "/home/glassfish/sqlite/";  #public server
-  }else if(file.exists("/Users/xialab/Dropbox/sqlite/")){
-    sqlite.path <<- "/Users/xialab/Dropbox/sqlite/";  #xia local
-  }else if(file.exists("/Users/jeffxia/Dropbox/sqlite/")){
-    sqlite.path <<- "/Users/jeffxia/Dropbox/sqlite/";  #xia local 2
-  }else if(file.exists("/home/zgy/sqlite")){
-    sqlite.path <<- "/home/zgy/sqlite/";  #zzggyy local
-  }else if(file.exists("/media/zzggyy/disk/")){
-    sqlite.path <<- "/media/zzggyy/disk/sqlite/";  #zzggyy local
-  }else if(file.exists("/Users/lzy/sqlite")){
-    sqlite.path <<- "/Users/lzy/sqlite/";  #ly local
-  }else {
-    sqlite.path <<- "/Users/jessicaewald/sqlite/sqlite/"; #jess local
-  }
-
+  
+ .init.sqlite.path();
   paramSet <- list(objName="paramSet", jsonNms=list());
   cmdSet <- list(objName="cmdSet");
   msgSet <- list(objName="msgSet");
@@ -326,7 +330,6 @@ DoDimensionReductionIntegrative <- function(reductionOpt, diabloMeta, diabloPar)
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_dimreduction.Rc");    
     }
     dr.res <- reduce.dimension(reductionOpt, diabloMeta, diabloPar);
-
     return(dr.res)
 }
 

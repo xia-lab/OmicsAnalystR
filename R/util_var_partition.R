@@ -1,6 +1,6 @@
 PlotPercentBars <- function(dataNm,top_n=10, fileName="", dpi=72, format="png"){
-  rdtSet <- .get.rdt.set()
-  varPart <- rdtSet$analSet$varPart.df[,-1];
+  rdtSet <- .get.rdt.set() 
+  varPart <- rdtSet$analSet$varPart.df[,-c(1:2)];
   vp <- varPart[order(varPart[, 1], decreasing = TRUE),,drop=F ]#sortCols(varPart);
   imgName = paste(fileName, "dpi", dpi, ".", format, sep="");
  
@@ -171,7 +171,7 @@ dataSet <- readDataset(selectedData);
   # Store the top gene results in rdtSet for future use
   rdtSet$analSet$varPart.symbols <- symbols;
   rdtSet$analSet$varPart.ids <-  ids;
-  varPart<-cbind(Symbol = rdtSet$analSet$varPart.symbols, varPart);
+  varPart<-cbind(Symbol = rdtSet$analSet$varPart.symbols,  ID=rdtSet$analSet$varPart.ids, varPart);
   rdtSet$analSet$varPart.fileName <- "varPart_results.csv";
   rdtSet$analSet$varPart.df <- varPart; 
   dataSet$varPar$symbols <-  symbols;
@@ -285,7 +285,7 @@ GetVarMat <- function() {
   }
   
   # Extract the variance partitioning matrix without the symbol column
-  varPart_matrix <- as.matrix(rdtSet$analSet$varPart.df[ , -1, drop = FALSE]) # Removing the symbol column
+  varPart_matrix <- as.matrix(rdtSet$analSet$varPart.df[ , -c(1:2), drop = FALSE]) # Removing the symbol column
   
   return(varPart_matrix)
 }
@@ -315,9 +315,23 @@ GetVarSymbols <- function() {
   }
   
   # Extract the symbols column
+  varPart_symbols <- rdtSet$analSet$varPart.df$ID
+  return(varPart_symbols)
+}
+
+GetVarLables <- function() {
+  rdtSet <- .get.rdt.set()
+  
+  # Assuming varPart is stored in rdtSet$analSet$varPart.df
+  if (is.null(rdtSet$analSet$varPart.df)) {
+    stop("Variance partition matrix not found.")
+  }
+  
+  # Extract the symbols column
   varPart_symbols <- rdtSet$analSet$varPart.df$Symbol
   return(varPart_symbols)
 }
+
 
 # Function to get the column names of the variance partitioning matrix (excluding the symbol column)
 GetVarColNames <- function() {
@@ -329,7 +343,7 @@ GetVarColNames <- function() {
   }
   
   # Extract the column names (excluding the symbol column)
-  varPart_colnames <- colnames(rdtSet$analSet$varPart.df)[-1] # Exclude the symbol column
+  varPart_colnames <- colnames(rdtSet$analSet$varPart.df)[-c(1:2)] # Exclude the symbol column
   
   return(varPart_colnames)
 }

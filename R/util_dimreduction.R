@@ -15,6 +15,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   omics.type = vector();
   featureNms <- vector();
   uniqFeats <- vector();
+ 
   for(i in 1:length(sel.nms)){
   
     dataSet = readDataset(sel.nms[i])
@@ -22,7 +23,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dataSet$data.proc), perl = TRUE)
     rownames(dataSet$data.proc) <- sanitized_names;
     data.list[[dataSet$type]] <- dataSet$data.proc
-
+ 
     if(i == 1){       
       comp.res1 = dataSet$comp.res
       enrich.nms1 = dataSet$enrich_ids
@@ -31,6 +32,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       omics.vec <- rep(dataSet$type, nrow(dataSet$data.proc));
       uniqFeats <- paste0(rownames(dataSet$data.proc),"_", dataSet$type)
       filenms <- sel.nms[i]
+ 
     } else {
       comp.res1 = rbind(comp.res1, dataSet$comp.res)
       enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
@@ -39,6 +41,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       omics.vec <- c(omics.vec,rep(dataSet$type, nrow(dataSet$data.proc)));
       uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
       filenms <- c(filenms,sel.nms[i])
+ 
     }
   }
   reductionSet <- .get.rdt.set();
@@ -51,23 +54,23 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
   reductionSet$filenms <- filenms;
-
+ 
   if(reductionOpt == "mcia") {
     
     mcoin <- run.mcia(data.list, cia.nf=ncomps)
-    
-    pos.xyz = mcoin$mcoa$SynVar;
-    
+ 
+     pos.xyz = mcoin$mcoa$SynVar;
+
     #setting rownames because mcia may modify the names (i.e "-")
     rownames(pos.xyz) <- rownames(reductionSet$meta);
     colnames(pos.xyz) <- c(paste0("Factor", 1:ncomps));
-    
+      print("s7")
     loading.pos.xyz = mcoin$mcoa$Tco;
     loading.pos.xyz$ids = featureNms;
     loading.pos.xyz$type <- omics.vec;
     # get sample and weight names
     names = rownames(pos.xyz)
-    
+ 
     var.exp <- t(mcoin$mcoa$cov2);
     var.exp <- round(var.exp, digits = 3);
     rownames(var.exp) <- colnames(pos.xyz);
@@ -143,8 +146,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     } else {
       meta.var <- reductionSet$meta[,diabloMeta];
       Y <- matrix(c(as.numeric(as.character(meta.var))));
-      rownames(Y) <- rownames(reductionSet$meta);
-      
+      rownames(Y) <- rownames(reductionSet$meta);      
       design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
                       dimnames = list(names(data.list), names(data.list)));
       diag(design) = 0;
@@ -201,13 +203,15 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   }
  
   # preserve original order
+    
   loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
-  loading.pos.xyz$filenm <-   filenms
+  #loading.pos.xyz$filenm <-   filenms
+   print(head(loading.pos.xyz))
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
-
+      print("s9")
   reductionSet[[reductionOpt]]$pos.xyz <- pos.xyz;
   reductionSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   reductionSet[[reductionOpt]]$var.exp <- var.exp;
@@ -221,7 +225,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet[[reductionOpt]]$loading.enrich <- loadingSymbols
   reductionSet[[reductionOpt]]$loading.names <- featureNms
   reductionSet$omicstype <- names(data.list)
-
+      print("s10")
   reductionSet$reductionOpt <- reductionOpt;
   saveSet(infoSet);
   .set.rdt.set(reductionSet);
@@ -245,7 +249,6 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
 }
 
 PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
-
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   library(see)
@@ -257,9 +260,16 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
  
   reductionSet <- .get.rdt.set();
-   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-  df <- reshape2::melt(df)
- 
+  df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
+  print(head(df));
+  # reshape deprecated, use data.table
+  #df <- reshape2::melt(df) 
+
+  library(data.table);
+  df <- as.data.frame(df)
+  df$myID <- rownames(df);
+  df <- as.data.frame(melt(as.data.table(df), "myID")); 
+
   colnames(df) <- c("Component", "Dataset", "value")
   df$Component <- gsub("Factor","", df$Component);
   for(i in 1:length(sel.nms)){
@@ -287,7 +297,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  save.image("factorsDimRed.RData");
+  #save.image("factorsDimRed.RData");
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();

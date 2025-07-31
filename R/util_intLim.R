@@ -16,12 +16,12 @@
 
 IntLim.Anal <- function(imgName="NA", imgFormat="png",  
                          analysis.var, ref = NULL, thresh=0.05,coefThresh=1,pval_type="raw",
-                         contrast.cls = "anova",dt1,dt2,outcome=1,topNum=1000){
-  if(!exists("mem.intlim")){
-    require("memoise");
-    mem.intlim <<- memoise(.perform.intLim.anal);
-  }
-  result <- mem.intlim(imgName, imgFormat, analysis.var,ref, contrast.cls,dt1,dt2,outcome,topNum);
+                         contrast.cls = "anova",dt1,dt2,topNum=1000){
+  #if(!exists("mem.intlim")){
+   # require("memoise");
+    #mem.intlim <<- memoise(.perform.intLim.anal);
+  #}
+  result <- .perform.intLim.anal(imgName, imgFormat, analysis.var,ref, contrast.cls,dt1,dt2,topNum);
   if(result==1){
    reductionSet <- .get.rdt.set();
   reductionSet <- ProcessResults(reductionSet,inputResults=reductionSet$intLim$myres,
@@ -37,7 +37,7 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
 
 .perform.intLim.anal <- function( imgName="NA", imgFormat="png",  
                          analysis.var, ref = NULL, #thresh=0.05,coefThresh=1,pval_type="raw",
-                         contrast.cls = "anova",dt1,dt2,outcome=1,topNum=1000){
+                         contrast.cls = "anova",dt1,dt2,topNum=1000){
  
   dataSet1 <- readDataset(dt1);
   dataSet2 <- readDataset(dt2);
@@ -62,9 +62,12 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
       vars <- analysis.var;
       covariates.vec <- c()
     }
-  }
-   dt1 = as.matrix(dataSet1$data.proc)[1:min(nrow(dataSet1$data.proc),topNum),]
-   dt2 = as.matrix(dataSet2$data.proc)[1:min(nrow(dataSet2$data.proc),topNum),]
+  } 
+dt1 = as.matrix(dataSet1$data.proc)
+dt1 <- dt1[rownames(dt1) %in% dataSet1[["sig.mat"]][["ids"]],]
+dt2 = as.matrix(dataSet2$data.proc)
+dt2 <- dt2[rownames(dt2) %in% dataSet2[["sig.mat"]][["ids"]],]
+
 rownames(dt1) <- paste0(rownames(dt1),"_",dataSet1$type)
 rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
   meta.info=reductionSet$dataSet$meta.info
@@ -82,23 +85,27 @@ rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
   }else{
     continuous = T
   }
+    inputData =list(outcome=dt2,independentArray = dt1,sampleMetaData = meta.info) 
 
-
-   if(outcome==1){
-    inputData =list(outcome=dt1,independentArray = dt2,sampleMetaData = meta.info)  
-    independent.var.type=2
-  }else{
-    inputData =list(outcome=dt2,independentArray = dt1,sampleMetaData = meta.info)  
-    independent.var.type=1
-  }
-  
-   
+  # if(outcome==1){
+ #   inputData =list(outcome=dt1,independentArray = dt2,sampleMetaData = meta.info)  
+  #  independent.var.type=2
+ # }else{
+ # inputData =list(outcome=dt2,independentArray = dt1,sampleMetaData = meta.info) 
+  #  independent.var.type=1
+  #}
+  print(covariates.vec)
   myres <- RunIntLim(inputData, stype= analysis.var,  covar=covariates.vec, 
                      continuous=continuous,  save.covar.pvals = F, suppressWarnings = TRUE)
+  myres$label1 <- names(dataSet1$enrich_ids)[match(gsub(paste0("_",dataSet1$type),"",rownames(myres[["interaction.pvalues"]])),dataSet1$enrich_ids)]
+  names(myres$label1) <- rownames(myres[["interaction.pvalues"]])
+  myres$label2 <- names(dataSet2$enrich_ids)[match(gsub(paste0("_",dataSet2$type),"",colnames(myres[["interaction.pvalues"]])),dataSet2$enrich_ids)]
+  names(myres$label2) <- colnames(myres[["interaction.pvalues"]])
+myres$pattern <- c(dataSet1$type,dataSet2$type)
  if(!is.list(myres)){
    return(0)
  }
- reductionSet$intLim <- list(stype=analysis.var,continuous=continuous,outcomeArray=dt1,independentArray = dt2,sampleMetaData=meta.info,myres=myres)
+ reductionSet$intLim <- list(stype=analysis.var,continuous=continuous,outcomeArray=dt2,independentArray = dt1,sampleMetaData=meta.info,myres=myres)
  .set.rdt.set(reductionSet)
 return(1)
 }
@@ -153,21 +160,20 @@ RunLM <- function(inputData,type, covar=c(),
     colnames(sampleMetaData) <- adjNames$sampleDataColnames
     
     # Convert covariates to matrix. Ensure that matrix is one-hot encoded.
-    f <- paste('~ 0 + ', paste(covar, collapse = ' + '))
+    f <- paste('~ ', paste(covar, collapse = ' + '))
     dat <-  sampleMetaData[,covar,drop=F]
    
     covarMatrix <- stats::model.matrix(stats::as.formula(f), data = dat)
-    covar <- colnames(covarMatrix)
-    
+    covar <- colnames(covarMatrix) 
     # Since names will be changed now, we need to remove plus signs again. For example,
     # if we have a variable 'treatment' that has values 'med1', 'med2', and 'med1+med2',
     # the column names will now include 'treatmentmed1' and 'treatmentmed1+med2'.
     adjNames <- RemovePlusInCovars(covar, colnames(covarMatrix))
     covar <- adjNames$covar
     colnames(covarMatrix) <- adjNames$sampleDataColnames
+
   }
-  
-  # Find all standard deviations.
+   # Find all standard deviations.
   type1sd <- as.numeric(apply(type1,1,function(x){stats::sd(as.numeric(x),na.rm=TRUE)}))
   type2sd <- as.numeric(apply(type2,1,function(x){stats::sd(as.numeric(x),na.rm=TRUE)}))
   covarsd <- as.numeric(apply(covarMatrix,2,function(x){
@@ -213,9 +219,8 @@ RunLM <- function(inputData,type, covar=c(),
                            type = type, covar = covar, covarMatrix = covarMatrix,
                             continuous = continuous, save.covar.pvals = save.covar.pvals,
                              suppressWarnings = suppressWarnings)
- 
   
-  return(myres)
+   return(myres)
 }
 
 
@@ -225,7 +230,7 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
   outcomeArrayData <- data.frame(outcome)
   independentArrayData <- data.frame(independentVariable)
   num <-  nrow(independentArrayData) 
-  # Set up formula and interaction term.
+  # Set up formula and interaction term
   form.add <- "Y ~ a + type + a:type"
   interactionTerm <- "a:type"
   
@@ -236,7 +241,7 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
   if (length(covar) > 0) {
     form.add <- paste(form.add, paste(covar, collapse = " + "), sep = " + ")
   }
-  
+  print(form.add)
   # Initialize stats to collect.
   list.pvals <- list()
   list.coefficients <- list()
@@ -489,7 +494,9 @@ ProcessResults <- function(reductionSet,inputResults,
                 interaction_coeff=finmydat.coef[,"value"],
                 rsquared =finmydat.rsq[,"value"],
                 Pval=finmydat[,"value"],
-                FDRadjPval =finmydat.adj[,"value"] 
+                FDRadjPval =finmydat.adj[,"value"],
+                label1 = unname(inputResults$label1),
+                label2 = unname(inputResults$label2)[match(as.character(finmydat[,"Var2"]),names(inputResults$label2))]
               )
       fast.write.csv(finmydat, file=paste0("IntLim_raw.csv"))
       
@@ -545,7 +552,8 @@ ProcessResults <- function(reductionSet,inputResults,
      
     # Print and return the results.
     message(paste(nrow(finmydat), 'pairs found given cutoffs'))
-
+reductionSet$intLim$pvalcutoff <-pvalcutoff
+reductionSet$intLim$rsquaredCutoff <-rsquaredCutoff
     return(reductionSet)
   } 
 
@@ -628,8 +636,7 @@ GetVolcanoDnMat <- function(reductionSet=NA){
 PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
  
     reductionSet <- .get.rdt.set();
-   
-  imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
+   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
    library(ggplot2)
  
     # Set type.
@@ -670,8 +677,8 @@ PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
         geom_smooth(method = "lm", se = FALSE) + 
         ggsci::scale_color_aaas(alpha = 0.85) +            
         labs(title = "",
-             x = independentAnalyteOfInterest,
-             y = outcomeAnalyteOfInterest,
+            x = reductionSet$intLim$myres$label1[independentAnalyteOfInterest],
+            y =  reductionSet$intLim$myres$label2[outcomeAnalyteOfInterest],
              color = stype) +
         theme_minimal()+
       theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5), # Add panel border
@@ -703,6 +710,59 @@ getQuantileForCoefficient <-function(tofilter, interactionCoeffPercentile){
   
 }
 
+
+PrepForNetwork <- function(numToKeep,intLimOpt){
+ 
+  reductionSet <- .get.rdt.set(); 
+  sel.nms <- names(mdata.all)[mdata.all == 1];
+  cor_edge_list <-  reductionSet$intLim_sigmat[,c(1,2,3,5)]
+  names(cor_edge_list) <-c("source","target","correlation","pval")
+ if(intLimOpt=="increase"){
+    cor_edge_list <- cor_edge_list[cor_edge_list$correlation>0,]
+  }else if(intLimOpt=="decrease"){
+    cor_edge_list <- cor_edge_list[cor_edge_list$correlation<0,]
+  }
+  numToKeep <- as.numeric(numToKeep)
+  if (numToKeep > length(unique(cor_edge_list$correlation))) {
+    numToKeep <- length(unique(cor_edge_list$correlation))
+  }
+  if (nrow(cor_edge_list) >= 3) {
+    toMatch <- reductionSet$intLim$myres$pattern
+    labels <- c(reductionSet$intLim$myres$label1,reductionSet$intLim$myres$label2)
+    top.edge <- sort(abs(unique(cor_edge_list$correlation)))[c(1:numToKeep)];
+    top.inx <- match(abs(cor_edge_list$correlation), top.edge);
+    cor_edge_list <- cor_edge_list[!is.na(top.inx), ,drop=F];
+    
+    nodes <- unique(data.frame(name=c(cor_edge_list$source,cor_edge_list$target),stringsAsFactors = F))
+    pattern <- paste0("^(.*)((", paste(toMatch, collapse = "|"), "))$")
+    
+     nodes$type <- gsub(pattern, "\\2", nodes$name);
+     toMatch2 <- unlist(lapply(toMatch, function(x) paste0("_", x)));
+     pattern2 <- paste0("(", paste(toMatch2, collapse = "|"), ")$")
+     nodes$featureId <- gsub(pattern2, "", nodes$name);
+     nodes$label <- labels[match(nodes$name,names(labels))]
+     
+    new_g <- igraph::graph_from_data_frame(cor_edge_list, vertices=nodes,directed = FALSE)
+    new_g <- igraph::simplify(new_g, edge.attr.comb = "mean")
+    
+    cor_edge_list <-  reductionSet$intLim_sigmat[,c(1,2,3,5,7,8)]
+    names(cor_edge_list)[1:4] <-c("source","target","correlation","pval")
+    
+    reductionSet$corNet <- cor_edge_list;
+    write.csv(cor_edge_list,"corNet.csv",row.names=F)
+    
+    reductionSet$taxlvl <-"Feature"
+    .set.rdt.set(reductionSet);
+     
+    intres <- ProcessIntLIMGraphFile(new_g);
+    return(intres);
+  } else {
+    msg.vec <<- "Less than 3 correlations have been identified using current parameters. Failed to create correlation network";
+    .set.rdt.set(reductionSet);
+    return(0)
+  }
+}
+
 #####feature detailed table
 GetVolcMat <- function() {
   rdtSet <- .get.rdt.set()
@@ -711,7 +771,7 @@ GetVolcMat <- function() {
     stop("IntLIM reatult table not found.")
   }
  
-  varPart_matrix <- as.matrix(subset(rdtSet$intLim_sigmat, select = -c(Analyte1,Analyte2,pLog))) # Removing the symbol column
+  varPart_matrix <- as.matrix(subset(rdtSet$intLim_sigmat, select = -c(Analyte1,Analyte2,label1,label2,pLog))) # Removing the symbol column
   
   return(varPart_matrix)
 }
@@ -753,6 +813,31 @@ GetVolcSymbols2 <- function() {
   
   return(varPart_symbols)
 }
+
+ 
+GetVolcLabel1 <- function() {
+  rdtSet <- .get.rdt.set()
+  
+   if (is.null(rdtSet$intLim_sigmat)) {
+    stop("IntLIM reatult table not found.")
+  }
+   
+  varPart_symbols <- rdtSet$intLim_sigmat[,"label1"]
+  
+  return(varPart_symbols)
+}
+
+GetVolcLabel2 <- function() {
+  rdtSet <- .get.rdt.set()
+  
+   if (is.null(rdtSet$intLim_sigmat)) {
+    stop("IntLIM reatult table not found.")
+  }
+   
+  varPart_symbols <- rdtSet$intLim_sigmat[,"label2"]
+  
+  return(varPart_symbols)
+}
  
 GetVolcColNames <- function() {
   rdtSet <- .get.rdt.set()
@@ -760,7 +845,7 @@ GetVolcColNames <- function() {
     stop("IntLIM reatult table not found.")
   }
  
-  varPart_colnames <- setdiff(colnames(rdtSet$intLim_sigmat),c("Analyte1","Analyte2","pLog")) # Exclude the symbol column
+  varPart_colnames <- setdiff(colnames(rdtSet$intLim_sigmat),c("Analyte1","Analyte2","label1","label2","pLog")) # Exclude the symbol column
   
   return(varPart_colnames)
 }

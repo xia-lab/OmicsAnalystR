@@ -301,7 +301,8 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   ord.inx <- order(nd.tbl[,3], nd.tbl[,4], decreasing = TRUE)
   nd.tbl <- nd.tbl[ord.inx, ];
   fast.write(nd.tbl, file="node_table.csv", row.names=FALSE);
-  
+  reductionSet$imgSet$node_table <- nd.tbl;
+
   if(length(V(g)$name)>100 && ppi.net$db.type != "uploaded"){
     modules <- FindCommunities("walktrap", FALSE);
   }else{
@@ -330,7 +331,8 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$paramSet$jsonNms$network <- fileNm
   saveSet(infoSet);
-  
+  .set.rdt.set(reductionSet)
+
   sink(fileNm);
   cat(rjson::toJSON(netData));
   sink();

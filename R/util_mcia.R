@@ -18,6 +18,7 @@ perform_mcia <- function (df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TR
       stop(paste("There are features in data.frame ", i, 
                  " do not\n        expressed in all observations, please remove these features"))
   }
+
   N <- sapply(df.list, ncol)
   df.list <- lapply(df.list, as.matrix)
   if (length(unique(N)) != 1) 
@@ -30,7 +31,6 @@ perform_mcia <- function (df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TR
     stop("NAs in the data.frames")
   if (is.null(names(df.list))) 
     names(df.list) <- paste("df", 1:length(df.list), sep = "")
-  
   
   # ====================================
   # ===== lapack function which is called by svd fails to converge in some cases

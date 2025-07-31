@@ -25,7 +25,7 @@ print(pval.type)
   dataSet <- readDataset(dataName);
  
   rdtSet <- .get.rdt.set();
-  msg.lm <- ""
+   msg.lm <- ""
   # load libraries
   library(limma)
   library(dplyr)
@@ -149,7 +149,7 @@ print(pval.type)
     }, warning=function(w){
       msg.lm <- c(msg.lm,w)
     })
- 
+
     rest <- limma::topTable(fit, number = Inf);
     print(head(rest))
     ### get results with no adjustment
@@ -438,15 +438,10 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
   rdtSet <- .get.rdt.set()
 
   # Set the dataset based on dataName
-  if (dataName == "varPart") {
-    # For variance partitioning, load the normalized dataset
-     dataSet <- readDataset(dataName)
-    dat <- dataSet$data.proc
-  } else {
-    # Load data for normal conditions (non-varPart)
+
     dataSet <- readDataset(dataName)
     dat <- dataSet$data.proc
-  }
+
 
   if (.on.public.web) {
     load_ggplot()
@@ -455,7 +450,8 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
   w <- 7.5
   
   meta.info <- rdtSet$dataSet$meta.info
-  
+  print(meta.info)
+
   # Select the primary metadata
   sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dat)), meta]
   

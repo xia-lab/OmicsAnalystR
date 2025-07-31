@@ -149,9 +149,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   current.geneset <- current.geneset[-rm]
   current.setids <- current.setids[-rm]
 
-  }
-
-
+  } 
   # prepare query
   ora.nms <- names(ora.vec);
   
@@ -234,11 +232,12 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   # write json
   require(RJSONIO);
   fun.anot = hits.query; 
-  fun.padj = resTable[,6]; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
-  fun.pval = resTable[,5]; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
-  hit.num = resTable[,4]; if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
+  fun.padj = resTable$FDR; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
+  fun.pval = resTable$P.Value; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
+  hit.num = paste0(resTable$Hits,"/",resTable$Total); if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
   fun.ids <- as.vector(current.setids[current.setids %in% names(fun.anot)]);
   if(length(fun.ids) ==1) { fun.ids <- matrix(fun.ids) };
+   print( fun.pval)
   json.res <- list(
     fun.link = current.setlink[1],
     fun.anot = fun.anot,
@@ -264,7 +263,6 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   infoSet$imgSet$enrTables[[type]]$algo <- "Overrepresentation Analysis"
   infoSet$imgSet$enrTables[[type]]$hits.query <- hits.query
   infoSet$imgSet$enrTables[[type]]$current.geneset <- current.geneset
-  
   saveSet(infoSet);
   
   return(1);
@@ -350,7 +348,7 @@ PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
   set.size<-length(current.geneset);
   res.mat<-matrix(0, nrow=set.size, ncol=5);
   rownames(res.mat)<-names(current.geneset);
-  colnames(res.mat)<-c("Total", "Expected", "Hits", "P.Value", "FDR");
+  colnames(res.mat)<-c("Total", "Expected", "Hits", "Pval", "FDR");
   
   # need to cut to the universe covered by the pathways, not all genes 
   
@@ -439,9 +437,9 @@ SaveSingleOmicsEnr <- function(file.nm,res.mat){
   require(RJSONIO);
   hi= hits.query
   fun.anot = hi; 
-  fun.padj = resTable[,6]; if(length(fun.padj) ==1) { fun.pval <- matrix(fun.padj)};
-  fun.pval = resTable[,5]; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval)};
-  hit.num = resTable[,4]; if(length(hit.num) ==1) { hit.num <- matrix(hit.num)};
+  fun.padj = resTable$FDR; if(length(fun.padj) ==1) { fun.pval <- matrix(fun.padj)};
+  fun.pval = resTable$Pval; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval)};
+  hit.num = paste0(resTable$Hits,"/",resTable$Total); if(length(hit.num) ==1) { hit.num <- matrix(hit.num)};
   fun.ids <- as.vector(current.setids[names(fun.anot)]);
   if(length(fun.ids) ==1) {fun.ids <- matrix(fun.ids)};
   
@@ -645,8 +643,8 @@ GetDREnrichList <- function(query,tupNum){
 PrepDashboardList <- function(mode,jsonnm){
  
   rdtSet <- .get.rdt.set();
-  sel.inx <- mdata.all==1; 
-  sel.nms <- names(mdata.all)[sel.inx];
+ # sel.inx <- mdata.all==1; 
+  sel.nms <- names(mdata.all)#[sel.inx];
   dataSetList <- lapply(sel.nms, readDataset);
  
 listnms = lapply(dataSetList,function(x) return(x[["readableType"]]))
@@ -670,51 +668,111 @@ jsonls$mode<-"anova"
 return(1)
 }
 
+PrepDashboardListDR <- function(mode,jsonnm,featNumPerComp,components){
+  library(dplyr)
+  rdtSet <- .get.rdt.set();
+  sel.nms <- names(mdata.all)#[sel.inx];
+  print("PrepDashboardListDR")
+  dataSetList <- lapply(sel.nms, readDataset); 
+  listnms = lapply(dataSetList,function(x) return(x[["readableType"]]))
+  loadings = rdtSet[[mode]][["loading.pos.xyz"]] 
+  components <- as.numeric(unlist(strsplit(components,split = ",")))
+  loadings <- loadings[,c(components,6:8)] 
+  types <- unlist(lapply(dataSetList,function(x) x[["readableType"]]))
+  names(types) <- unlist(lapply(dataSetList,function(x) x[["type"]]))
+ 
+  tops <- reshape2::melt(loadings,id.vars=c("ids","type","label"  )) %>%
+    group_by(type, variable) %>%
+    arrange(desc(abs(value)), .by_group = TRUE) %>%
+    slice_head(n = 20) %>%
+    dplyr::select(label, ids, value, type, variable)  %>% ungroup()
+  loadings <- loadings[loadings$ids %in% tops$ids,]
+  loadings <- loadings %>%
+    rowwise() %>%
+    mutate(
+       loading = c(Loading1, Loading2, Loading3)[which.max(abs(c(Loading1, Loading2, Loading3)))]
+    ) %>%
+    ungroup()
 
+ 
+  featls <- split(loadings,list(loadings$type))
+  indx <- match(names(featls) ,names(types) )
+  featls <- featls[indx]
+    names(featls) <- types[ names(featls) ]
+    rdtSet[[mode]]$featls <- featls
+    .set.rdt.set(rdtSet);
+  jsonls <- list(featls=featls)
+  jsonls$filenms <- lapply(dataSetList,function(x) return(x[["name"]]))
+  jsonls$types <- lapply(dataSetList,function(x) return(x[["type"]]))
+  jsonls$idTypes <- lapply(dataSetList,function(x) return(x[["idType"]]))
+ 
+  jsonls$mode<-"dr"
+  
+  jsonfile <- RJSONIO::toJSON(jsonls);
+  sink(jsonnm)
+  cat(jsonfile);
+  sink();
+  return(1)
+}
 
 #############################
 ##############GETTERS########
 #############################
 
 GetFeatureRownames <- function(selectedBar,mode){
-   sel.inx <- mdata.all==1; 
+ 
+  sel.inx <- mdata.all==1; 
   sel.nms <- names(mdata.all)[sel.inx];
 selectedBar <- as.numeric(selectedBar)+1
 dataSet <- readDataset(sel.nms[selectedBar]) 
-
 if(mode=="default"){ 
+
  return(rownames(dataSet[["sig.mat"]]))
+}else if(mode %in% c("mcia","mofa","diablo")){
+  rdtSet <- .get.rdt.set();
+  mat <- rdtSet[[mode]]$featls[[dataSet$readableType]] 
+ return(rownames( mat))
 }
 }
 
 GetFeatureIds <- function(selectedBar,mode){
- 
-  sel.inx <- mdata.all==1; 
+
+ sel.inx <- mdata.all==1; 
   sel.nms <- names(mdata.all)[sel.inx];
 selectedBar <- as.numeric(selectedBar)+1
 
 dataSet <- readDataset(sel.nms[selectedBar])
-
+  
 if(mode=="default"){
  mat <- dataSet[["sig.mat"]]
+ 
+}else if(mode %in% c("mcia","mofa","diablo")){
+  rdtSet <- .get.rdt.set();
+ mat <-  rdtSet[[mode]]$featls[[dataSet$readableType]] 
+}
+
  print(head(mat$ids))
  return(mat$ids)
 }
-}
 
 GetFeatureLabels <- function(selectedBar,mode){
- 
-  sel.inx <- mdata.all==1; 
+ sel.inx <- mdata.all==1; 
   sel.nms <- names(mdata.all)[sel.inx];
 selectedBar <- as.numeric(selectedBar)+1
 
 dataSet <- readDataset(sel.nms[selectedBar])
- 
+  
 if(mode=="default"){
- mat <- dataSet[["sig.mat"]] 
- return(mat$label)
-}
 
+ 
+ mat <- dataSet[["sig.mat"]] 
+
+}else if(mode %in% c("mcia","mofa","diablo")){
+  rdtSet <- .get.rdt.set(); 
+ mat <-  rdtSet[[mode]]$featls[[dataSet$readableType]] 
+
+}
+ return(mat$label)
 }
 
 
@@ -729,6 +787,10 @@ dataSet <- readDataset(sel.nms[selectedBar])
 if(mode=="default"){
  mat <- dataSet[["sig.mat"]] 
  return( setdiff(colnames(mat),c("ids","label")))
+}else if(mode %in% c("mcia","mofa","diablo")){
+  rdtSet <- .get.rdt.set();
+ mat <-  rdtSet[[mode]]$featls[[dataSet$readableType]] 
+ return( setdiff(colnames(mat),c("ids","label","type","loading")))
 }
 
 }
@@ -743,22 +805,34 @@ dataSet <- readDataset(sel.nms[selectedBar])
 if(mode=="default"){
  mat <- dataSet[["sig.mat"]] 
  mat <- as.matrix(mat[,setdiff(colnames(mat),c("ids","label"))])
- return( mat)
+
+}else if(mode %in% c("mcia","mofa","diablo")){
+  rdtSet <- .get.rdt.set();
+ mat <-  rdtSet[[mode]]$featls[[dataSet$readableType]] 
+ mat <- as.matrix(mat[,setdiff(colnames(mat),c("ids","label","type","loading"))])
 }
- 
+  return( mat)
 }
 
 PerformDashEnrichment <- function(file.nm, fun.type, type, dtInx){
   # prepare query
-  print("PerformDashEnrichment")
+  print(mdata.all)
 print(c(fun.type, type, dtInx))
  sel.inx <- mdata.all==1; 
   sel.nms <- names(mdata.all)[sel.inx];
 dtInx <- as.numeric(unlist(strsplit(dtInx,split=",")))+1
  print(dtInx)
-dataSetList <- lapply(sel.nms[dtInx], readDataset);
-   id_type <<- "entrez";
+ id_type <<- "entrez";
+if(type=="default"){
+ dataSetList <- lapply(sel.nms[dtInx], readDataset);
  ora.vec<- unique(unlist(unique(lapply(dataSetList,function(x) x[["sig.mat"]][["ids"]]))))
+}else if(type %in% c("mcia","mofa","diablo")){
+  rdtSet <- .get.rdt.set();
+
+  featls <- rdtSet[[type]]$featls
+  ora.vec<- unique(unlist(unique(lapply(featls,function(x) x[["ids"]]))))
+}
+
   names(ora.vec) <- ora.vec;
   print(head(ora.vec))
   res <- PerformEnrichAnalysis(file.nm, fun.type, ora.vec, type);
@@ -813,4 +887,35 @@ infoSet <- readSet(infoSet, "infoSet");
 fdrs <- infoSet$imgSet$enrTables[[type]]$table$FDR
 return(round(as.numeric(fdrs),4))
 
+}
+
+
+
+GetHitInfo <- function(pathnm,mode,dtInx){
+  if(mode=="default"){
+    sel.inx <- mdata.all==1; 
+    sel.nms <- names(mdata.all)[sel.inx];
+    dtInx <- as.numeric(unlist(strsplit(dtInx,split=",")))+1
+    infoSet <- readSet(infoSet, "infoSet");
+    hit.query<-infoSet$imgSet$enrTables[[mode]]$hits.query
+    hit.query <- hit.query[[pathnm]]
+    dataSetList <- lapply(sel.nms[dtInx], readDataset);
+    hitList <- lapply(dataSetList, function(x) x$sig.mat)
+    hitList <- lapply(hitList, function(x) x[x$ids %in% hit.query,])
+    
+    hitList <- lapply(hitList, function(x){
+      colors <- ifelse(x[,1]>0,"red","blue")
+      nms <-paste("<font color=",colors,">", "<b>", x$label, "</b>", "</font>",sep="")
+
+      return( paste(unique(nms), collapse="; "))
+    } )
+    
+    hitList <- unlist(hitList)
+    
+   return(hitList)
+  }
+
+  
+  
+  
 }
