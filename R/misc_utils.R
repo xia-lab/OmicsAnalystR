@@ -391,7 +391,7 @@ cleanMem <- function() {
 }
 
 # shorthand
-ShowMemoryUse <- function(..., n=40) {
+ShowMemoryUse <- function(..., n=50) {
   library(pryr);
   sink(); # make sure print to screen
   print(mem_used());
