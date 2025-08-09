@@ -1117,3 +1117,12 @@ GetFactors <- function(selMeta="NA"){
     return(unique(as.vector(rdtSet$dataSet$meta.info[[1]])))
   }
 }
+
+LoadSpecialFunctions <- function(type=""){
+if(type == "reduce.dimension" || type == "PlotDimredVarexp" || type == "PlotDimredFactors"){
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_dimreduction.Rc");    
+}else if(type == ""){
+
+}
+return(1)
+}

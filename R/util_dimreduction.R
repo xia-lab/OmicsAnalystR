@@ -146,8 +146,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     } else {
       meta.var <- reductionSet$meta[,diabloMeta];
       Y <- matrix(c(as.numeric(as.character(meta.var))));
-      rownames(Y) <- rownames(reductionSet$meta);
-      
+      rownames(Y) <- rownames(reductionSet$meta);      
       design = matrix(diabloPar, ncol = length(data.list), nrow = length(data.list), # default diabloPar was 0.2
                       dimnames = list(names(data.list), names(data.list)));
       diag(design) = 0;
@@ -262,7 +261,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
  
   reductionSet <- .get.rdt.set();
   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-
+  print(head(df));
   # reshape deprecated, use data.table
   #df <- reshape2::melt(df) 
 

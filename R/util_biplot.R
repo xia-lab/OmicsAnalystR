@@ -2,7 +2,6 @@
 
 PerformOrdination <- function(method,predictor,dataName) {
 
- 
 if(!exists("mem.ordination")){
     require("memoise");
     mem.ordination <<- memoise(.perform.ordination);
@@ -27,7 +26,15 @@ if(!exists("mem.ordination")){
   ]
   
   meta <- rdtSet$dataSet$meta.info
-  
+
+print(c(predictor=="null",predictor))
+  if(predictor=="null"){
+  predictor <- colnames(meta)[1]
+
+}
+
+print(predictor)
+
   # If you use some includeMeta logic
   if (!(exists("includeMeta") && length(includeMeta) == 0)) {
     meta <- meta[, c(predictor, includeMeta)]
@@ -69,32 +76,33 @@ if(!exists("mem.ordination")){
     # PCA
     library(factoextra)
     library(vegan)
-    
+    print("here")
     pca_result <- prcomp(feature_table, scale = FALSE)
     data_dist  <- dist(feature_table, method = "euclidean")
     adonis_res <- adonis2(data_dist ~ ., data = meta, permutations = 999)
-
+  
     if (is.na(adonis_res$F[1])) {
       stats_msg <- "The model is overfitted with no unconstrained (residual) component."
     } else {
       stats_msg <- paste0("[PERMANOVA] F-value: ",
                           round(adonis_res$F[1], 5),
-                          "; R-squared: ", signif(adonis_res$R2, 5),
+                          "; R-squared: ", signif(adonis_res$R2[1], 5),
                           "; p-value: ", adonis_res$`Pr(>F)`[1])
     }
 
     # Store results
-    rdtSet$analSet$PCA_res <- list(
+    rdtSet$analSet$PCA_res <- dataSet$PCA_res <- list(
       method     = "PCA",
       model      = pca_result,
       meta       = meta,
       featureTbl = feature_table,
-      stats      = stats_msg
+      stats      = stats_msg,
+      meta_types = rdtSet$dataSet$meta.types[[predictor]]
     )
   }
-  
-  # Save it back
+   # Save it back
   .set.rdt.set(rdtSet)
+  RegisterData(dataSet)
   # Return some summary stats if you like:
   return(rdtSet$analSet$ordination_res$stats)
 }
@@ -329,4 +337,79 @@ color_scale <- if (rdtSet$dataSet$meta.types[colnames(meta)[1]] == "cont") {
 
   # Return the overall stats from the ordination
   return(stats)
+}
+
+
+PreparePCAScatter <- function(plotnm){
+  print(plotnm)
+  sel.nms <- names(mdata.all);
+  dataSetList <- lapply(sel.nms, readDataset);
+
+ pca_res <- lapply(dataSetList,function(x) x[["PCA_res"]])  
+
+pca_df <- lapply(pca_res, function(x) {
+  df <- data.frame(x$model$x[, 1:3], x$meta[, 1])
+  names(df)[4] <- colnames(x$meta)[1]
+  df$sample <- rownames(df)
+  return(list(pca_res=df,stats=x[["stats"]],meta_type = x[["meta_types"]],colorOpt = "default"))
+})
+
+jsonObj <- rjson::toJSON(pca_df);
+  sink(paste0(plotnm,".json"));
+  cat(jsonObj);
+  sink();
+
+
+}
+
+
+UpdatePCAScatter <- function(plotnm,colorMeta,colorOpt){
+  print(colorMeta)
+  sel.nms <- names(mdata.all);
+  dataSetList <- lapply(sel.nms, readDataset);
+ rdtSet  <- .get.rdt.set()
+ pca_res <- lapply(dataSetList,function(x) x[["PCA_res"]])  
+ 
+ meta_df <- rdtSet$dataSet$meta.info
+ 
+pca_df <- lapply(pca_res, function(x) {
+  print(rownames(rownames(x$model$x)))
+ 
+  meta <- meta_df[[colorMeta]][match(rownames(x$model$x),rownames(meta_df))]
+  
+  df <- data.frame(x$model$x[, 1:3],meta)
+  names(df)[4] <- colorMeta
+  df$sample <- rownames(df)
+  return(list(pca_res=df,stats=x[["stats"]],meta_type = unname(rdtSet$dataSet$meta.types[colorMeta]),colorOpt = colorOpt))
+})
+
+ jsonObj <- rjson::toJSON(pca_df);
+  sink(paste0(plotnm,".json"));
+  cat(jsonObj);
+  sink();
+
+
+}
+
+
+PlotFeatPCA <- function(plotnm,idx,feat,jsonnm){
+  print(c(idx,feat,jsonnm))
+idx <- as.numeric(idx)+1
+  pcafile <- RJSONIO::fromJSON(paste0("pcaplot_0_",".json"))
+   
+  sel.nms <- names(mdata.all);
+   dataSet <- readDataset(sel.nms[idx])
+  
+ feat_val <- dataSet[["PCA_res"]]$featureTbl[,feat]
+ 
+  pcafile[[idx]]$pca_res[[4]]<- unname(feat_val[match(  pcafile[[idx]]$pca_res[[5]],names(feat_val))])
+  names(pcafile[[idx]]$pca_res)[4] <- feat
+pcafile[[as.numeric(idx)]]$meta_type <- "cont"
+
+ jsonObj <- rjson::toJSON(pcafile);
+  sink(paste0(plotnm,".json"));
+  cat(jsonObj);
+  sink();
+
+return("okay")
 }
