@@ -234,7 +234,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   fun.anot = hits.query; 
   fun.padj = resTable$FDR; if(length(fun.padj) ==1) { fun.padj <- matrix(fun.padj) };
   fun.pval = resTable$P.Value; if(length(fun.pval) ==1) { fun.pval <- matrix(fun.pval) };
-  hit.num = paste0(resTable$Hits,"/",resTable$Total); if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
+  hit.num = resTable$Hits; if(length(hit.num) ==1) { hit.num <- matrix(hit.num) };
   fun.ids <- as.vector(current.setids[current.setids %in% names(fun.anot)]);
   if(length(fun.ids) ==1) { fun.ids <- matrix(fun.ids) };
    print( fun.pval)
