@@ -339,7 +339,7 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
   # only get communities
   communities <- communities(fc);
   community.vec <- vector(mode="character", length=length(communities));
-  gene.community <- NULL;
+  gene.community.list <- list()  # Pre-allocate list for memory efficiency
   qnum.vec <- NULL;
   pval.vec <- NULL;
   rowcount <- 0;
@@ -348,7 +348,7 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
   sybls <- ppi.net$node.data[hit.inx,2];
   names(sybls) <- V(g)$name;
   for(i in 1:length(communities)){
-    # update for igraph 1.0.1 
+    # update for igraph 1.0.1
     path.ids <- communities[[i]];
     psize <- length(path.ids);
     if(psize < 5){
@@ -357,19 +357,19 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
 
     hits <- seed.proteins %in% path.ids;
     qnums <- sum(hits);
-    
+
     if(qnums == 0){
       next; # ignor community containing no queries
     }
-    
+
     rowcount <- rowcount + 1;
     pids <- paste(path.ids, collapse="->");
     #path.sybls <- V(g)$Label[path.inx];
     path.sybls <- sybls[path.ids];
     com.mat <- cbind(path.ids, path.sybls, rep(i, length(path.ids)));
-    gene.community <- rbind(gene.community, com.mat);
+    gene.community.list[[rowcount]] <- com.mat;  # Store in list instead of rbind
     qnum.vec <- c(qnum.vec, qnums);
-    
+
     # calculate p values (comparing in- out- degrees)
     #subgraph <- induced.subgraph(g, path.inx);
     subgraph <- induced.subgraph(g, path.ids);
@@ -379,9 +379,16 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
     ppval <- wilcox.test(in.degrees, out.degrees)$p.value;
     ppval <- signif(ppval, 3);
     pval.vec <- c(pval.vec, ppval);
-    
+
     # calculate community score
     community.vec[rowcount] <- paste(c(psize, qnums, ppval, pids), collapse=";");
+  }
+
+  # Combine all community matrices at once (instead of sequential rbind)
+  if(rowcount > 0){
+    gene.community <- do.call(rbind, gene.community.list);
+  }else{
+    gene.community <- NULL;
   }
   pvall <<- pval.vec
   if(length(pval.vec)>1){

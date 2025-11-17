@@ -44,6 +44,16 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
  
     }
   }
+
+  # Combine all at once (instead of sequential rbind)
+  comp.res1 <- do.call(rbind, comp.res.list)
+  enrich.nms1 <- unlist(enrich.nms.list)
+  comp.res.inx1 <- unlist(comp.res.inx.list)
+  featureNms <- unlist(featureNms.list)
+  omics.vec <- unlist(omics.vec.list)
+  uniqFeats <- unlist(uniqFeats.list)
+  filenms <- filenms.vec
+
   reductionSet <- .get.rdt.set();
   reductionSet$comp.res <- comp.res1;
   reductionSet$enrich_ids <- enrich.nms1;
@@ -182,8 +192,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     })
     pos.xyz <- as.data.frame(pos.xyz)
     
-    # concatenate feature weights
-    loading.pos.xyz <- data.frame()
+    # concatenate feature weights (memory-optimized: pre-allocate list)
+    loading.list <- vector("list", length(omics.type))
     for(i in c(1:length(omics.type))){
       temp.mat <- as.data.frame(model[["loadings"]][[i]])
       rnms <- rownames(temp.mat);
@@ -191,8 +201,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       rownames(temp.mat) <- rnms;
       temp.mat$ids <- rownames(temp.mat);
       temp.mat$type <- omics.type[i]
-      loading.pos.xyz <- rbind(loading.pos.xyz, temp.mat)
+      loading.list[[i]] <- temp.mat
     }
+    loading.pos.xyz <- do.call(rbind, loading.list)
     colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps), "ids", "type");
     var.exp <- model$prop_expl_var;
     var.exp$Y <- NULL;

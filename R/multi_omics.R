@@ -269,23 +269,19 @@ PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1", interactive
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   sel.nms <- names(mdata.all)
   fig.list <- list()
-  merged.df <- data.frame
-  df.list <- list()
+  # Pre-allocate list to avoid sequential rbind (memory optimization)
+  df.list <- vector("list", length(sel.nms))
+
   for(i in 1:length(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
     dat <- dataSet$data.proc
-    if(i==1){
-      st <- stack(as.data.frame(dat))
-      st$Dataset <- rep(sel.nms[i], nrow(dat))
-      merged.df <- st
-    }else{
-      st <- stack(as.data.frame(dat))
-      st$Dataset <- rep(sel.nms[i], nrow(dat)) 
-      merged.df <-rbind(merged.df, st)
-    } 
-    
-    
+    st <- stack(as.data.frame(dat))
+    st$Dataset <- rep(sel.nms[i], nrow(dat))
+    df.list[[i]] <- st  # Store in list instead of sequential rbind
   }
+
+  # Combine all data frames at once (instead of sequential rbind)
+  merged.df <- do.call(rbind, df.list)
   
   type<-merged.df$type
   merged.df$ind <- paste0(merged.df$ind, "_", merged.df$type)

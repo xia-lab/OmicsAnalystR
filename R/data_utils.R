@@ -896,31 +896,37 @@ GetRCommandHistory <- function(){
 
 process_metadata <- function(df) {
   library(caret)
-  
-  # Initialize the processed_df with the same number of rows as the input dataframe
-  processed_df <- data.frame(matrix(ncol = 0, nrow = nrow(df)))
-  
+
+  # Pre-allocate list to avoid sequential cbind (memory optimization)
+  col_list <- vector("list", length(colnames(df)))
+  col_index <- 0
+
   # Loop through each column of the data frame
   for (col_name in colnames(df)) {
-    
+    col_index <- col_index + 1
+
     # Check if the column is a factor or character (categorical)
     if (is.factor(df[[col_name]]) || is.character(df[[col_name]])) {
       # One-hot encode categorical variables
       one_hot_encoded <- model.matrix(~ df[[col_name]] - 1, data = df)
       colnames(one_hot_encoded) <- paste0(col_name, "_", colnames(one_hot_encoded))
-      # Append to processed dataframe
-      processed_df <- cbind(processed_df, one_hot_encoded)
-    
+      col_list[[col_index]] <- one_hot_encoded
+
     # If the column is numeric (continuous)
     } else if (is.numeric(df[[col_name]])) {
       # Handle missing values by imputing them with the mean
       df[[col_name]][is.na(df[[col_name]])] <- mean(df[[col_name]], na.rm = TRUE)
-      
+
       # Normalize continuous variables (Z-score normalization)
       normalized_column <- scale(df[[col_name]])
-      processed_df[[col_name]] <- normalized_column
+      colnames(normalized_column) <- col_name
+      col_list[[col_index]] <- normalized_column
     }
   }
-  
+
+  # Combine all processed columns at once (instead of sequential cbind)
+  processed_df <- do.call(cbind, col_list)
+  processed_df <- as.data.frame(processed_df)
+
   return(processed_df)
 }

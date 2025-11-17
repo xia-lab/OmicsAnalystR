@@ -19,22 +19,26 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
 
 
 .do.feat.selectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3,sel.nms){
-  print(c(type,"DoFeatSelectionForCorr"))
+  #print(c(type,"DoFeatSelectionForCorr"))
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
  
   if(type %in% c("default","custom","var")){
+    # Pre-allocate lists to avoid sequential rbind (memory optimization)
+    data.list <- vector("list", length(sel.nms))
+    sig.list <- vector("list", length(sel.nms))
+    dataset.list <- vector("list", length(sel.nms))
+    type.vec <- vector("character", length(sel.nms))
+
+    # First pass: collect data and sig matrices
     for(i in 1:length(sel.nms)){
- 
       dataName = sel.nms[i];
       dataSet <- readDataset(dataName);
-      if(i==1){
-        all.mat <- dataSet$data.proc
-      }else{
-        all.mat <- rbind(all.mat, dataSet$data.proc)
-      }
-      
+      data.list[[i]] <- dataSet$data.proc
+      dataset.list[[i]] <- dataSet  # Store entire dataset for later use
+      type.vec[i] <- dataSet$type
+
       if(type == "default"){
         sig.mat <- dataSet$sig.mat
       }else if(type == "var"){
@@ -43,18 +47,29 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       }else{
         sig.mat <- dataSet$custom.sig.mat
       }
-   
+
       #if more than 1000 sig features, then limit to top 1000 only
       if(nrow(sig.mat) > 1000){
         sig.mat <- sig.mat[c(1:1000),];
       }
-      
+
+      sig.list[[i]] <- sig.mat
+    }
+
+    # Combine all data matrices once (instead of sequential rbind)
+    all.mat <- do.call(rbind, data.list)
+
+    # Second pass: apply filtering logic
+    for(i in 1:length(sel.nms)){
+      dataSet <- dataset.list[[i]]  # Retrieve stored dataset
+      sig.mat <- sig.list[[i]]
+
       inxAll = which(rownames(all.mat) %in% rownames(sig.mat));
-      inx = which(rownames(dataSet$data.proc) %in% rownames(sig.mat));
-      
+      inx = which(rownames(data.list[[i]]) %in% rownames(sig.mat));
+
       all.mat <- all.mat[inxAll, ];
-      dat <- dataSet$data.proc[inx, ];
-      rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
+      dat <- data.list[[i]][inx, ];
+      rownames(dat) <- paste0(rownames(dat), "_", type.vec[i]);
       sel.dats[[i]] <- dat
       labels <- c(labels, rownames(dat));
             
@@ -476,7 +491,7 @@ expand.matrix <- function(A){
 
 ###########generate chordgram
 GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format = "png", dpi = 300){
-  print(c(maxN,pval))
+  #print(c(maxN,pval))
   plotjs <- paste0(imgName, ".json");
   reductionSet <- .get.rdt.set(); 
   corr.mat <- qs::qread("corr.mat.qs");
