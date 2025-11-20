@@ -110,3 +110,33 @@ load_ppcor <- function(){
 load_metagenomeseq <- function(){
   suppressMessages(library(metagenomeSeq))
 }
+
+# Load limma
+load_limma <- function(){
+  suppressMessages(library(limma))
+}
+
+# Load cluster
+load_cluster <- function(){
+  suppressMessages(library(cluster))
+}
+
+# Load ADPclust
+load_adpclust <- function(){
+  suppressMessages(library(ADPclust))
+}
+
+# Load factoextra
+load_factoextra <- function(){
+  suppressMessages(library(factoextra))
+}
+
+# Load ks
+load_ks <- function(){
+  suppressMessages(library(ks))
+}
+
+# Load rgl
+load_rgl <- function(){
+  suppressMessages(library(rgl))
+}

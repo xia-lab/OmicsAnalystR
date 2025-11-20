@@ -895,38 +895,53 @@ GetRCommandHistory <- function(){
 }
 
 process_metadata <- function(df) {
-  library(caret)
+  suppressMessages(library(data.table))
 
-  # Pre-allocate list to avoid sequential cbind (memory optimization)
-  col_list <- vector("list", length(colnames(df)))
-  col_index <- 0
+  # Convert to data.table by reference to avoid copying
+  dt <- as.data.table(df)
 
-  # Loop through each column of the data frame
-  for (col_name in colnames(df)) {
-    col_index <- col_index + 1
+  # Identify categorical and numeric columns
+  categorical_cols <- names(which(sapply(dt, function(x) is.factor(x) || is.character(x))))
+  numeric_cols <- names(which(sapply(dt, is.numeric)))
 
-    # Check if the column is a factor or character (categorical)
-    if (is.factor(df[[col_name]]) || is.character(df[[col_name]])) {
-      # One-hot encode categorical variables
-      one_hot_encoded <- model.matrix(~ df[[col_name]] - 1, data = df)
-      colnames(one_hot_encoded) <- paste0(col_name, "_", colnames(one_hot_encoded))
-      col_list[[col_index]] <- one_hot_encoded
-
-    # If the column is numeric (continuous)
-    } else if (is.numeric(df[[col_name]])) {
-      # Handle missing values by imputing them with the mean
-      df[[col_name]][is.na(df[[col_name]])] <- mean(df[[col_name]], na.rm = TRUE)
-
-      # Normalize continuous variables (Z-score normalization)
-      normalized_column <- scale(df[[col_name]])
-      colnames(normalized_column) <- col_name
-      col_list[[col_index]] <- normalized_column
+  # Process numeric columns first (imputation and scaling)
+  if (length(numeric_cols) > 0) {
+    # Impute missing values with the mean *by reference*
+    for (col in numeric_cols) {
+      set(dt, i = which(is.na(dt[[col]])), j = col, value = mean(dt[[col]], na.rm = TRUE))
     }
+    
+    # Scale numeric columns *by reference*
+    dt[, (numeric_cols) := lapply(.SD, scale), .SDcols = numeric_cols]
   }
 
-  # Combine all processed columns at once (instead of sequential cbind)
-  processed_df <- do.call(cbind, col_list)
-  processed_df <- as.data.frame(processed_df)
+  # Process categorical columns (one-hot encoding)
+  if (length(categorical_cols) > 0) {
+    # Add a temporary ID for melting and casting
+    dt[, `_id` := .I]
 
-  return(processed_df)
+    # Melt the categorical data
+    melted_dt <- melt(dt, id.vars = "_id", measure.vars = categorical_cols, 
+                      variable.name = "variable", value.name = "value")
+    
+    # Perform one-hot encoding using dcast
+    # The formula `_id ~ variable + value` creates the wide format for one-hot encoding
+    # `fun.aggregate = length` counts occurrences (which will be 1 for each present category)
+    one_hot_dt <- dcast(melted_dt, `_id` ~ variable + value, fun.aggregate = length, value.var = "value")
+    
+    # Merge back with numeric data
+    # We select only numeric columns and the ID from the original data table
+    numeric_dt <- dt[, c("_id", numeric_cols), with = FALSE]
+    processed_dt <- merge(numeric_dt, one_hot_dt, by = "_id")
+    
+    # Clean up and set to a data frame
+    processed_dt[, `_id` := NULL]
+    setDF(processed_dt)
+  } else {
+    # If no categorical columns, just return the processed numeric data
+    processed_dt <- dt
+    setDF(processed_dt)
+  }
+
+  return(processed_dt)
 }

@@ -45,15 +45,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     }
   }
 
-  # Combine all at once (instead of sequential rbind)
-  comp.res1 <- do.call(rbind, comp.res.list)
-  enrich.nms1 <- unlist(enrich.nms.list)
-  comp.res.inx1 <- unlist(comp.res.inx.list)
-  featureNms <- unlist(featureNms.list)
-  omics.vec <- unlist(omics.vec.list)
-  uniqFeats <- unlist(uniqFeats.list)
-  filenms <- filenms.vec
-
   reductionSet <- .get.rdt.set();
   reductionSet$comp.res <- comp.res1;
   reductionSet$enrich_ids <- enrich.nms1;
@@ -223,11 +214,13 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
       print("s9")
+  # Initialize the list element before assigning properties
+  reductionSet[[reductionOpt]] <- list()
   reductionSet[[reductionOpt]]$pos.xyz <- pos.xyz;
   reductionSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   reductionSet[[reductionOpt]]$var.exp <- var.exp;
   fileNm <- paste0("loading_result_", reductionOpt);
-  reductionSet[[reductionSet$reductionOpt]]$loading.file.nm <- fileNm;
+  reductionSet[[reductionOpt]]$loading.file.nm <- fileNm;
   infoSet$imgSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   fast.write.csv(loading.pos.xyz,file=fileNm);
   

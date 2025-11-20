@@ -98,7 +98,7 @@ gm_mean <- function(x, na.rm=TRUE){
 
 performLimma <- function(trimmed.data, trimmed.meta){
   
-  library(limma);
+  load_limma();
   
   # process class labels
   cls <- as.factor(trimmed.meta); 
@@ -141,12 +141,12 @@ performLimma <- function(trimmed.data, trimmed.meta){
 PerformClusteringScatter <- function(filenm, type, nclust){
   nclust = as.numeric(nclust)
   Sys.setenv(RGL_USE_NULL = TRUE)
-  library(rgl)
-  library(cluster)
+  load_rgl()
+  load_cluster()
   reductionSet <- .get.rdt.set();
   pos.xyz = reductionSet[[reductionSet$reductionOpt ]]$pos.xyz;
   if(type == "density"){
-    library(ADPclust)
+    load_adpclust()
     if(init == "true"){
       ans = adpclust(pos.xyz)
     }else{
@@ -167,7 +167,7 @@ PerformClusteringScatter <- function(filenm, type, nclust){
   RegisterData(dataSet)
   
   netData <- list(cluster=unname(cluster), objects=a$objects, ellipse=meshes, meta=dataSet$meta);
-  library(RJSONIO)
+  load_rjsonio()
   sink(filenm);
   cat(toJSON(netData));
   sink();
@@ -176,16 +176,16 @@ PerformClusteringScatter <- function(filenm, type, nclust){
 
 PerformClusteringMeta <-function(filenm, meta, type, opt){ 
   Sys.setenv(RGL_USE_NULL = TRUE)
-  library(rgl)
-  library(cluster)
+  load_rgl()
+  load_cluster()
   reductionSet <- .get.rdt.set();
   pos.xyz = reductionSet[[reductionSet$reductionOpt ]]$pos.xyz;
     metadf = reductionSet$newmeta
 
   selMetas = unique(metadf[,meta])
   clustersHolder = list()
-  library(ADPclust)
-  library(factoextra)
+  load_adpclust()
+  load_factoextra()
   if(opt == "meta"){
     for(i in 1:length(unique(selMetas))){
       inx = metadf[,meta] == selMetas[i]
@@ -205,7 +205,7 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
         ans = adpclust(pos.xyz[inx,], nclust=optimalNumber)
         clusList$cluster = ans$clusters
       }else if(type == "meanshift"){
-        library(ks)
+        load_ks()
         ans = kms(pos.xyz[inx,])
         clusList$cluster = ans$label
       }
@@ -233,7 +233,7 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
       ans = adpclust(pos.xyz, nclust=optimalNumber);
       clusList$cluster = ans$clusters;
     }else if(type == "meanshift"){
-      library(ks)
+      load_ks()
       ans = kms(pos.xyz, min.clust.size=10);
       clusList$cluster = ans$label;
     }
@@ -248,7 +248,7 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
     netData <- list(cluster=clustersHolder, metaNm=paste0("Cluster ", unique(cluster)), objects="NA", ellipse="NA", meta=metadf);  
   }
   
-  library(RJSONIO);
+  load_rjsonio();
   sink(filenm);
   cat(toJSON(netData));
   sink();
@@ -258,10 +258,10 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
 
 PerformCustomClustering <- function(filenm, type, ids){
   Sys.setenv(RGL_USE_NULL = TRUE)
-  library(rgl)
-  library(cluster)
-  library(ADPclust)
-  library(factoextra)
+  load_rgl()
+  load_cluster()
+  load_adpclust()
+  load_factoextra()
   
   idsvec <- strsplit(ids, "; ")[[1]];
   reductionSet <- .get.rdt.set();
@@ -287,14 +287,14 @@ PerformCustomClustering <- function(filenm, type, ids){
     ans = adpclust(pos.xyz[inx,], nclust=optimalNumber)
     clusList$cluster = ans$clusters
   }else if(type == "meanshift"){
-    library(ks)
+    load_ks()
     ans = kms(pos.xyz[inx,])
     clusList$cluster = ans$label
   }
   clusList$inxs = inx
   
   netData <- list(cluster=clusList);  
-  library(RJSONIO)
+  load_rjsonio()
   sink(filenm);
   cat(toJSON(netData));
   sink();
