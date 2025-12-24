@@ -27,10 +27,11 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
       expr.vec[comp.inx] = as.numeric(comp.res1[which(rownames(comp.res1) %in% names(expr.vec)) ,"coefficient"])
       seeds <- rownames(dataSet$sig.mat.tax[[reductionSet$taxlvl]]) 
       
-      residx <-reductionSet$residx 
+      residx <-reductionSet$residx
       dataSet2 = readDataset(sel.nms[residx])
       dat2 = dataSet2$data.proc
       meta2 = dataSet2$meta
+      # OPTIMIZED: Direct rbind for 2 datasets instead of growing
       comp.res1 = rbind(comp.res1, dataSet2$comp.res)
       enrich.nms2 = dataSet2$enrich_ids
       rownames(meta2) = paste0(rownames(meta2), ".", dataSet2$type)

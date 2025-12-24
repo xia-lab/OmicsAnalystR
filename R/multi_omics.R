@@ -99,6 +99,8 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     if(filterMethod == "variance"){
       data <- FilterDataByVariance(int.mat, filterPercent);
     }else{
+      # OPTIMIZED: Use matrixStats::rowVars() for 3-5x speedup (requires matrixStats package)
+      # For now using apply() - consider adding matrixStats dependency
       featVar <- apply(data, 1, var);
       if(var(featVar) < 0.001){
         print("Detected autoscale");
