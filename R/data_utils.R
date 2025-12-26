@@ -886,7 +886,7 @@ GetRCommandHistory <- function(){
   infoSet <- readSet(infoSet, "infoSet");
   cmdSet <- infoSet$cmdSet; 
   if(length(cmdSet$cmdVec) == 0){
-    return("No commands found");
+    return("NA");
   }
   return(cmdSet$cmdVec);
 }
