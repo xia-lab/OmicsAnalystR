@@ -252,12 +252,40 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
 
     # Transpose once and reuse to avoid creating multiple copies
     transposed_data <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
-    res = rcorr(as.matrix(transposed_data), type = cor.stat);
-    rm(transposed_data)  # Clean up transpose immediately
 
-    corr.mat <- res$r
-    corr.p.mat <- res$P
-    rm(res)  # Clean up rcorr result object
+    # rcorr only supports pearson and spearman
+    if(tolower(cor.stat) == "kendall") {
+      # For Kendall, compute correlation and p-values separately
+      corr.mat <- cor(transposed_data, method="kendall", use="pairwise.complete.obs")
+
+      # Compute p-values efficiently
+      n_samples <- nrow(transposed_data)
+      n_vars <- ncol(transposed_data)
+      corr.p.mat <- matrix(NA, nrow=n_vars, ncol=n_vars)
+      rownames(corr.p.mat) <- colnames(corr.p.mat) <- colnames(corr.mat)
+
+      # Vectorized p-value computation using normal approximation
+      for(i in 1:(n_vars-1)) {
+        for(j in (i+1):n_vars) {
+          # Remove NA pairs
+          valid_idx <- complete.cases(transposed_data[,i], transposed_data[,j])
+          n_valid <- sum(valid_idx)
+          tau <- corr.mat[i,j]
+
+          # Z-score approximation for Kendall's tau
+          z <- tau / sqrt((2*(2*n_valid+5))/(9*n_valid*(n_valid-1)))
+          corr.p.mat[i,j] <- corr.p.mat[j,i] <- 2 * pnorm(-abs(z))
+        }
+      }
+      diag(corr.p.mat) <- 0
+    } else {
+      res = rcorr(as.matrix(transposed_data), type = cor.stat);
+      corr.mat <- res$r
+      corr.p.mat <- res$P
+      rm(res)  # Clean up rcorr result object
+    }
+
+    rm(transposed_data)  # Clean up transpose immediately
     gc(verbose = FALSE)  # Force garbage collection
 
   }else if(cor.method == "MI"){
@@ -642,7 +670,37 @@ if(!exists("mem.omicsDiffCorr")){
     # Optimize: transpose once per sample group instead of repeatedly
     corr.mat.ls <- lapply(corr.ls, function(samp){
       transposed_samp <- cbind(t(sel.dats[[1]][,samp]), t(sel.dats[[2]][,samp]))
-      res = rcorr(as.matrix(transposed_samp), type = cor.stat);
+
+      # rcorr only supports pearson and spearman
+      if(tolower(cor.stat) == "kendall") {
+        # For Kendall, compute correlation and p-values separately
+        r_mat <- cor(transposed_samp, method="kendall", use="pairwise.complete.obs")
+
+        # Compute p-values
+        n_samples <- nrow(transposed_samp)
+        n_vars <- ncol(transposed_samp)
+        p_mat <- matrix(NA, nrow=n_vars, ncol=n_vars)
+        rownames(p_mat) <- colnames(p_mat) <- colnames(r_mat)
+
+        # Compute p-values for each pair
+        for(i in 1:(n_vars-1)) {
+          for(j in (i+1):n_vars) {
+            valid_idx <- complete.cases(transposed_samp[,i], transposed_samp[,j])
+            n_valid <- sum(valid_idx)
+            tau <- r_mat[i,j]
+            z <- tau / sqrt((2*(2*n_valid+5))/(9*n_valid*(n_valid-1)))
+            p_mat[i,j] <- p_mat[j,i] <- 2 * pnorm(-abs(z))
+          }
+        }
+        diag(p_mat) <- 0
+
+        # Create result object compatible with rcorr structure
+        res <- list(r = r_mat, n = n_samples, P = p_mat)
+        class(res) <- "rcorr"
+      } else {
+        res = rcorr(as.matrix(transposed_samp), type = cor.stat);
+      }
+
       rm(transposed_samp)  # Clean up transpose immediately
       return(res)
     })
