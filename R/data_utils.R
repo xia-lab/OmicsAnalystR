@@ -224,11 +224,11 @@ RegisterData <- function(dataSet, output=1){
   if(.on.public.web){
     #dataSets[[dataName]] <- dataSet;
     #dataSets <<- dataSets;
-    qs::qsave(dataSet, file=dataName);
+    qs::qsave(dataSet, file=replace_extension_with_qs(dataName));
     return(output);
   }else{
     if(paramSet$api.bool){
-        qs::qsave(dataSet, file=dataName);
+        qs::qsave(dataSet, file=replace_extension_with_qs(dataName));
         return(output);
     }else{
         dataSets[[dataName]] <- dataSet;
@@ -642,7 +642,15 @@ CheckDataType <- function(dataName, type){
 
 SetParamsNormalizedData <- function(dataName){
     dataSet <- readDataset(dataName);
-    int.mat <- qs::qread(dataSet$data.annotated.path);
+    annotated.path <- dataSet$data.annotated.path;
+    if(is.null(annotated.path) || !file.exists(annotated.path)){
+        annotated.path <- dataSet$data.raw.path;
+        if(is.null(annotated.path) || !file.exists(annotated.path)){
+            msg.vec <<- paste0("Normalized data file not found for ", dataSet$name, ".")
+            return(0);
+        }
+    }
+    int.mat <- qs::qread(annotated.path);
     msg.vec <- "";
 
     if(sum(is.na(int.mat)) == 0){ # check if any missing values

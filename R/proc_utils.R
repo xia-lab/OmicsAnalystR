@@ -406,6 +406,8 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$data.raw.path <- paste0(dataSet$folderName, "/data.raw.qs");
 
   qs::qsave(data, dataSet$data.raw.path);
+  qs::qsave(data, dataSet$data.annotated.path);
+
   # update current dataset
   RegisterData(dataSet);
   return(1)

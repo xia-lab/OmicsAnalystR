@@ -185,6 +185,8 @@ ComputePathHeatmapTable <- function(dataSet){
   list_of_lists <- apply(rest, 1, function(x) unname(as.list(x)))
   
   
+  heatmap_file <- saveTopRowsHeatmapImage(dat, dataSet, lbls, topN=50, meta.info=meta, meta.types=meta.types);
+
   json.res <- list(
     data.name = dataSet$name,
     data.type = dataSet$type,
@@ -199,8 +201,93 @@ ComputePathHeatmapTable <- function(dataSet){
     org = data.org,
     pval = stat.pvals
   );
+  if(!is.null(heatmap_file)){
+    json.res$heatmap.image <- heatmap_file;
+  }
 
   return(json.res);
+}
+
+saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.info=NULL, meta.types=NULL){
+  if(is.null(dat) || nrow(dat) == 0 || ncol(dat) == 0 || is.null(dataSet)){
+    return(NULL);
+  }
+  topN <- min(topN, nrow(dat));
+  if(topN <= 0){
+    return(NULL);
+  }
+  mat <- dat[1:topN, , drop=FALSE];
+  if(!is.null(lbls) && length(lbls) >= topN){
+    rownames(mat) <- lbls[1:topN];
+  }
+  anno <- NULL;
+  annotation_colors <- list();
+  if(!is.null(meta.info) && nrow(meta.info) == ncol(mat)){
+    primary <- names(meta.info)[1];
+    if(!is.null(primary) && primary %in% names(meta.info)){
+      col.order <- order(meta.info[[primary]]);
+      mat <- mat[, col.order, drop=FALSE];
+      if(!is.null(lbls) && length(lbls) >= ncol(mat)){
+        lbls <- lbls[col.order];
+      }
+      meta.info <- meta.info[col.order, , drop=FALSE];
+    }
+    num.cols <- min(4, ncol(meta.info));
+    if(num.cols > 0){
+      anno <- as.data.frame(meta.info[, seq_len(num.cols), drop=FALSE]);
+      rownames(anno) <- rownames(meta.info);
+      if(!is.null(meta.types)){
+        for(col in colnames(anno)){
+          type <- meta.types[col];
+          if(is.null(type)) next;
+          if(grepl("disc", type, ignore.case=TRUE)){
+            # Discrete metadata: use categorical colors
+            values <- unique(anno[[col]]);
+            values <- values[order(values)];
+            pal <- if(length(values) <= 8) RColorBrewer::brewer.pal(max(3, length(values)), "Set2")
+                   else grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, "Set2"))(length(values));
+            annotation_colors[[col]] <- setNames(pal[seq_along(values)], as.character(values));
+          } else if(grepl("cont", type, ignore.case=TRUE)){
+            # Continuous metadata: use color gradient
+            values <- as.numeric(anno[[col]]);
+            if(!all(is.na(values))){
+              # Create a color gradient function (blue to red)
+              annotation_colors[[col]] <- circlize::colorRamp2(
+                breaks = seq(min(values, na.rm=TRUE), max(values, na.rm=TRUE), length.out=3),
+                colors = c("blue", "white", "red")
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+  load_pheatmap();
+  load_cairo();
+  load_rcolorbrewer();
+  dims <- get_pheatmap_dims(mat, NA, "overview", 0);
+  width <- dims$width;
+  height <- dims$height;
+  safeName <- gsub("[^A-Za-z0-9_]+", "_", dataSet$name);
+  if(safeName == ""){
+    safeName <- "dataset";
+  }
+  heatmap_file <- paste0("heatmap_top50_", safeName, ".png");
+  Cairo::Cairo(file = heatmap_file, unit="in", dpi=150, width=width, height=height, type="png", bg="white");
+  pheatmap::pheatmap(mat,
+                     color = rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256)),
+                     fontsize=10, fontsize_row=8,
+                     border_color = NA,
+                     cluster_rows = FALSE,
+                     cluster_cols = FALSE,
+                     scale = "column",
+                     annotation_col = anno,
+                     annotation_colors = if(length(annotation_colors)>0) annotation_colors else NULL,
+                     show_rownames = TRUE,
+                     show_colnames = TRUE,
+                     display_numbers = FALSE);
+  dev.off();
+  return(heatmap_file);
 }
 
 ComputeKmeans <- function(clusterNum="-1"){
@@ -873,4 +960,3 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
 
   return(.set.rdt.set(rdtSet));
 }
-

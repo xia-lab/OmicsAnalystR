@@ -328,6 +328,11 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
     netData[["minCorrelation"]] <- min(abs(E(g)$correlation))
   }
 
+  network_img <- saveNetworkImage(g, net.nm, pos.xy, node.cols, node.sizes, shapes, E(g)$correlation);
+  if(!is.null(network_img)){
+    netData[["network.image"]] <- network_img;
+  }
+
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$paramSet$jsonNms$network <- fileNm
   saveSet(infoSet);
@@ -339,7 +344,48 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   return(1);
 }
 
+saveNetworkImage <- function(graph, netName, layoutCoords, vertexColors, vertexSizes, vertexShapes, edgeCorr){
+  if(is.null(graph) || is.null(netName) || is.null(layoutCoords)){
+    return(NULL);
+  }
+  load_cairo();
+  load_pheatmap(); # ensures Cairo available? (no, just width)
+  safeName <- gsub("[^A-Za-z0-9_]+", "_", netName);
+  if(safeName == ""){
+    safeName <- "network";
+  }
+  imgName <- paste0("network_top50_", safeName, ".png");
+  width <- max(6, min(14, nrow(layoutCoords)/10 + 6));
+  height <- max(6, min(10, nrow(layoutCoords)/15 + 5));
+  Cairo::Cairo(file = imgName, unit="in", dpi=150, width=width, height=height, type="png", bg="#0f0f0f");
+  edgeCols <- if(!is.null(edgeCorr)){
+    ifelse(edgeCorr >= 0, "#46a6ff", "#ff7f45")
+  } else {
+    rep("#2f4f4f", length(E(graph)))
+  }
+  edgeWidths <- if(!is.null(edgeCorr)){
+    pmax(0.6, abs(edgeCorr) * 2)
+  } else {
+    rep(1, length(E(graph)))
+  }
+  vertex.shape <- ifelse(vertexShapes == "square", "square", "circle");
+  plot(graph,
+       layout=layoutCoords,
+       vertex.color=vertexColors,
+       vertex.size=vertexSizes,
+       vertex.shape=vertex.shape,
+       vertex.label=NA,
+       edge.color=edgeCols,
+       edge.width=edgeWidths,
+       edge.curved=0.2,
+       vertex.frame.color="black",
+       margin=c(0,0,0,0));
+  dev.off();
+  return(imgName);
+}
+
 my.perform.layout <- function(net.nm, algo, focus=""){
+  library(igraph);
   g <- ppi.comps[[net.nm]];
   vc <- vcount(g);
   if(algo == "Default"){

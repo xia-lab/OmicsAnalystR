@@ -980,25 +980,39 @@ get_pheatmap_dims <- function(dat, annotation, view.type, width, cellheight = 15
   return(list(height = h, width = w));
 }
 
-readDataset <- function(fileName=""){
-    obj <- NULL;
+readDataset <- function(dataName = "", quiet = FALSE) {
 
-    if(globalConfig$anal.mode == "api"){
-      if(exists('user.path')){
-        path <- user.path;
-        obj <- load_qs(paste0(path, fileName));
-      }else{
-        obj <- qs::qread(fileName);
+  #── 1 · quick sanity check ----------------------------------------------------
+  if (length(dataName) == 0L || dataName == "") {
+    if (!quiet) warning("readDataset: empty dataName")
+    return(NULL)
+  }
+
+  #── 2 · choose source --------------------------------------------------------
+  tryCatch({
+
+      if (exists("dataSets") &&
+          !is.null(dataSets) &&
+          !is.null(dataSets[[dataName]])) {
+
+        obj <- dataSets[[dataName]]                         # in‑memory copy
+
+      } else {                                              # fall back to .qs
+        qsfile <- replace_extension_with_qs(dataName)
+        obj <- qs::qread(qsfile)
       }
-    }else{
-            if(exists("dataSets") && !is.null(dataSets) && !is.null(dataSets[[fileName]])) {
-                obj <- dataSets[[fileName]]
-            } else {
-                obj <- qs::qread(fileName)
-            }
-    }
-    return(obj);
+    
+
+    obj
+
+  }, error = function(e) {                                  #── 3 · graceful fail
+    if (!quiet)
+      warning(sprintf("readDataset: cannot load '%s' – %s",
+                      dataName, e$message), call. = FALSE)
+    NULL
+  })
 }
+
 
 
 saveDataQs <-function(data, name, dataName){
@@ -1125,4 +1139,14 @@ if(type == "reduce.dimension" || type == "PlotDimredVarexp" || type == "PlotDimr
 
 }
 return(1)
+}
+
+replace_extension_with_qs <- function(data_name) {
+  if (is.null(data_name) || data_name == "") {
+    stop("Data name must not be null or empty")
+  }
+  
+  # Use gsub to replace .csv or .txt with .qs
+  result <- gsub("\\.csv$|\\.txt$", ".qs", data_name)
+  return(result)
 }
