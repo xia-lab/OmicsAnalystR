@@ -304,6 +304,13 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   fast.write(nd.tbl, file="node_table.csv", row.names=FALSE);
   reductionSet$imgSet$node_table <- nd.tbl;
 
+  # Export to Arrow for Java DataTable zero-copy access
+  tryCatch({
+    ExportNodeTableArrow()
+  }, error = function(e) {
+    warning(paste("NodeTable Arrow export failed:", e$message))
+  })
+
   if(length(V(g)$name)>100 && ppi.net$db.type != "uploaded"){
     modules <- FindCommunities("walktrap", FALSE);
   }else{
