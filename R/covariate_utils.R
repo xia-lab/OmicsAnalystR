@@ -339,8 +339,18 @@ print(pval.type)
 
   comp_res_path <- paste0(names(dataSets)[i], "_data/", "comp_res.csv");
   fast.write.csv(rest, file=paste0(dataName, "_data/", "comp_res.csv"))
+
+  # IMPORTANT: RegisterData MUST be called BEFORE ExportCovSigArrow
+  # because ExportCovSigArrow reads dataSet$analSet$cov$sig.mat from disk
   RegisterData(dataSet)
- 
+
+  # Export to Arrow for Java DataTable zero-copy access
+  tryCatch({
+    ExportCovSigArrow(dataName)
+  }, error = function(e) {
+    warning(paste("CovSig Arrow export failed:", e$message))
+  })
+
   return(c(sig.num, nonSig));
 }
 
@@ -850,11 +860,22 @@ CombineFacScatter.Anal <- function(dataName="",
   
   comp_res_path <- paste0(dataName, "_data/", "comp_res.csv");
   fast.write.csv(rest, file=paste0(dataName, "_data/", "comp_res.csv"))
+
+  # IMPORTANT: RegisterData MUST be called BEFORE ExportCovSigArrow
+  # because ExportCovSigArrow reads dataSet$analSet$cov$sig.mat from disk
   RegisterData(dataSet)
+
+  # Export to Arrow for Java DataTable zero-copy access
+  tryCatch({
+    ExportCovSigArrow(dataName)
+  }, error = function(e) {
+    warning(paste("CovSig Arrow export failed:", e$message))
+  })
+
   return(c(sig.num, nonSig));
 }
 
- 
+
 prepareContrast <-function(dataName,meta0="NA",meta1="NA",anal.type = "ref", par1 = NULL, par2 = NULL, nested.opt = "intonly"){
   library(limma)
   library(dplyr)

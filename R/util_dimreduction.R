@@ -223,7 +223,27 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet[[reductionOpt]]$loading.file.nm <- fileNm;
   infoSet$imgSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   fast.write.csv(loading.pos.xyz,file=fileNm);
-  
+
+  # Export to Arrow for Java DataTable zero-copy access
+  tryCatch({
+    arrow_path <- paste0("loading_", reductionOpt, ".arrow")
+    df <- loading.pos.xyz
+    # Add row_names_id column
+    df <- cbind(row_names_id = rownames(df), df)
+    # Convert factors to character
+    for (col in names(df)) {
+      if (is.factor(df[[col]])) df[[col]] <- as.character(df[[col]])
+    }
+    if (file.exists(arrow_path)) {
+      unlink(arrow_path)
+      Sys.sleep(0.01)
+    }
+    arrow::write_feather(df, arrow_path, compression = "uncompressed")
+    Sys.sleep(0.02)
+  }, error = function(e) {
+    warning(paste("Loading Arrow export failed:", e$message))
+  })
+
   hit.inx <- match(featureNms, unname(enrich.nms1));
   loadingSymbols <- names(enrich.nms1[hit.inx]);
   reductionSet[[reductionOpt]]$loading.enrich <- loadingSymbols

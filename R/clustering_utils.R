@@ -882,6 +882,11 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
   var.nms <- rownames(metaData);
   rdtSet$imgSet$clusterHeat <- imgName;
 
+  # Also save to infoSet for report generation
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$clusterHeat <- imgName;
+  saveSet(infoSet);
+
   met <- sapply(metaData, function(x) as.integer(x))
   rownames(met) <- smp.nms;
 
