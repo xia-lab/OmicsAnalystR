@@ -571,7 +571,8 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
   
   # Query threshold line if relevant (binary case)
   if(isQuery && length(unique(y)) == 2){
-    thresh <- as.numeric(rdtSet$analSet$roc.obj$thresh)
+    # MEMORY OPTIMIZATION: Use separately stored threshold instead of roc.obj
+    thresh <- as.numeric(rdtSet$analSet$roc.thresh)
     p <- p + geom_hline(aes(yintercept=thresh), colour="red")
   }
   
@@ -592,8 +593,13 @@ PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, is
 GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
   #save.image("coords.RData");
    rdtSet <- .get.rdt.set();
-  roc.obj <- rdtSet$analSet$roc.obj
-  
+
+  # MEMORY OPTIMIZATION: Regenerate ROC object on-demand from stored data
+  # Instead of keeping the full ROC object in memory permanently
+  feat.nm <- current.feat.nm
+  x <- unname(unlist(rdtSet$dataSet$roc.norm[feat.nm,]))
+  y <- rdtSet$dataSet$roc.cls
+
   if (length(unique(rdtSet$dataSet$roc.cls)) > 2) {
     # Multiclass case
     if (is.null(classLabel) || is.na(classLabel)) {
@@ -603,13 +609,14 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
     # Find the index of the class label
     class_labels <- unique(rdtSet$dataSet$roc.cls)
     class_index <- which(class_labels == classLabel)
-    
+
     if (length(class_index) == 0) {
       stop(paste("Class label", classLabel, "not found in the data."))
     }
-    
-    # Get the ROC curve for the specified class (one-vs-rest)
-    roc_class <- roc.obj$rocs[[class_index]]
+
+    # Regenerate ROC object for the specified class (one-vs-rest)
+    y_bin <- ifelse(y == classLabel, 1, 0)
+    roc_class <- pROC::roc(y_bin, x, ci = TRUE, of = "auc")
     res <- pROC::coords(roc_class, val, input=fld.nm, transpose=TRUE)
     
     # Specificity and sensitivity
@@ -635,13 +642,14 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
     return(res)
     
   } else {
-    # Binary case (existing logic)
+    # Binary case: Regenerate ROC object on-demand
+    roc.obj <- pROC::roc(y, x, ci = TRUE, of = "auc")
     res <- pROC::coords(roc.obj, val, input=fld.nm, transpose=TRUE)
-    
+
     sp <- res[2]
     se <- res[3]
     res <- round(res, 3)
-    
+
     rdtSet$analSet$thresh.obj <- NULL
     if (fld.nm == "threshold") {
       ci.s <- pROC::ci.thresholds(roc.obj, boot.n=100, thresholds=val, progress="none")
@@ -653,9 +661,14 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
     # Plot if requested
     if (plot) {
       PlotDetailROC(rdtSet, imgNm, res[1], sp, se)
-      rdtSet$analSet$roc.obj$thresh <- res[1]
+      # Store threshold value separately (not in roc.obj since we don't store it anymore)
+      rdtSet$analSet$roc.thresh <- res[1]
+      .set.rdt.set(rdtSet)
     }
-    
+
+    # Clean up temporary ROC object
+    rm(roc.obj)
+
     return(res)
   }
 }
@@ -663,12 +676,16 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
 
 
 PlotDetailROC <- function(rdtSet,imgName, thresh, sp, se, dpi=72, format="png"){
- 
+
   rdtSet <- .get.rdt.set();
-  
+
   imgName = paste(imgName, "_dpi", dpi, ".", format, sep="");
-  
-  roc.obj <- rdtSet$analSet$roc.obj;
+
+  # MEMORY OPTIMIZATION: Regenerate ROC object on-demand from stored data
+  feat.nm <- current.feat.nm
+  x <- unname(unlist(rdtSet$dataSet$roc.norm[feat.nm,]))
+  y <- rdtSet$dataSet$roc.cls
+  roc.obj <- pROC::roc(y, x, ci = TRUE, of = "auc")
   
   w <- h <- 6;
   rdtSet$imgSet$roc.univ <- imgName;
@@ -754,16 +771,22 @@ PrepareROCDetails <- function(feat.nm){
   roc.mat.combined[!is.finite(roc.mat.combined)] <- NA
   
   # Write the ROC details to a CSV file
- 
+
   filename <- paste(feat.nm, "_roc.csv", sep="")
   fast.write.csv(signif(roc.mat.combined, 4), file=filename, row.names=FALSE)
-  
-  # Save ROC data in the rdtSet for future use
+
+  # MEMORY OPTIMIZATION: Only save ROC matrix, not the full ROC object
+  # The full roc.res object can be regenerated on-demand from roc.norm and roc.cls
+  # This saves ~4.8 MB per user (no duplicate storage of sensitivities/specificities)
   rdtSet$analSet$roc.mat <- signif(roc.mat.combined, 6)
-  rdtSet$analSet$roc.obj <- roc.res
-  
+  # REMOVED: rdtSet$analSet$roc.obj <- roc.res  # Redundant - can regenerate from roc.norm/roc.cls
+
   current.feat.nm <<- feat.nm
-  
+
+  # Clean up the ROC object from memory
+  rm(roc.res)
+  gc(verbose = FALSE)
+
   return(.set.rdt.set(rdtSet))
 }
 

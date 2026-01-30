@@ -44,6 +44,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
  
     }
   }
+
   reductionSet <- .get.rdt.set();
   reductionSet$comp.res <- comp.res1;
   reductionSet$enrich_ids <- enrich.nms1;
@@ -182,8 +183,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     })
     pos.xyz <- as.data.frame(pos.xyz)
     
-    # concatenate feature weights
-    loading.pos.xyz <- data.frame()
+    # concatenate feature weights (memory-optimized: pre-allocate list)
+    loading.list <- vector("list", length(omics.type))
     for(i in c(1:length(omics.type))){
       temp.mat <- as.data.frame(model[["loadings"]][[i]])
       rnms <- rownames(temp.mat);
@@ -191,8 +192,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       rownames(temp.mat) <- rnms;
       temp.mat$ids <- rownames(temp.mat);
       temp.mat$type <- omics.type[i]
-      loading.pos.xyz <- rbind(loading.pos.xyz, temp.mat)
+      loading.list[[i]] <- temp.mat
     }
+    loading.pos.xyz <- do.call(rbind, loading.list)
     colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps), "ids", "type");
     var.exp <- model$prop_expl_var;
     var.exp$Y <- NULL;
@@ -212,11 +214,13 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
       print("s9")
+  # Initialize the list element before assigning properties
+  reductionSet[[reductionOpt]] <- list()
   reductionSet[[reductionOpt]]$pos.xyz <- pos.xyz;
   reductionSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   reductionSet[[reductionOpt]]$var.exp <- var.exp;
   fileNm <- paste0("loading_result_", reductionOpt);
-  reductionSet[[reductionSet$reductionOpt]]$loading.file.nm <- fileNm;
+  reductionSet[[reductionOpt]]$loading.file.nm <- fileNm;
   infoSet$imgSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   fast.write.csv(loading.pos.xyz,file=fileNm);
   

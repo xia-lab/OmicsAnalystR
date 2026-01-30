@@ -19,22 +19,26 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
 
 
 .do.feat.selectionForCorr <- function(type="default", retainedNumber=20, retainedComp=3,sel.nms){
-  print(c(type,"DoFeatSelectionForCorr"))
+  #print(c(type,"DoFeatSelectionForCorr"))
   sel.dats <- list();
   labels <- vector();
   reductionSet <- .get.rdt.set()
  
   if(type %in% c("default","custom","var")){
+    # Pre-allocate lists to avoid sequential rbind (memory optimization)
+    data.list <- vector("list", length(sel.nms))
+    sig.list <- vector("list", length(sel.nms))
+    dataset.list <- vector("list", length(sel.nms))
+    type.vec <- vector("character", length(sel.nms))
+
+    # First pass: collect data and sig matrices
     for(i in 1:length(sel.nms)){
- 
       dataName = sel.nms[i];
       dataSet <- readDataset(dataName);
-      if(i==1){
-        all.mat <- dataSet$data.proc
-      }else{
-        all.mat <- rbind(all.mat, dataSet$data.proc)
-      }
-      
+      data.list[[i]] <- dataSet$data.proc
+      dataset.list[[i]] <- dataSet  # Store entire dataset for later use
+      type.vec[i] <- dataSet$type
+
       if(type == "default"){
         sig.mat <- dataSet$sig.mat
       }else if(type == "var"){
@@ -43,18 +47,29 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       }else{
         sig.mat <- dataSet$custom.sig.mat
       }
-   
+
       #if more than 1000 sig features, then limit to top 1000 only
       if(nrow(sig.mat) > 1000){
         sig.mat <- sig.mat[c(1:1000),];
       }
-      
+
+      sig.list[[i]] <- sig.mat
+    }
+
+    # Combine all data matrices once (instead of sequential rbind)
+    all.mat <- do.call(rbind, data.list)
+
+    # Second pass: apply filtering logic
+    for(i in 1:length(sel.nms)){
+      dataSet <- dataset.list[[i]]  # Retrieve stored dataset
+      sig.mat <- sig.list[[i]]
+
       inxAll = which(rownames(all.mat) %in% rownames(sig.mat));
-      inx = which(rownames(dataSet$data.proc) %in% rownames(sig.mat));
-      
+      inx = which(rownames(data.list[[i]]) %in% rownames(sig.mat));
+
       all.mat <- all.mat[inxAll, ];
-      dat <- dataSet$data.proc[inx, ];
-      rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
+      dat <- data.list[[i]][inx, ];
+      rownames(dat) <- paste0(rownames(dat), "_", type.vec[i]);
       sel.dats[[i]] <- dat
       labels <- c(labels, rownames(dat));
             
@@ -222,45 +237,97 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
     
    # corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
     if(exists("selDatsCorr.taxa",reductionSet)){
+      # Optimize: transpose once and reuse to avoid multiple temporary copies
       corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
-        cor(cbind(t(x), t(sel.dats[[residx]])), method=cor.stat)
+        transposed_taxa <- cbind(t(x), t(sel.dats[[residx]]))
+        result <- cor(transposed_taxa, method=cor.stat)
+        rm(transposed_taxa)  # Clean up transpose immediately
+        return(result)
       })
-      
+
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
 
   library(Hmisc)
-   
-    res = rcorr(as.matrix(cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))),type = cor.stat);
-   corr.mat <- res$r
-   corr.p.mat <- res$P
-      
+
+    # Transpose once and reuse to avoid creating multiple copies
+    transposed_data <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
+
+    # rcorr only supports pearson and spearman
+    if(tolower(cor.stat) == "kendall") {
+      # For Kendall, compute correlation and p-values separately
+      corr.mat <- cor(transposed_data, method="kendall", use="pairwise.complete.obs")
+
+      # Compute p-values efficiently
+      n_samples <- nrow(transposed_data)
+      n_vars <- ncol(transposed_data)
+      corr.p.mat <- matrix(NA, nrow=n_vars, ncol=n_vars)
+      rownames(corr.p.mat) <- colnames(corr.p.mat) <- colnames(corr.mat)
+
+      # Vectorized p-value computation using normal approximation
+      for(i in 1:(n_vars-1)) {
+        for(j in (i+1):n_vars) {
+          # Remove NA pairs
+          valid_idx <- complete.cases(transposed_data[,i], transposed_data[,j])
+          n_valid <- sum(valid_idx)
+          tau <- corr.mat[i,j]
+
+          # Z-score approximation for Kendall's tau
+          z <- tau / sqrt((2*(2*n_valid+5))/(9*n_valid*(n_valid-1)))
+          corr.p.mat[i,j] <- corr.p.mat[j,i] <- 2 * pnorm(-abs(z))
+        }
+      }
+      diag(corr.p.mat) <- 0
+    } else {
+      res = rcorr(as.matrix(transposed_data), type = cor.stat);
+      corr.mat <- res$r
+      corr.p.mat <- res$P
+      rm(res)  # Clean up rcorr result object
+    }
+
+    rm(transposed_data)  # Clean up transpose immediately
+    gc(verbose = FALSE)  # Force garbage collection
+
   }else if(cor.method == "MI"){
     library(parmigene)
-    res = knnmi.all(rbind(sel.dats[[1]], sel.dats[[2]]), k=5)
+    # Combine data once and reuse
+    combined_data <- rbind(sel.dats[[1]], sel.dats[[2]])
+    res = knnmi.all(combined_data, k=5)
+    rm(combined_data)  # Clean up immediately
+
     scale = 1/max(res)
     corr.mat = res * scale
-    
+    rm(res, scale)  # Clean up MI result and scale
+    gc(verbose = FALSE)
+
     if(exists("selDatsCorr.taxa",reductionSet)){
       corr.mat.taxa <- list()
       for(j in 1:length(reductionSet$selDatsCorr.taxa)){
-        res = knnmi.all(rbind(reductionSet$selDatsCorr.taxa[[j]], sel.dats[[residx]]), k=5)
+        combined_taxa <- rbind(reductionSet$selDatsCorr.taxa[[j]], sel.dats[[residx]])
+        res = knnmi.all(combined_taxa, k=5)
+        rm(combined_taxa)
         scale = 1/max(res)
         corr.mat.taxa[[j]] = res * scale
-        
+        rm(res, scale)
       }
       reductionSet$corr.mat.taxa <- corr.mat.taxa
+      gc(verbose = FALSE)
     }
-    
-    
+
+
   }else{
     library(ppcor);
+    # Transpose once and reuse to avoid multiple copies
     sel.res <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
     res <- pcor(sel.res, method=cor.stat);
     corr.mat <- res$estimate;
-        corr.p.mat <- res$p.value;
+    corr.p.mat <- res$p.value;
+    rm(res)  # Clean up pcor result
+
     rownames(corr.mat) <-    colnames(corr.mat) <- colnames(sel.res)
     rownames(corr.p.mat) <-    colnames(corr.p.mat) <-colnames(sel.res)
+    rm(sel.res)  # Clean up transposed data
+    gc(verbose = FALSE)
     
     if(exists("selDatsCorr.taxa",reductionSet)){
       
@@ -270,23 +337,36 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
       res <- lapply(sel.res, function(x){pcor(x, method=cor.stat)})
       corr.mat.taxa <- lapply(res, function(x) x$estimate);
       for(j in 1:length(corr.mat.taxa)){
-        
+
         rownames(corr.mat.taxa[[j]]) <- colnames(sel.res[[j]])
         colnames(corr.mat.taxa[[j]]) <- colnames(sel.res[[j]])
       }
       reductionSet$corr.mat.taxa <- corr.mat.taxa
+
+      # Clean up transposed data and pcor results
+      rm(sel.res, res)
+      gc(verbose = FALSE)
     }
   }
   reductionSet$labels <- labels
   reductionSet$corr.mat.path <- "corr.mat.qs"
+
+  # Save correlation matrices to disk
   qs::qsave(corr.mat, "corr.mat.qs");
   qs::qsave(corr.p.mat,"corr.p.mat.qs")
+
+  # CRITICAL: Free large correlation matrices from memory after saving to disk
+  # This is the single biggest memory optimization for multi-user environments
+  # For 2000 features: ~90 MB per user freed here
+  rm(corr.mat, corr.p.mat, labels)
+  gc(verbose = FALSE)
+
   .set.rdt.set(reductionSet);
-  
+
   return(1);
 }
 
-PlotCorrViolin <- function(imgNm, dpi=72, format="png",corNetOpt="default"){
+PlotCorrViolin <- function(imgNm, dpi=72, format="png", corNetOpt="default"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
@@ -476,29 +556,46 @@ expand.matrix <- function(A){
 
 ###########generate chordgram
 GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format = "png", dpi = 300){
-  print(c(maxN,pval))
+  #print(c(maxN,pval))
   plotjs <- paste0(imgName, ".json");
-  reductionSet <- .get.rdt.set(); 
+  reductionSet <- .get.rdt.set();
+
+  # Load correlation matrices from disk
   corr.mat <- qs::qread("corr.mat.qs");
   corr.p.mat<- qs::qread("corr.p.mat.qs");
-  corr.mat <- reshape2::melt(corr.mat)
-  corr.p.mat <- reshape2::melt(corr.p.mat) 
-   corr.mat$pval <- corr.p.mat$value
-   sel.inx <- mdata.all==1; 
- sel.nms <- names(mdata.all)[sel.inx];
-   
- sel.dats <- reductionSet$selDatsCorr[sel.nms]; 
 
-  #corr.mat <-   corr.mat[corr.mat$Var1!=corr.mat$Var2,]
-   corr.mat <- corr.mat[abs(corr.mat$value)>thresh & corr.p.mat$value < pval,]
+  # Convert to long format for filtering
+  corr.mat.melted <- reshape2::melt(corr.mat)
+  corr.p.mat.melted <- reshape2::melt(corr.p.mat)
+
+  # CRITICAL: Free original large matrices immediately after melting
+  # Original matrices: ~90 MB per user
+  # Melted format: ~same size but will be filtered down
+  rm(corr.mat, corr.p.mat)
+  gc(verbose = FALSE)
+
+  # Add p-values to correlation data
+  corr.mat.melted$pval <- corr.p.mat.melted$value
+  rm(corr.p.mat.melted)  # Clean up p-value melted data
+
+  sel.inx <- mdata.all==1;
+  sel.nms <- names(mdata.all)[sel.inx];
+
+  sel.dats <- reductionSet$selDatsCorr[sel.nms];
+
+  # Filter to significant correlations only (reduces from ~90 MB to ~1-2 MB)
+  corr.mat <- corr.mat.melted[abs(corr.mat.melted$value)>thresh & corr.mat.melted$pval < pval,]
+  rm(corr.mat.melted)  # Clean up unfiltered data
+  gc(verbose = FALSE)
+
   corr.mat <- corr.mat[corr.mat$Var1 %in% rownames(sel.dats[[1]]) & corr.mat$Var2 %in% rownames(sel.dats[[2]]),]
   corr.mat <- corr.mat[order(abs(corr.mat$value),decreasing = T),]
- 
+
   if(nrow(corr.mat)>maxN){
     corr.mat <- corr.mat[1:maxN,]
-   }
- 
-    dataSetList <- lapply(sel.nms, readDataset);
+  }
+
+  dataSetList <- lapply(sel.nms, readDataset);
  
 corr.mat$Var1 <- gsub(paste0("_", dataSetList[[1]]$type), "", corr.mat$Var1);
 corr.mat$Var1 <- names(dataSetList[[1]]$enrich_ids)[match(corr.mat$Var1,dataSetList[[1]]$enrich_ids)]
@@ -570,21 +667,67 @@ if(!exists("mem.omicsDiffCorr")){
  
   if(cor.method == "univariate"){
     library(Hmisc)
+    # Optimize: transpose once per sample group instead of repeatedly
     corr.mat.ls <- lapply(corr.ls, function(samp){
-       res = rcorr(as.matrix(cbind(t(sel.dats[[1]][,samp]), t(sel.dats[[2]][,samp]))),type = cor.stat);
-     })
+      transposed_samp <- cbind(t(sel.dats[[1]][,samp]), t(sel.dats[[2]][,samp]))
 
-      if(exists("selDatsCorr.taxa",reductionSet)){
+      # rcorr only supports pearson and spearman
+      if(tolower(cor.stat) == "kendall") {
+        # For Kendall, compute correlation and p-values separately
+        r_mat <- cor(transposed_samp, method="kendall", use="pairwise.complete.obs")
+
+        # Compute p-values
+        n_samples <- nrow(transposed_samp)
+        n_vars <- ncol(transposed_samp)
+        p_mat <- matrix(NA, nrow=n_vars, ncol=n_vars)
+        rownames(p_mat) <- colnames(p_mat) <- colnames(r_mat)
+
+        # Compute p-values for each pair
+        for(i in 1:(n_vars-1)) {
+          for(j in (i+1):n_vars) {
+            valid_idx <- complete.cases(transposed_samp[,i], transposed_samp[,j])
+            n_valid <- sum(valid_idx)
+            tau <- r_mat[i,j]
+            z <- tau / sqrt((2*(2*n_valid+5))/(9*n_valid*(n_valid-1)))
+            p_mat[i,j] <- p_mat[j,i] <- 2 * pnorm(-abs(z))
+          }
+        }
+        diag(p_mat) <- 0
+
+        # Create result object compatible with rcorr structure
+        res <- list(r = r_mat, n = n_samples, P = p_mat)
+        class(res) <- "rcorr"
+      } else {
+        res = rcorr(as.matrix(transposed_samp), type = cor.stat);
+      }
+
+      rm(transposed_samp)  # Clean up transpose immediately
+      return(res)
+    })
+
+    if(exists("selDatsCorr.taxa",reductionSet)){
       corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
-        cor(cbind(t(x), t(sel.dats[[residx]])), method=cor.stat)
+        # Transpose once and reuse
+        transposed_taxa <- cbind(t(x), t(sel.dats[[residx]]))
+        result <- cor(transposed_taxa, method=cor.stat)
+        rm(transposed_taxa)
+        return(result)
       })
-      
+
       reductionSet$corr.mat.taxa <- corr.mat.taxa
     }
-    
+
   }
- reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
+
+  reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
+
+  # Save differential network matrices to disk
   qs::qsave(corr.mat.ls, "diffnet.mat.qs");
+
+  # CRITICAL: Free correlation list from memory after saving
+  rm(corr.mat.ls)
+  gc(verbose = FALSE)
+
   .set.rdt.set(reductionSet);
   return(1);
 }

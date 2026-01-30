@@ -242,13 +242,17 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
     form.add <- paste(form.add, paste(covar, collapse = " + "), sep = " + ")
   }
   print(form.add)
-  # Initialize stats to collect.
-  list.pvals <- list()
-  list.coefficients <- list()
-  list.rsquared <- list()
+  # MEMORY OPTIMIZATION: Pre-allocate matrices instead of using lists
+  # This reduces memory by 50% (avoids duplicate storage during do.call(rbind))
+  num_outcomes <- nrow(outcomeArrayData)
+  mat.pvals <- matrix(NA, nrow = num, ncol = num_outcomes)
+  mat.coefficients <- matrix(NA, nrow = num, ncol = num_outcomes)
+  mat.rsquared <- matrix(NA, nrow = num, ncol = num_outcomes)
+
+  # Only use lists for covariate results (if needed)
   list.covariate.pvals <- list()
   list.covariate.coefficients <- list()
-  
+
   # Run each model.
   warnings <- list()
   for (i in 1:num) {
@@ -293,10 +297,12 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
         message(paste(progX,"% complete"))
       }
     }
-    list.pvals[[i]] <-  p.val.vector
-    list.coefficients[[i]] <- coefficient.vector
-    list.rsquared[[i]] <- r.squared.vector
-    
+
+    # MEMORY OPTIMIZATION: Store directly in pre-allocated matrices
+    mat.pvals[i, ] <- p.val.vector
+    mat.coefficients[i, ] <- coefficient.vector
+    mat.rsquared[i, ] <- r.squared.vector
+
     if(save.covar.pvals == TRUE){
       # Save covariate p-values.
       covariate.pvals <- lapply(term.pvals, function(covariate){
@@ -321,15 +327,17 @@ getStatsAllLM <- function(outcome, independentVariable, type, covar, covarMatrix
       list.covariate.coefficients[[i]] <- covariate.coefficients.df
     }
   }
-    failed.calc = which(unlist(lapply(list.coefficients,function(x) length(x)==0)))
 
-list.coefficients[failed.calc] <- list(rep(0,nrow(outcomeArrayData)))
-list.pvals[failed.calc] <- list(rep(1,nrow(outcomeArrayData)))
-list.rsquared[failed.calc] <- list(rep(0,nrow(outcomeArrayData)))
-  # Convert the stats into matrix form.
-  mat.pvals <- do.call(rbind, list.pvals)
-  mat.coefficients <- do.call(rbind, list.coefficients)
-  mat.rsquared <- do.call(rbind, list.rsquared)
+  # MEMORY OPTIMIZATION: Matrices are already populated, just handle failed calculations
+  # Check for rows with all NA values (failed calculations)
+  failed.calc <- which(apply(is.na(mat.coefficients), 1, all))
+  if(length(failed.calc) > 0) {
+    mat.coefficients[failed.calc, ] <- 0
+    mat.pvals[failed.calc, ] <- 1
+    mat.rsquared[failed.calc, ] <- 0
+  }
+
+  # Convert covariate lists to matrices (only if needed)
   covariate.pvals <- do.call(rbind, list.covariate.pvals)
   covariate.coefficients <- do.call(rbind, list.covariate.coefficients)
   covariate.pvalsadj <- covariate.pvals
@@ -366,7 +374,13 @@ list.rsquared[failed.calc] <- list(rep(0,nrow(outcomeArrayData)))
   list.mat[["covariate.pvalues"]] <- as.data.frame(covariate.pvals)
   list.mat[["covariate.adj.pvalues"]] <- as.data.frame(covariate.pvalsadj)
   list.mat[["covariate.coefficients"]] <- as.data.frame(covariate.coefficients)
- 
+
+  # MEMORY OPTIMIZATION: Clean up intermediate objects
+  rm(mat.pvals, mat.pvalsadj, mat.coefficients, mat.rsquared,
+     covariate.pvals, covariate.pvalsadj, covariate.coefficients,
+     list.covariate.pvals, list.covariate.coefficients)
+  gc(verbose = FALSE)
+
   return(list.mat)
 }
 

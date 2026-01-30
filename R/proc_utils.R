@@ -7,40 +7,50 @@
 #'McGill University, Canada
 #'License: MIT
 doGeneIDMapping <- function(q.vec, org, type){
-   print("doGeneIDMapping")
+  print("doGeneIDMapping")
   org <- data.org
-  library(RSQLite)  
-  db.path <- paste0(sqlite.path, org, "_genes.sqlite");
-  con <- dbConnect(SQLite(), db.path ); 
+  suppressMessages(library(RSQLite))
+  db.path <- paste0(sqlite.path, org, "_genes.sqlite")
+  con <- dbConnect(SQLite(), db.path)
+  
+  # Sanitize input to prevent SQL injection
+  q.vec <- gsub("'", "''", q.vec)
+  q.vec.in <- paste0("('", paste(q.vec, collapse = "','"), "')")
   
   if(type == "symbol"){
-    db.map = dbReadTable(con, "entrez")
-    hit.inx <- match(q.vec, db.map[, "symbol"]);
-  }else if(type == "entrez"){
-    db.map = dbReadTable(con, "entrez")
-    hit.inx <- match(q.vec, db.map[, "gene_id"]);
-  }else{
+    query <- paste("SELECT gene_id, symbol FROM entrez WHERE symbol IN", q.vec.in)
+    db.map <- dbGetQuery(con, query)
+    hit.inx <- match(q.vec, db.map[, "symbol"])
+    entrezs <- db.map[hit.inx, "gene_id"]
+  } else if(type == "entrez"){
+    query <- paste("SELECT gene_id FROM entrez WHERE gene_id IN", q.vec.in)
+    db.map <- dbGetQuery(con, query)
+    hit.inx <- match(q.vec, db.map[, "gene_id"])
+    entrezs <- db.map[hit.inx, "gene_id"]
+  } else {
     if(type == "gb"){
-      db.map = dbReadTable(con, "entrez_gb");
-    }else if(type == "embl_gene" || type == "embl"){
-      db.map = dbReadTable(con, "entrez_embl_gene");
-    }else if(type == "uniprot"){
-      db.map = dbReadTable(con, "entrez_uniprot");
-    }else if(type == "refseq"){
-      db.map = dbReadTable(con, "entrez_refseq");
-      q.mat <- do.call(rbind, strsplit(q.vec, "\\."));
-      q.vec <- q.mat[,1];
-    }else if(type == "kos"){
-      db.map = dbReadTable(con, "entrez_ortholog");
+      table.name <- "entrez_gb"
+    } else if(type == "embl_gene" || type == "embl"){
+      table.name <- "entrez_embl_gene"
+    } else if(type == "uniprot"){
+      table.name <- "entrez_uniprot"
+    } else if(type == "refseq"){
+      table.name <- "entrez_refseq"
+      q.mat <- do.call(rbind, strsplit(q.vec, "\\."))
+      q.vec <- q.mat[,1]
+      q.vec.in <- paste0("('", paste(q.vec, collapse = "','"), "')")
+    } else if(type == "kos"){
+      table.name <- "entrez_ortholog"
     }
-    hit.inx <- match(q.vec, db.map[, "accession"]);
+    
+    query <- paste("SELECT gene_id, accession FROM", table.name, "WHERE accession IN", q.vec.in)
+    db.map <- dbGetQuery(con, query)
+    hit.inx <- match(q.vec, db.map[, "accession"])
+    entrezs <- db.map[hit.inx, "gene_id"]
   }
- 
-  entrezs=db.map[hit.inx, "gene_id"];
-  rm(db.map, q.vec); 
-  gc();
-  dbDisconnect(con);
-  return(entrezs);
+  
+  dbDisconnect(con)
+  return(entrezs)
 }
 
 
@@ -286,130 +296,141 @@ M2Mscore <- function(qvec,mvec,taxlvl="Genus",dataGem="agora"){
 
 
 ReadOmicsDataFile <- function(fileName, omics.type=NA) {
-  # need to handle reading .csv files too!
-  rdtSet <- .get.rdt.set();
+  suppressMessages(library(data.table))
+  rdtSet <- .get.rdt.set()
 
-  data <- .readDataTable(fileName)
-  dataSet <- list();
-  
-  meta.info <- rdtSet$dataSet$meta.info;
+  # Use fread for efficient reading, assuming it's a CSV or similar delimited file
+  data <- tryCatch({
+    fread(fileName, header = TRUE, data.table = FALSE, check.names = FALSE)
+  }, error = function(e) {
+    NULL
+  })
 
-  if(class(data) == "try-error" || ncol(data) == 1){
-    AddErrMsg("Data format error. Failed to read in the data!");
-    AddErrMsg("Make sure the data table is saved as comma separated values (.csv) format!");
-    AddErrMsg("Please also check the followings: ");
-    AddErrMsg("Either sample or feature names must in UTF-8 encoding; Latin, Greek letters are not allowed.");
-    AddErrMsg("We recommend to use a combination of English letters, underscore, and numbers for naming purpose.");
-    AddErrMsg("Make sure sample names and feature (peak, compound) names are unique.");
-    AddErrMsg("Missing values should be blank or NA without quote.");
-    AddErrMsg("Make sure the file delimeters are commas.");
-    return(0);
+  dataSet <- list()
+  meta.info <- rdtSet$dataSet$meta.info
+
+  if (is.null(data) || ncol(data) == 1) {
+    AddErrMsg("Data format error. Failed to read in the data!")
+    AddErrMsg("Make sure the data table is saved as comma separated values (.csv) format!")
+    AddErrMsg("Please also check the followings: ")
+    AddErrMsg("Either sample or feature names must in UTF-8 encoding; Latin, Greek letters are not allowed.")
+    AddErrMsg("We recommend to use a combination of English letters, underscore, and numbers for naming purpose.")
+    AddErrMsg("Make sure sample names and feature (peak, compound) names are unique.")
+    AddErrMsg("Missing values should be blank or NA without quote.")
+    AddErrMsg("Make sure the file delimeters are commas.")
+    return(0)
+  }
+
+  # First column as row names (features)
+  var.nms <- data[, 1]
+  data <- data[, -1] # Remove the first column
+  smpl.nms <- colnames(data) # Sample names are now column names
+
+  # Convert data to matrix and then to data.table for efficient operations
+  data_mat <- as.matrix(data)
+  rownames(data_mat) <- var.nms
+
+  # Remove duplicates (assuming RemoveDuplicates is a custom function defined elsewhere)
+  # It's crucial that RemoveDuplicates can handle matrix input and return a matrix
+  data_mat <- RemoveDuplicates(data_mat, "mean", quiet = TRUE)
+
+  # Convert to data.table for further processing, if not already
+  data_dt <- as.data.table(data_mat, keep.rownames = TRUE)
+  setnames(data_dt, "rn", "Feature")
+
+  # Remove constant features
+  # Calculate variance for each row (feature)
+  # This operation on data.table is efficient
+  constant_row_idx <- data_dt[, {
+    vars <- apply(.SD, 1, var, na.rm = TRUE)
+    which(vars == 0 | is.na(vars))
+  }, .SDcols = smpl.nms]
+
+  if (length(constant_row_idx) > 0) {
+    data_dt <- data_dt[-constant_row_idx, ]
   }
   
-  var.nms <- data[,1];
-  data[,1] <- NULL;
-  smpl.nms <- colnames(data);
-  data <- as.matrix(data);
-  rownames(data) <- var.nms;
+  var.nms <- data_dt$Feature
+  data_dt[, Feature := NULL] # Remove the Feature column before converting back to matrix if needed for data.proc
 
-  data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
-  data <- as.data.frame(data)
-    
-######remove the constant features
-  constant_row <- apply(data, 1, function(row) var(row, na.rm = TRUE) == 0)
-  data <- data[!constant_row,]
+  msg <- paste("A total of ", ncol(data_dt), " samples and ", nrow(data_dt), " features were found")
 
- 
-  var.nms <- rownames(data)
-  
-  msg <- paste("A total of ", ncol(data), " samples and ", nrow(data), " features were found")
-  
   # Basic checks - no duplicate samples names
-  # Check for uniqueness of sample name
-  if(length(unique(smpl.nms))!=length(smpl.nms)){
-    dup.nm <- paste(smpl.nms[duplicated(smpl.nms)], collapse=" ");
-    AddErrMsg("Duplicate sample names are not allowed!");
-    AddErrMsg(dup.nm);
-    return(0);
+  if (length(unique(smpl.nms)) != length(smpl.nms)) {
+    dup.nm <- paste(smpl.nms[duplicated(smpl.nms)], collapse = " ")
+    AddErrMsg("Duplicate sample names are not allowed!")
+    AddErrMsg(dup.nm)
+    return(0)
   }
-  
-  # checking variable names - no duplicate variables for metabolites and microbiome?
-  #if(length(unique(var.nms))!=length(var.nms)){
-  #  dup.nm <- paste(var.nms[duplicated(var.nms)], collapse=" ");
-  #  AddErrMsg("Duplicate feature names are not allowed!");
-  #  AddErrMsg(dup.nm);
-  #  return(0);
-  #}
-  
-  # now check for special characters in the data labels
-  if(sum(is.na(iconv(smpl.nms)))>0){
-    na.inx <- is.na(iconv(smpl.nms));
-    nms <- paste(smpl.nms[na.inx], collapse="; ");
-    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in sample names!", nms, collapse=" "));
-    return(0);
-  }
-  
-  if(sum(is.na(iconv(var.nms)))>0){
-    na.inx <- is.na(iconv(var.nms));
-    nms <- paste(var.nms[na.inx], collapse="; ");
-    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in feature names!", nms, collapse=" "));
-    return(0);
-  }
-  
-  # only keep alphabets, numbers, ",", "." "_", "-" "/"
-  smpl.nms <- CleanNames(smpl.nms, "sample_name");
-  
-  # keep a copy of original names for saving tables 
-  orig.var.nms <- var.nms;
-  var.nms <- CleanNames(var.nms, "var_name"); # allow space, comma and period
-  names(orig.var.nms) <- var.nms;
-  
-  current.msg <<- msg;
-  # now create the dataSet
-  dataSet$orig.var.nms <- orig.var.nms;
-  data <- data.frame(apply(data, 2, function(x) as.numeric(as.character(x))))
-  # now reassgin the dimension names
 
-  colnames(data) <- smpl.nms;
-  rownames(data) <- var.nms;
-  dataSet$data.proc <- data
+  # now check for special characters in the data labels
+  if (sum(is.na(iconv(smpl.nms))) > 0) {
+    na.inx <- is.na(iconv(smpl.nms))
+    nms <- paste(smpl.nms[na.inx], collapse = "; ")
+    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in sample names!", nms, collapse = " "))
+    return(0)
+  }
+
+  if (sum(is.na(iconv(var.nms))) > 0) {
+    na.inx <- is.na(iconv(var.nms))
+    nms <- paste(var.nms[na.inx], collapse = "; ")
+    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in feature names!", nms, collapse = " "))
+    return(0)
+  }
+
+  # only keep alphabets, numbers, ",", "." "_", "-" "/"
+  smpl.nms <- CleanNames(smpl.nms, "sample_name")
+
+  # keep a copy of original names for saving tables
+  orig.var.nms <- var.nms
+  var.nms <- CleanNames(var.nms, "var_name") # allow space, comma and period
+  names(orig.var.nms) <- var.nms
+
+  current.msg <<- msg
+  # now create the dataSet
+  dataSet$orig.var.nms <- orig.var.nms
+
+  # Convert data.table back to a matrix or data frame if subsequent functions expect it
+  data_final <- as.data.frame(data_dt) # Or as.matrix(data_dt) if that's what's truly expected later
+  colnames(data_final) <- smpl.nms
+  rownames(data_final) <- var.nms
+
+  dataSet$data.proc <- data_final
   dataSet$data.annotated <- ""
   dataSet$data.missed <- ""
   dataSet$data.filtered <- ""
-  dataSet$name <- fileName;
+  dataSet$name <- fileName
   dataSet$de.method <- "NA"
-  dataSet$type <- omics.type;
-  if(grepl("rna_b", omics.type)){
-    readableType <- "Transcriptomics";
-  }else if (grepl("met_t", omics.type) || grepl("met_u", omics.type)){
-    readableType <- "Metabolomics";
-  }else if (grepl("mic_m", omics.type)){
-    readableType <- "Microbiome";
-  }else if (grepl("prot", omics.type)){
-    readableType <- "Proteomics";
-  }else if (grepl("mirna", omics.type)){
-    readableType <- "miRNA";
-  }else{
-    readableType <-  "Other";
+  dataSet$type <- omics.type
+  if (grepl("rna_b", omics.type)) {
+    readableType <- "Transcriptomics"
+  } else if (grepl("met_t", omics.type) || grepl("met_u", omics.type)) {
+    readableType <- "Metabolomics"
+  } else if (grepl("mic_m", omics.type)) {
+    readableType <- "Microbiome"
+  } else if (grepl("prot", omics.type)) {
+    readableType <- "Proteomics"
+  } else if (grepl("mirna", omics.type)) {
+    readableType <- "miRNA"
+  } else {
+    readableType <- "Other"
   }
-  dataSet$readableType <- readableType;
+  dataSet$readableType <- readableType
   dataSet$enrich_ids = rownames(dataSet$data.proc)
   names(dataSet$enrich_ids) = rownames(dataSet$data.proc)
-  dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), ,drop=F];
-  dataSet$isValueNormalized <- "true";
+  dataSet$meta <- meta.info[which(rownames(meta.info) %in% colnames(dataSet$data.proc)), , drop = FALSE]
+  dataSet$isValueNormalized <- "true"
 
-  #create folder to store larger objects;
-  dataSet$folderName <- paste0(dataSet$name,"_data");
-  dir.create(dataSet$folderName);
+  # create folder to store larger objects;
+  dataSet$folderName <- paste0(dataSet$name, "_data")
+  dir.create(dataSet$folderName)
 
-  dataSet$data.annotated.path <- paste0(dataSet$folderName, "/data.annotated.qs");
-  dataSet$data.raw.path <- paste0(dataSet$folderName, "/data.raw.qs");
+  dataSet$data.annotated.path <- paste0(dataSet$folderName, "/data.annotated.qs")
+  dataSet$data.raw.path <- paste0(dataSet$folderName, "/data.raw.qs")
 
-  qs::qsave(data, dataSet$data.raw.path);
-  qs::qsave(data, dataSet$data.annotated.path);
-
+  qs::qsave(data_final, dataSet$data.raw.path)
   # update current dataset
-  RegisterData(dataSet);
+  RegisterData(dataSet)
   return(1)
 }
 
