@@ -88,7 +88,14 @@ MetaboliteMappingExact <- function(dataSet, qvec, q.type){
   match.values <- vector(mode='character', length=length(qvec)); # the best matched values (hit names), initial ""
   match.state <- vector(mode='numeric', length=length(qvec));  # match status - 0, no match; 1, exact match; initial 0 
   
-  cmpd.db <- readRDS(paste0(lib.path, "compound_db.rds")); 
+  # Prefer .qs for faster IO (OmicsNet approach), fallback to .rds
+  db.path.qs <- paste0(lib.path, "compound_db.qs");
+  db.path.rds <- paste0(lib.path, "compound_db.rds");
+  if (file.exists(db.path.qs)) {
+    cmpd.db <- qs::qread(db.path.qs);
+  } else {
+    cmpd.db <- readRDS(db.path.rds);
+  }
   
   if(q.type == "hmdb"){
     n <- 5 # Number of digits for V3 of HMDB
@@ -116,37 +123,65 @@ MetaboliteMappingExact <- function(dataSet, qvec, q.type){
     match.values <- cmpd.db$name[hit.inx];
     match.state[!is.na(hit.inx)] <- 1;
   }else if(q.type == "name"){
-    # first find exact match to the common compound names
+    # Exact match to common names
     hit.inx <- match(tolower(qvec), tolower(cmpd.db$name));
     match.values <- cmpd.db$name[hit.inx];
-    
     match.state[!is.na(hit.inx)] <- 1;
-    
-    # then try to find exact match to synanyms for the remaining unmatched query names one by one
-    syn.db <- readRDS(paste0(lib.path, "syn_nms.rds")); 
-    syns.list <-  syn.db$syns.list;
-    todo.inx <-which(is.na(hit.inx));
-    if(length(todo.inx) > 0){
+
+    # Fuzzy synonym matching (OmicsNet approach) for unmatched
+    todo.inx <- which(is.na(hit.inx));
+    syn.db.path.qs <- paste0(lib.path, "syn_nms.qs");
+    syn.db.path.rds <- paste0(lib.path, "syn_nms.rds");
+    syn.db <- NULL;
+    if (file.exists(syn.db.path.qs)) {
+      syn.db <- qs::qread(syn.db.path.qs);
+    } else if (file.exists(syn.db.path.rds)) {
+      syn.db <- readRDS(syn.db.path.rds);
+    }
+
+    if (!is.null(syn.db) && length(todo.inx) > 0 && exists("MatchCompoundNames", mode = "function")) {
+      if (length(todo.inx) > 100) {
+        cat(sprintf("Compound name mapping (fuzzy): skipped (%d unmatched > 100)\n", length(todo.inx)));
+      } else {
+      total.todo <- length(todo.inx);
+      batch.size <- 200;
+      matched.total <- 0;
+      for (start in seq(1, total.todo, by = batch.size)) {
+        end <- min(start + batch.size - 1, total.todo);
+        batch.inx <- todo.inx[start:end];
+        match.results <- MatchCompoundNames(qvec[batch.inx], cmpd.db, syn.db);
+        hit2 <- match.results$hit.inx;
+        ok <- hit2 > 0;
+        if (any(ok)) {
+          orig.inx <- batch.inx[ok];
+          hit.inx[orig.inx] <- hit2[ok];
+          match.values[orig.inx] <- cmpd.db$name[hit2[ok]];
+          match.state[orig.inx] <- 1;
+          matched.total <- matched.total + sum(ok);
+        }
+        cat(sprintf("Compound name mapping (fuzzy): %d/%d processed, %d matched\n",
+                    end, total.todo, matched.total));
+      }
+      cat(sprintf("Compound name mapping (fuzzy): %d/%d matched (%.1f%%)\n",
+                  matched.total, total.todo, 100 * matched.total / max(1, total.todo)));
+      }
+    } else if (!is.null(syn.db) && length(todo.inx) > 0) {
+      # Fallback to exact synonym match if fuzzy matcher isn't loaded
+      syns.list <- syn.db$syns.list;
       for(i in 1:length(syns.list)){
         syns <-  syns.list[[i]];
         hitInx <- match(tolower(qvec[todo.inx]), tolower(syns));
-        
         hitPos <- which(!is.na(hitInx));
         if(length(hitPos)>0){
-          # record matched ones
           orig.inx<-todo.inx[hitPos];
           hit.inx[orig.inx] <- i;                  
-          # match.values[orig.inx] <- syns[hitInx[hitPos]];  # show matched synnames
-          match.values[orig.inx] <- cmpd.db$name[i];    # show common name
+          match.values[orig.inx] <- cmpd.db$name[i];
           match.state[orig.inx] <- 1;
-          
-          # update unmatched list
           todo.inx<-todo.inx[is.na(hitInx)];
         }
         if(length(todo.inx) == 0) break;
       }
     }
-    
   }else{
     print(paste("Unknown compound ID type:", q.type));
     # guess a mix of kegg and hmdb ids

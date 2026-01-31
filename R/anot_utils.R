@@ -214,6 +214,9 @@ AnnotateGeneData <- function(dataName, org, idtype){
 #'@export
 #'
 AnnotateMetaboliteData <- function(dataName, idtype){
+  if ("compiler" %in% loadedNamespaces()) {
+    try(compiler::enableJIT(0), silent = TRUE);
+  }
   dataSet <- readDataset(dataName);
   dataSet$name <- dataName
   dataSet$idType <- idtype;
