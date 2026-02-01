@@ -236,30 +236,43 @@ saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.inf
     if(num.cols > 0){
       anno <- as.data.frame(meta.info[, seq_len(num.cols), drop=FALSE]);
       rownames(anno) <- rownames(meta.info);
-      if(!is.null(meta.types)){
-        for(col in colnames(anno)){
-          type <- meta.types[col];
-          if(is.null(type)) next;
-          if(grepl("disc", type, ignore.case=TRUE)){
-            # Discrete metadata: use categorical colors
-            values <- unique(anno[[col]]);
-            values <- values[order(values)];
+      for(col in colnames(anno)){
+        type <- if(!is.null(meta.types)) meta.types[col] else NULL;
+        is_cont <- !is.null(type) && grepl("cont", type, ignore.case=TRUE);
+
+        if(is_cont){
+          # Continuous metadata: use color gradient
+          values <- suppressWarnings(as.numeric(as.character(anno[[col]])));
+          if(!all(is.na(values))){
+            # Keep as numeric for pheatmap (not factor)
+            anno[[col]] <- values;
+            # Use colorRampPalette which returns a vector (pheatmap-compatible)
+            n_colors <- 100
+            color_func <- grDevices::colorRampPalette(c("blue", "white", "red"))
+            annotation_colors[[col]] <- color_func(n_colors)
+          } else {
+            # All NA - remove from anno
+            anno[[col]] <- NULL;
+          }
+        } else {
+          # Discrete metadata (default): use categorical colors
+          # Convert to character to avoid factor level mismatch issues
+          anno[[col]] <- as.character(anno[[col]]);
+          values <- unique(anno[[col]]);
+          values <- values[!is.na(values)];  # Remove NA values
+          values <- values[order(values)];
+          if(length(values) > 0){
             pal <- if(length(values) <= 8) RColorBrewer::brewer.pal(max(3, length(values)), "Set2")
                    else grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, "Set2"))(length(values));
             annotation_colors[[col]] <- setNames(pal[seq_along(values)], as.character(values));
-          } else if(grepl("cont", type, ignore.case=TRUE)){
-            # Continuous metadata: use color gradient
-            values <- as.numeric(anno[[col]]);
-            if(!all(is.na(values))){
-              # Create a color gradient function (blue to red)
-              annotation_colors[[col]] <- circlize::colorRamp2(
-                breaks = seq(min(values, na.rm=TRUE), max(values, na.rm=TRUE), length.out=3),
-                colors = c("blue", "white", "red")
-              );
-            }
+          } else {
+            # No valid values - remove from anno
+            anno[[col]] <- NULL;
           }
         }
       }
+      # Clean up: remove empty annotation
+      if(ncol(anno) == 0) anno <- NULL;
     }
   }
   load_pheatmap();
