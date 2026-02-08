@@ -182,7 +182,7 @@ my.enrich.net<-function( netNm="abc", type="list", overlapType="mixed"){
   infoSet$analSet$ppi.comps <- ppi.comps
   ppi.comps <<-   ppi.comps
   current.net.nm <<- netNm
-  bedge.mat <- get.edgelist(bg);
+  bedge.mat <- as_edgelist(bg);
   bedge.mat <- cbind(id=paste0("b", 1:nrow(bedge.mat)), source=bedge.mat[,1], target=bedge.mat[,2]);
   initsbls <-  setNames(tbl$label,tbl$ids)
   

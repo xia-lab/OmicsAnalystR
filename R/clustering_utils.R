@@ -524,7 +524,12 @@ GetDiagnosticSummary<- function(type){
   if(type %in% c("perturbation", "spectrum", "snf","kmeans")){
     reductionSet <- .get.rdt.set();
     clustNum <- length(unique(reductionSet$clustVec))
-    return(c(clustNum, signif(reductionSet$clustNmi)))
+    nmi <- if (!is.null(reductionSet$clustNmi) && is.numeric(reductionSet$clustNmi)) {
+      signif(reductionSet$clustNmi)
+    } else {
+      "NA"
+    }
+    return(c(clustNum, nmi))
   }else{
     return(c("","") )
   }

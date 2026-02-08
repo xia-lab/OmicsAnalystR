@@ -100,7 +100,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   }
   
   # get edge data
-  edge.mat <- get.edgelist(g);
+  edge.mat <- as_edgelist(g);
   if(!is.null(E(g)$correlation)){
     edge.sizes <- as.numeric(rescale2NewRange(abs(E(g)$correlation), 0.5, 3));
     edge.mat <- cbind(id=1:nrow(edge.mat), source=edge.mat[,1], target=edge.mat[,2], weight=signif(E(g)$correlation,4), size=edge.sizes, init_size=edge.sizes);

@@ -142,11 +142,11 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
       dat <- dataSet$data.proc
     if(type=="mofa"){
      rownames(dat) <- paste0(rownames(dat),"_",dataSet$type)
-       toKeep<- gsub(pates0())
+       toKeep <- paste0(toKeep, "_", dataSet$type)
         dat <- dat[rownames(dat) %in% toKeep, ]
       }else if(type=="mcia"){
 
-      toKeep <- gusb(paste0(rownames(dat),".",dataSet$type),"",toKeep)
+      toKeep <- gsub(paste0("\\.", dataSet$type, "$"), "", toKeep)
       dat <- dat[rownames(dat) %in% toKeep, ]
       rownames(dat) <- paste0(rownames(dat), "_", dataSet$type);
     }else{
@@ -432,7 +432,7 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png", corNetOpt="default"){
       
     }
     
-    df_res <- data.frame(get.edgelist(g),  as.numeric(E(g)$correlation))
+    df_res <- data.frame(as_edgelist(g),  as.numeric(E(g)$correlation))
     df_res <- df_res[!duplicated(df_res), ]
     colnames(df_res) <- c("source", "target","correlation");
     df_res$type <- titleText;

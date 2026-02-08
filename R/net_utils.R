@@ -8,7 +8,7 @@
 FilterBipartiNet <- function(nd.type="all", min.dgr, min.btw){
 
     all.nms <- V(overall.graph)$name;
-    edge.mat <- get.edgelist(overall.graph);
+    edge.mat <- as_edgelist(overall.graph);
     dgrs <- degree(overall.graph);
     nodes2rm.dgr <- nodes2rm.btw <- NULL;
 
@@ -247,7 +247,7 @@ saveNetworkInSIF <- function(network, name){
 
 # internal function to write cytoscape .sif file
 .graph.sif <- function(network, file){
-    edgelist.names <- igraph::get.edgelist(network, names=TRUE)
+    edgelist.names <- igraph::as_edgelist(network, names=TRUE)
     edgelist.names <- cbind(edgelist.names[,1], rep("pp", length(E(network))), edgelist.names[,2]);
     write.table(edgelist.names, row.names=FALSE, col.names=FALSE, file=paste(file, ".sif", sep=""), sep="\t", quote=FALSE)
     return(edgelist.names)

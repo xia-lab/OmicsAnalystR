@@ -61,8 +61,8 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     inter_g_sub <- delete_edges(inter_g, E(inter_g)[toRm.inter])
     intra_g_sub <- delete_edges(intra_g, E(intra_g)[toRm.intra])
     
-    edge_list_inter <- get.edgelist(inter_g_sub)
-    edge_list_intra <- get.edgelist(intra_g_sub)
+    edge_list_inter <- as_edgelist(inter_g_sub)
+    edge_list_intra <- as_edgelist(intra_g_sub)
     
     # add correlation weights
     cor.list$inter <- data.frame(edge_list_inter,  as.numeric(E(inter_g_sub)$correlation))
