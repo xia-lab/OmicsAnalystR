@@ -679,7 +679,7 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
   }
   
   seed.genes <<- seed.proteins;
-  e=get.edgelist(graph)
+  e=as_edgelist(graph)
   edge.data= data.frame(Source=e[,1], Target=e[,2])
   print(head( edge.data))
   seed.expr <<- rep(0, length(node.data));
@@ -722,7 +722,7 @@ ProcessIntLIMGraphFile <- function(graph=new_g,  generateJson = F){
   seed.proteins <<- nms;
     
   seed.genes <<- seed.proteins;
-  e=get.edgelist(graph)
+  e=as_edgelist(graph)
   edge.data= data.frame(Source=e[,1], Target=e[,2])
   
   seed.expr <<- rep(0, length(node.data));
