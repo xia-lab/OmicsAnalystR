@@ -287,132 +287,297 @@ GetNetsNameString <- function(){
 
 # support walktrap, infomap and lab propagation
 FindCommunities <- function(method="walktrap", use.weight=FALSE){
-  # make sure this is the connected
-  current.net <- ppi.comps[[current.net.nm]];
-  g <- current.net;
-  if(!is.connected(g)){
-    g <- decompose.graph(current.net, min.vertices=2)[[1]];
-  }
-  total.size <- length(V(g));
-  
-  if(use.weight){ # this is only tested for walktrap, should work for other method
-    # now need to compute weights for edges
-    egs <- get.edges(g, E(g)); #node inx
-    nodes <- V(g)$name;
-    # conver to node id
-    negs <- cbind(nodes[egs[,1]],nodes[egs[,2]]);
+  .local_find_communities <- function(g, node_data, seed_expr, seed_proteins, method, use_weight){
+    if(!igraph::is_connected(g)){
+      g <- decompose.graph(g, min.vertices=2)[[1]];
+    }
+    total.size <- length(V(g));
     
-    # get min FC change
-    base.wt <- min(abs(seed.expr))/10;
-    
-    # check if user only give a gene list without logFC or all same fake value
-    if(length(unique(seed.expr)) == 1){
-      seed.expr <- rep(1, nrow(negs));
-      base.wt <- 0.1; # weight cannot be 0 in walktrap
+    if(use_weight){ # this is only tested for walktrap, should work for other method
+      # now need to compute weights for edges
+      egs <- get.edges(g, E(g)); #node inx
+      nodes <- V(g)$name;
+      # conver to node id
+      negs <- cbind(nodes[egs[,1]],nodes[egs[,2]]);
+      
+      # get min FC change
+      base.wt <- min(abs(seed_expr))/10;
+      
+      # check if user only give a gene list without logFC or all same fake value
+      if(length(unique(seed_expr)) == 1){
+        seed_expr <- rep(1, nrow(negs));
+        base.wt <- 0.1; # weight cannot be 0 in walktrap
+      }
+      
+      wts <- matrix(base.wt, ncol=2, nrow = nrow(negs));
+      for(i in 1:ncol(negs)){
+        nd.ids <- negs[,i];
+        hit.inx <- match(names(seed_expr), nd.ids);
+        pos.inx <- hit.inx[!is.na(hit.inx)];
+        wts[pos.inx,i]<- seed_expr[!is.na(hit.inx)]+0.1;
+      }
+      nwt <- apply(abs(wts), 1, function(x){mean(x)^2})    
     }
     
-    wts <- matrix(base.wt, ncol=2, nrow = nrow(negs));
-    for(i in 1:ncol(negs)){
-      nd.ids <- negs[,i];
-      hit.inx <- match(names(seed.expr), nd.ids);
-      pos.inx <- hit.inx[!is.na(hit.inx)];
-      wts[pos.inx,i]<- seed.expr[!is.na(hit.inx)]+0.1;
+    if(method == "walktrap"){
+      fc <- walktrap.community(g);
+    }else if(method == "infomap"){
+      fc <- infomap.community(g);
+    }else if(method == "labelprop"){
+      fc <- label.propagation.community(g);
+    }else{
+      print(paste("Unknown method:", method));
+      return(list(all.communities="NA||Unknown method!", gene.community=NULL, pval.vec=NULL));
     }
-    nwt <- apply(abs(wts), 1, function(x){mean(x)^2})    
-  }
-  
-  if(method == "walktrap"){
-    fc <- walktrap.community(g);
-  }else if(method == "infomap"){
-    fc <- infomap.community(g);
-  }else if(method == "labelprop"){
-    fc <- label.propagation.community(g);
-  }else{
-    print(paste("Unknown method:", method));
-    return ("NA||Unknown method!");
-  }
-  
-  if(length(fc) == 0 || modularity(fc) == 0){
-    return ("NA||No communities were detected!");
-  }
-  
-  # only get communities
-  communities <- communities(fc);
-  community.vec <- vector(mode="character", length=length(communities));
-  gene.community.list <- list()  # Pre-allocate list for memory efficiency
-  # OPTIMIZED: Pre-allocate vectors to avoid O(n²) growing with c() (50-200x faster)
-  qnum.vec <- numeric(length(communities));
-  pval.vec <- numeric(length(communities));
-  rowcount <- 0;
-  nms <- V(g)$name;
-  hit.inx <- match(nms, ppi.net$node.data[,1]);
-  sybls <- ppi.net$node.data[hit.inx,2];
-  names(sybls) <- V(g)$name;
-  for(i in 1:length(communities)){
-    # update for igraph 1.0.1
-    path.ids <- communities[[i]];
-    psize <- length(path.ids);
-    if(psize < 5){
-      next; # ignore very small community
+    
+    if(length(fc) == 0 || modularity(fc) == 0){
+      return(list(all.communities="NA||No communities were detected!", gene.community=NULL, pval.vec=NULL));
+    }
+    
+    # only get communities
+    communities <- communities(fc);
+    community.vec <- vector(mode="character", length=length(communities));
+    gene.community.list <- list()  # Pre-allocate list for memory efficiency
+    # OPTIMIZED: Pre-allocate vectors to avoid O(n²) growing with c() (50-200x faster)
+    qnum.vec <- numeric(length(communities));
+    pval.vec <- numeric(length(communities));
+    rowcount <- 0;
+    nms <- V(g)$name;
+    hit.inx <- match(nms, node_data[,1]);
+    sybls <- node_data[hit.inx,2];
+    names(sybls) <- V(g)$name;
+    for(i in 1:length(communities)){
+      # update for igraph 1.0.1
+      path.ids <- communities[[i]];
+      psize <- length(path.ids);
+      if(psize < 5){
+        next; # ignore very small community
+      }
+
+      hits <- seed_proteins %in% path.ids;
+      qnums <- sum(hits);
+
+      if(qnums == 0){
+        next; # ignor community containing no queries
+      }
+
+      rowcount <- rowcount + 1;
+      pids <- paste(path.ids, collapse="->");
+      #path.sybls <- V(g)$Label[path.inx];
+      path.sybls <- sybls[path.ids];
+      com.mat <- cbind(path.ids, path.sybls, rep(i, length(path.ids)));
+      gene.community.list[[rowcount]] <- com.mat;  # Store in list instead of rbind
+      qnum.vec[rowcount] <- qnums;
+
+      # calculate p values (comparing in- out- degrees)
+      #subgraph <- induced.subgraph(g, path.inx);
+      subgraph <- induced.subgraph(g, path.ids);
+      in.degrees <- degree(subgraph);
+      #out.degrees <- degree(g, path.inx) - in.degrees;
+      out.degrees <- degree(g, path.ids) - in.degrees;
+      ppval <- wilcox.test(in.degrees, out.degrees)$p.value;
+      ppval <- signif(ppval, 3);
+      pval.vec[rowcount] <- ppval;
+
+      # calculate community score
+      community.vec[rowcount] <- paste(c(psize, qnums, ppval, pids), collapse=";");
     }
 
-    hits <- seed.proteins %in% path.ids;
-    qnums <- sum(hits);
-
-    if(qnums == 0){
-      next; # ignor community containing no queries
+    # Combine all community matrices at once (instead of sequential rbind)
+    if(rowcount > 0){
+      gene.community <- do.call(rbind, gene.community.list);
+      # OPTIMIZED: Trim vectors to actual size
+      qnum.vec <- qnum.vec[1:rowcount];
+      pval.vec <- pval.vec[1:rowcount];
+      community.vec <- community.vec[1:rowcount];
+    }else{
+      gene.community <- NULL;
     }
-
-    rowcount <- rowcount + 1;
-    pids <- paste(path.ids, collapse="->");
-    #path.sybls <- V(g)$Label[path.inx];
-    path.sybls <- sybls[path.ids];
-    com.mat <- cbind(path.ids, path.sybls, rep(i, length(path.ids)));
-    gene.community.list[[rowcount]] <- com.mat;  # Store in list instead of rbind
-    qnum.vec[rowcount] <- qnums;
-
-    # calculate p values (comparing in- out- degrees)
-    #subgraph <- induced.subgraph(g, path.inx);
-    subgraph <- induced.subgraph(g, path.ids);
-    in.degrees <- degree(subgraph);
-    #out.degrees <- degree(g, path.inx) - in.degrees;
-    out.degrees <- degree(g, path.ids) - in.degrees;
-    ppval <- wilcox.test(in.degrees, out.degrees)$p.value;
-    ppval <- signif(ppval, 3);
-    pval.vec[rowcount] <- ppval;
-
-    # calculate community score
-    community.vec[rowcount] <- paste(c(psize, qnums, ppval, pids), collapse=";");
+    pvall <<- pval.vec
+    if(length(pval.vec)>1){
+      ord.inx <- order(pval.vec, decreasing=F);
+      community.vec <- community.vec[ord.inx];
+      qnum.vec <- qnum.vec[ord.inx];
+      ord.inx <- order(qnum.vec, decreasing=T);
+      community.vec <- community.vec[ord.inx];
+    }
+    
+    all.communities <- paste(community.vec, collapse="||");
+    if(!is.null(gene.community)){
+      colnames(gene.community) <- c("Id", "Label", "Module");
+    }
+    return(list(all.communities=all.communities, gene.community=gene.community, pval.vec=pval.vec));
   }
 
-  # Combine all community matrices at once (instead of sequential rbind)
-  if(rowcount > 0){
-    gene.community <- do.call(rbind, gene.community.list);
-    # OPTIMIZED: Trim vectors to actual size
-    qnum.vec <- qnum.vec[1:rowcount];
-    pval.vec <- pval.vec[1:rowcount];
-    community.vec <- community.vec[1:rowcount];
-  }else{
-    gene.community <- NULL;
+  if(exists("callr_isolated_exec", mode="function")){
+    input_data <- list(
+      g = ppi.comps[[current.net.nm]],
+      node_data = ppi.net$node.data,
+      seed_expr = seed.expr,
+      seed_proteins = seed.proteins,
+      method = method,
+      use_weight = use.weight
+    )
+    isolated_func <- function(input_data){
+      library(igraph)
+      g <- input_data$g
+      node_data <- input_data$node_data
+      seed_expr <- input_data$seed_expr
+      seed_proteins <- input_data$seed_proteins
+      method <- input_data$method
+      use_weight <- input_data$use_weight
+
+      if(!igraph::is_connected(g)){
+        g <- decompose.graph(g, min.vertices=2)[[1]];
+      }
+      total.size <- length(V(g));
+
+      if(use_weight){ # this is only tested for walktrap, should work for other method
+        # now need to compute weights for edges
+        egs <- get.edges(g, E(g)); #node inx
+        nodes <- V(g)$name;
+        # conver to node id
+        negs <- cbind(nodes[egs[,1]],nodes[egs[,2]]);
+        
+        # get min FC change
+        base.wt <- min(abs(seed_expr))/10;
+        
+        # check if user only give a gene list without logFC or all same fake value
+        if(length(unique(seed_expr)) == 1){
+          seed_expr <- rep(1, nrow(negs));
+          base.wt <- 0.1; # weight cannot be 0 in walktrap
+        }
+        
+        wts <- matrix(base.wt, ncol=2, nrow = nrow(negs));
+        for(i in 1:ncol(negs)){
+          nd.ids <- negs[,i];
+          hit.inx <- match(names(seed_expr), nd.ids);
+          pos.inx <- hit.inx[!is.na(hit.inx)];
+          wts[pos.inx,i]<- seed_expr[!is.na(hit.inx)]+0.1;
+        }
+        nwt <- apply(abs(wts), 1, function(x){mean(x)^2})    
+      }
+      
+      if(method == "walktrap"){
+        fc <- walktrap.community(g);
+      }else if(method == "infomap"){
+        fc <- infomap.community(g);
+      }else if(method == "labelprop"){
+        fc <- label.propagation.community(g);
+      }else{
+        return(list(all.communities="NA||Unknown method!", gene.community=NULL, pval.vec=NULL));
+      }
+      
+      if(length(fc) == 0 || modularity(fc) == 0){
+        return(list(all.communities="NA||No communities were detected!", gene.community=NULL, pval.vec=NULL));
+      }
+      
+      # only get communities
+      communities <- communities(fc);
+      community.vec <- vector(mode="character", length=length(communities));
+      gene.community.list <- list()  # Pre-allocate list for memory efficiency
+      # OPTIMIZED: Pre-allocate vectors to avoid O(n²) growing with c() (50-200x faster)
+      qnum.vec <- numeric(length(communities));
+      pval.vec <- numeric(length(communities));
+      rowcount <- 0;
+      nms <- V(g)$name;
+      hit.inx <- match(nms, node_data[,1]);
+      sybls <- node_data[hit.inx,2];
+      names(sybls) <- V(g)$name;
+      for(i in 1:length(communities)){
+        # update for igraph 1.0.1
+        path.ids <- communities[[i]];
+        psize <- length(path.ids);
+        if(psize < 5){
+          next; # ignore very small community
+        }
+
+        hits <- seed_proteins %in% path.ids;
+        qnums <- sum(hits);
+
+        if(qnums == 0){
+          next; # ignor community containing no queries
+        }
+
+        rowcount <- rowcount + 1;
+        pids <- paste(path.ids, collapse="->");
+        #path.sybls <- V(g)$Label[path.inx];
+        path.sybls <- sybls[path.ids];
+        com.mat <- cbind(path.ids, path.sybls, rep(i, length(path.ids)));
+        gene.community.list[[rowcount]] <- com.mat;  # Store in list instead of rbind
+        qnum.vec[rowcount] <- qnums;
+
+        # calculate p values (comparing in- out- degrees)
+        #subgraph <- induced.subgraph(g, path.inx);
+        subgraph <- induced.subgraph(g, path.ids);
+        in.degrees <- degree(subgraph);
+        #out.degrees <- degree(g, path.inx) - in.degrees;
+        out.degrees <- degree(g, path.ids) - in.degrees;
+        ppval <- wilcox.test(in.degrees, out.degrees)$p.value;
+        ppval <- signif(ppval, 3);
+        pval.vec[rowcount] <- ppval;
+
+        # calculate community score
+        community.vec[rowcount] <- paste(c(psize, qnums, ppval, pids), collapse=";");
+      }
+
+      # Combine all community matrices at once (instead of sequential rbind)
+      if(rowcount > 0){
+        gene.community <- do.call(rbind, gene.community.list);
+        # OPTIMIZED: Trim vectors to actual size
+        qnum.vec <- qnum.vec[1:rowcount];
+        pval.vec <- pval.vec[1:rowcount];
+        community.vec <- community.vec[1:rowcount];
+      }else{
+        gene.community <- NULL;
+      }
+      if(length(pval.vec)>1){
+        ord.inx <- order(pval.vec, decreasing=F);
+        community.vec <- community.vec[ord.inx];
+        qnum.vec <- qnum.vec[ord.inx];
+        ord.inx <- order(qnum.vec, decreasing=T);
+        community.vec <- community.vec[ord.inx];
+      }
+      
+      all.communities <- paste(community.vec, collapse="||");
+      if(!is.null(gene.community)){
+        colnames(gene.community) <- c("Id", "Label", "Module");
+      }
+      return(list(all.communities=all.communities, gene.community=gene.community, pval.vec=pval.vec))
+    }
+    result <- callr_isolated_exec(
+      func_body = isolated_func,
+      input_data = input_data,
+      packages = c("igraph", "qs"),
+      timeout = 300,
+      output_type = "qs"
+    )
+    if(!is.null(result$gene.community)){
+      if(exists("fast.write", mode="function")){
+        fast.write(result$gene.community, file="module_table.csv", row.names=F)
+      }else{
+        utils::write.csv(result$gene.community, file="module_table.csv", row.names=FALSE)
+      }
+    }
+    if(!is.null(result$pval.vec)){
+      pvall <<- result$pval.vec
+    }
+    return(result$all.communities)
   }
-  pvall <<- pval.vec
-  if(length(pval.vec)>1){
-    ord.inx <- order(pval.vec, decreasing=F);
-    community.vec <- community.vec[ord.inx];
-    qnum.vec <- qnum.vec[ord.inx];
-    ord.inx <- order(qnum.vec, decreasing=T);
-    community.vec <- community.vec[ord.inx];
+
+  load_igraph()
+  res <- .local_find_communities(
+    g = ppi.comps[[current.net.nm]],
+    node_data = ppi.net$node.data,
+    seed_expr = seed.expr,
+    seed_proteins = seed.proteins,
+    method = method,
+    use_weight = use.weight
+  )
+  if(!is.null(res$gene.community)){
+    fast.write(res$gene.community, file="module_table.csv", row.names=F)
   }
-  
-  all.communities <- paste(community.vec, collapse="||");
-  if(!is.null(gene.community)){
-    colnames(gene.community) <- c("Id", "Label", "Module");
-    fast.write(gene.community, file="module_table.csv", row.names=F);
-    return(all.communities);
-  }else{
-    return("NA");
-  }
-  
+  return(res$all.communities)
 }
 
 community.significance.test <- function(graph, vs, ...) {
@@ -468,6 +633,10 @@ CheckNetStatsExist <- function(){
 }
 
 GetNetsName <- function(){
+  rownames(net.stats);
+}
+
+GetNetsNames <- function(){
   rownames(net.stats);
 }
 

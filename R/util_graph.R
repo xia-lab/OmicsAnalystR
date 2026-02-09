@@ -89,6 +89,9 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
   nms <- V(g)$name;
   hit.inx <- match(nms, enrich.nms1);
   lbls <- V(g)$label;
+  if(is.null(lbls) || length(lbls) != length(nms)){
+    lbls <- nms;
+  }
   
   # setup shape (gene circle, other squares)
   shapes <- rep("circle", length(nms));
