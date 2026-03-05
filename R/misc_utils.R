@@ -392,9 +392,13 @@ cleanMem <- function() {
 
 # shorthand
 ShowMemoryUse <- function(..., n=50) {
-  library(pryr);
+  if (requireNamespace("pryr", quietly = TRUE)) {
+    mem_used_now <- pryr::mem_used()
+  } else {
+    mem_used_now <- sum(gc()[, 2])
+  }
   sink(); # make sure print to screen
-  print(mem_used());
+  print(mem_used_now);
   print(sessionInfo());
   print(lapply(dataSets, object.size));
   #print(lapply(result.set, object.size));

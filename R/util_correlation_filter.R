@@ -252,7 +252,16 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     
     reductionSet$taxlvl <- taxlvl
     reductionSet$datagem <- datagem
-    
+
+    # CRITICAL: Create graph objects for PlotCorrViolin (taxa branch)
+    # Build inter/intra graphs from edge lists (matching non-taxa branch pattern)
+    cor_g_inter_combined <- igraph::graph_from_data_frame(cor_edge_list_inter, directed = FALSE)
+    cor_g_intra_combined <- igraph::graph_from_data_frame(cor_edge_list_intra, directed = FALSE)
+
+    # Save graph objects for histogram visualization
+    reductionSet$corr.graph.path <- "corr.graph.qs"
+    qs::qsave(list(corr.graph.inter = cor_g_inter_combined, corr.graph.intra = cor_g_intra_combined), "corr.graph.qs")
+
     qvec <- unique(rownames(reductionSet$selDatsCorr.taxa[["Genus"]]))
     mvec <- unique(rownames(reductionSet[["selDatsCorr"]][[residx]]))
     m2mscore<-M2Mscore(qvec,mvec,taxlvl,dataGem=datagem)
