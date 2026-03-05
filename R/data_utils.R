@@ -765,14 +765,22 @@ FilteringData <- function(dataName, countOpt="pct",count="2", var="15"){
   count.thresh = as.numeric(count);
   var.thresh = as.numeric(var);
   if((count.thresh + var.thresh) >0){
-    sum.counts <- apply(data, 1, sum, na.rm=TRUE);
-    if(countOpt == "pct"){
+    if(countOpt == "cpm"){
+    lib.sizes <- colSums(data, na.rm = TRUE)
+    cpm <- t(t(data) / lib.sizes) * 1e6
+    signal <- rowMeans(cpm, na.rm = TRUE)
+    rm.inx <- signal < count.thresh
+    data <- data[!rm.inx,];
+    rmSum <- sum(rm.inx)
+  }else if(countOpt == "pct"){
+    sum.counts <- rowSums(data, na.rm=TRUE);
     inx <- order(sum.counts)
     data <- data[inx,]
     rm.inx <- round(count.thresh/100 * nrow(data))
     data <- data[-c(1:rm.inx),];
     rmSum <- rm.inx
   }else{
+    sum.counts <- rowSums(data, na.rm=TRUE);
     rm.inx <- sum.counts < count.thresh;
     data <- data[!rm.inx,];
     rmSum <- sum(rm.inx)
