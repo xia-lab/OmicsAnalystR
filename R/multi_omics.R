@@ -155,7 +155,7 @@ FilterDataByVariance <- function(data, filterPercent){
 #'@export
 #'
 
-PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
+PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F){
   load_cairo();
   load_ggplot();
   dpi<-as.numeric(dpi)
@@ -263,7 +263,7 @@ PlotMultiPCA <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
   }
 }
 
-PlotMultiDensity <- function(imgNm, dpi=72, format="png",factor="1", interactive=F){
+PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactive=F){
   load_cairo();
   load_ggplot();
   dpi <- as.numeric(dpi)
@@ -364,7 +364,7 @@ SameElements <- function(a, b) return(identical(sort(a), sort(b)));
 #'@export
 #'
 
-PlotMultiTsne <- function(imgNm, dpi=72, format="png",factor="1"){
+PlotMultiTsne <- function(imgNm, dpi=150, format="png",factor="1"){
   load_cairo();
   load_ggplot();
   library(Rtsne)

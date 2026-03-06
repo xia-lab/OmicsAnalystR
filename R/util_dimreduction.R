@@ -155,6 +155,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       model = block.spls(X = data.list, Y = Y, ncomp = ncomps, design = design, mode = "regression")
     }
     
+    # Save DIABLO model for BER diagnostic and circos plot
+    qs::qsave(model, "diablo_model.qs")
+
     # must calculate centroid factor scores
     variates <- model$variates
     variates$Y <- NULL
@@ -272,7 +275,7 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
     return(perform_mcia(df.list, cia.nf, cia.scan, nsc, svd));
 }
 
-PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
+PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   library(see)
@@ -312,7 +315,7 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
     theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
 
   
-  Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
+  Cairo(file=imgNm, width=8, height=7, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
 
@@ -320,88 +323,131 @@ PlotDimredVarexp <- function(imgNm, dpi=72, format="png"){
   saveSet(infoSet);
 }
 
-PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
-  #save.image("factorsDimRed.RData");
+PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=150, format="png"){
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();
-  library(GGally)
   library(see)
-  library(grid)
-  
+
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
+
+  reductionSet <- .get.rdt.set();
+
+  # For MOFA/MCIA/DIABLO: plot variance explained heatmap instead of GGally ggpairs
+  if (reductionSet$reductionOpt %in% c("mofa", "mcia", "diablo")) {
+    sel.inx <- mdata.all == 1
+    sel.nms <- names(mdata.all)[sel.inx]
+
+    library(data.table)
+    df <- as.data.frame(reductionSet[[reductionSet$reductionOpt]]$var.exp)
+
+    # Replace internal omics type names (columns) with readable names
+    for (i in 1:length(sel.nms)) {
+      dataSet <- readDataset(sel.nms[i])
+      colnames(df) <- gsub(dataSet$type, dataSet$readableType, colnames(df))
+    }
+
+    df$Factor <- rownames(df)
+    df_long <- as.data.frame(melt(as.data.table(df), id.vars = "Factor", variable.name = "View", value.name = "Variance"))
+    df_long$Variance <- df_long$Variance * 100
+    df_long$Factor <- gsub("Factor", "Factor ", df_long$Factor)
+
+    p1 <- ggplot(df_long, aes(x = Factor, y = View, fill = Variance)) +
+      geom_tile(color = "grey30", linewidth = 0.8) +
+      geom_text(aes(label = sprintf("%.2f%%", Variance)), size = 4, color = "black") +
+      scale_fill_gradient(low = "white", high = "#C0392B", name = "Var. (%)") +
+      labs(x = "", y = "", title = "Variance Explained per Factor") +
+      theme_minimal(base_size = 15) +
+      theme(
+        axis.text.x = element_text(angle = 0, hjust = 0.5, size = 13),
+        axis.text.y = element_text(size = 13),
+        plot.title = element_text(hjust = 0.5, size = 16),
+        panel.grid = element_blank()
+      )
+
+    Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
+    print(p1)
+    dev.off()
+
+    infoSet$imgSet[[paste0("dimred_factors_", reductionSet$reductionOpt)]] <- imgNm
+    saveSet(infoSet)
+    return(1)
+  }
+
+  # For non-MOFA methods: GGally ggpairs scatter/density plot
+  library(GGally)
+  library(grid)
+
   sel.nms <- names(mdata.all)
   data.list <- list()
   for(i in 1:length(sel.nms)){
     dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
-  reductionSet <- .get.rdt.set();
-  
+
   pclabels <- paste0("Component ", 1:pc.num);
-  
+
   # draw plot
   Cairo::Cairo(file = imgNm, unit="in", dpi=dpi, width=10, height=10, type=format, bg="white");
-  
+
   data <- as.data.frame(reductionSet[[reductionSet$reductionOpt]]$pos.xyz[,1:pc.num]);
   meta.info <- reductionSet$meta;
   meta.info <- meta.info[match(rownames(data), rownames(meta.info)),,drop=F]
-  
-  
+
+
   inx <- which(colnames(meta.info) == meta)
   cls <- meta.info[, inx];
   cls.type <- reductionSet$dataSet$meta.types[inx] ##### UPDATE THIS AFTER SUPPORT COMPLEX META
   base_size=15;
-  
+
   if(is.null(cls.type)){
     cls.type <- "disc";
   }
 
   if (cls.type == "disc"){ ## code to execute if metadata class is discrete
-    
+
     # make plot
-    p <- ggpairs(data, 
-                 lower = list(continuous = wrap("points")), 
+    p <- ggpairs(data,
+                 lower = list(continuous = wrap("points")),
                  upper = list(continuous = wrap("density")),
                  diag = list(continuous = wrap("densityDiag", alpha = 0.5, color = NA)),
                  columnLabels = pclabels, mapping = aes(color = cls))
-    
-    auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) + 
-      theme_bw(base_size=base_size) + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) + 
-      scale_fill_okabeito() + 
+
+    auxplot <- ggplot(data.frame(cls = cls),aes(x=cls,y=cls,color=cls)) +
+      theme_bw(base_size=base_size) + geom_point(size = 6) + theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) +
+      scale_fill_okabeito() +
       scale_color_okabeito() +
       guides(col = guide_legend(nrow = 1))
-    p <- p + theme_bw(base_size=base_size) + 
-      scale_fill_okabeito() + 
+    p <- p + theme_bw(base_size=base_size) +
+      scale_fill_okabeito() +
       scale_color_okabeito() +
       theme(plot.margin = unit(c(0.25, 0.25, 0.6, 0.25), "in"));
 
     mylegend <- grab_legend(auxplot)
-    
+
   } else { ## code to excute if metadata class is continuous
-    
+
     colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(9, "Blues"))(20));
     num.cls <- as.numeric(as.character(cls));
     cols <- colors[as.numeric(cut(num.cls,breaks = 20))];
-    
+
     # make plot
-    p <- ggpairs(data, lower = list(continuous = wrap("points", color = cols)), 
+    p <- ggpairs(data, lower = list(continuous = wrap("points", color = cols)),
                  upper = list(continuous = wrap("density", color = "#505050")),
                  diag = list(continuous = wrap("densityDiag", fill = "#505050", color = NA)),
                  columnLabels = pclabels)
-    
-    auxplot <- ggplot(data.frame(cls = num.cls), aes(x=cls, y=cls, color=cls)) + 
-      theme_bw(base_size=base_size) + geom_point(size = 6) + 
-      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) + 
+
+    auxplot <- ggplot(data.frame(cls = num.cls), aes(x=cls, y=cls, color=cls)) +
+      theme_bw(base_size=base_size) + geom_point(size = 6) +
+      theme(legend.position = "bottom", legend.title = element_blank(), legend.text=element_text(size=15)) +
       guides(col = guide_legend(nrow = 1))
-    
+
     p <- p + theme_bw(base_size=base_size) + theme(plot.margin = unit(c(0.25, 0.25, 0.8, 0.25), "in"))
     mylegend <- grab_legend(auxplot)
-    
+
   }
-  
+
   grid.newpage()
   grid.draw(p)
   vp = viewport(x=5, y=0.3, width=.35, height=.3, default.units = "in") ## control legend position
@@ -409,7 +455,196 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=72, format="png"){
   grid.draw(mylegend)
   upViewport()
   dev.off()
-  
+
   infoSet$imgSet[[paste0("dimred_factors_", reductionSet$reductionOpt)]]<- imgNm;
   saveSet(infoSet);
+}
+
+# Extract BER table from perf() result - handles multiple mixOmics output formats
+.extract_ber_table <- function(perf.res) {
+  ber_table <- NULL
+  tryCatch({
+    # Try WeightedVote.error.rate first (list of matrices per distance)
+    wv <- perf.res$WeightedVote.error.rate
+    if (!is.null(wv) && is.list(wv)) {
+      first_mat <- wv[[1]]
+      if (is.matrix(first_mat)) {
+        ber_table <- data.frame(Component = colnames(first_mat), stringsAsFactors = FALSE)
+        n_dist <- length(wv)
+        for (nm in names(wv)) {
+          mat <- wv[[nm]]
+          for (rn in rownames(mat)) {
+            # If single distance type, use row name directly; otherwise prefix with distance name
+            col_name <- if (n_dist == 1) rn else paste0(nm, ".", rn)
+            ber_table[[col_name]] <- round(as.numeric(mat[rn, ]), 4)
+          }
+        }
+      }
+    }
+    # Fallback: error.rate
+    if (is.null(ber_table) && !is.null(perf.res$error.rate)) {
+      er <- perf.res$error.rate
+      if (is.list(er)) {
+        first_el <- er[[1]]
+        if (is.numeric(first_el) && !is.matrix(first_el)) {
+          comp_names <- names(first_el)
+          if (is.null(comp_names)) comp_names <- paste0("comp", seq_along(first_el))
+          ber_table <- data.frame(Component = comp_names, stringsAsFactors = FALSE)
+          for (nm in names(er)) ber_table[[nm]] <- round(as.numeric(er[[nm]]), 4)
+        } else if (is.matrix(first_el)) {
+          ber_table <- data.frame(Component = colnames(first_el), stringsAsFactors = FALSE)
+          n_dist <- length(er)
+          for (nm in names(er)) {
+            mat <- er[[nm]]
+            for (rn in rownames(mat)) {
+              col_name <- if (n_dist == 1) rn else paste0(nm, ".", rn)
+              ber_table[[col_name]] <- round(as.numeric(mat[rn, ]), 4)
+            }
+          }
+        }
+      }
+    }
+  }, error = function(e) {
+    message("BER table extraction error: ", e$message)
+  })
+  return(ber_table)
+}
+
+# Plot DIABLO BER (Balanced Error Rate) diagnostic - performance vs number of components
+PlotDiabloBER <- function(imgNm, dpi=150, format="png") {
+  infoSet <- readSet(infoSet, "infoSet");
+  load_cairo();
+  load_ggplot();
+  library(see)
+  library(mixOmics)
+
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+
+  model <- qs::qread("diablo_model.qs")
+
+  # Run cross-validation performance assessment
+  perf.res <- perf(model, validation = 'Mfold', folds = 10, nrepeat = 1, dist = 'max.dist')
+
+  # Build ggplot BER line plot (same style as variance explained)
+  ber_table <- .extract_ber_table(perf.res)
+  if (!is.null(ber_table)) {
+    library(data.table)
+    dt <- as.data.table(ber_table)
+    dt_long <- melt(dt, id.vars = "Component", variable.name = "Metric", value.name = "Error.Rate")
+    dt_long <- as.data.frame(dt_long)
+
+    p1 <- ggplot(dt_long, aes(x = Component, y = Error.Rate, group = Metric)) +
+      geom_line(aes(color = Metric), linewidth = 2) +
+      scale_fill_okabeito() +
+      scale_color_okabeito() +
+      labs(x = "Component #", y = "Error Rate", title = "") +
+      theme_minimal(base_size = 15) +
+      theme(legend.text = element_text(size = 16),
+            legend.position = c(0.9, 0.95),
+            legend.title = element_text(size = 0))
+
+    Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
+    print(p1)
+    dev.off()
+  } else {
+    # Fallback to default mixOmics plot
+    Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
+    plot(perf.res)
+    dev.off()
+  }
+
+  # Store optimal number of components and BER table
+  reductionSet <- .get.rdt.set()
+  if (!is.null(perf.res$choice.ncomp)) {
+    opt.comp <- median(perf.res$choice.ncomp$WeightedVote)
+    reductionSet[["diablo"]]$opt.ncomp <- opt.comp
+  }
+  reductionSet[["diablo"]]$ber_table <- ber_table
+  .set.rdt.set(reductionSet)
+
+  infoSet$imgSet[["diablo_ber"]] <- imgNm;
+  saveSet(infoSet);
+  return(1)
+}
+
+# Plot DIABLO Circos plot showing correlations between omics layers
+GetBerTableRows <- function() {
+  reductionSet <- .get.rdt.set()
+  bt <- reductionSet[["diablo"]]$ber_table
+  if (is.null(bt)) return(0)
+  return(nrow(bt))
+}
+
+GetBerTableColNames <- function() {
+  reductionSet <- .get.rdt.set()
+  bt <- reductionSet[["diablo"]]$ber_table
+  if (is.null(bt)) return("")
+  # Return non-Component column names as semicolon-separated string
+  cols <- colnames(bt)[colnames(bt) != "Component"]
+  return(paste(cols, collapse=";"))
+}
+
+GetBerTableComp <- function(row) {
+  reductionSet <- .get.rdt.set()
+  bt <- reductionSet[["diablo"]]$ber_table
+  return(bt$Component[as.integer(row)])
+}
+
+GetBerTableValues <- function(row) {
+  reductionSet <- .get.rdt.set()
+  bt <- reductionSet[["diablo"]]$ber_table
+  r <- as.integer(row)
+  # Return all numeric columns (everything except Component)
+  cols <- colnames(bt)[colnames(bt) != "Component"]
+  return(as.numeric(bt[r, cols]))
+}
+
+PlotDiabloLoading <- function(imgNm, dpi=150, format="png") {
+  infoSet <- readSet(infoSet, "infoSet");
+  load_cairo(); load_ggplot(); library(mixOmics)
+  library(grid); library(gridExtra); library(cowplot)
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+
+  model <- qs::qread("diablo_model.qs")
+  ncomp_plot <- min(model$ncomp[1], 3)
+  fig.list <- list()
+  for (cc in 1:ncomp_plot) {
+    local({
+      comp_idx <- cc
+      fig.list[[comp_idx]] <<- as_grob(function(){
+        par(mar = c(4, 12, 2, 2))
+        plotLoadings(model, ndisplay=10, comp = comp_idx, contrib="max", method="median", size.name=1.1, legend=TRUE)
+      })
+    })
+  }
+  h <- 8 * length(fig.list)
+  Cairo::Cairo(file=imgNm, width=13, height=h, type=format, bg="white", unit="in", dpi=dpi);
+  grid.arrange(grobs = fig.list, nrow = length(fig.list))
+  dev.off();
+
+  infoSet$imgSet[["diablo_loading"]] <- imgNm;
+  saveSet(infoSet);
+  return(1)
+}
+
+PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
+  infoSet <- readSet(infoSet, "infoSet");
+  load_cairo();
+  library(mixOmics)
+
+  dpi <- as.numeric(dpi)
+  cutoff <- as.numeric(cutoff)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+
+  model <- qs::qread("diablo_model.qs")
+
+  Cairo::Cairo(file=imgNm, width=10, height=10, type=format, bg="white", unit="in", dpi=dpi);
+  circosPlot(model, cutoff = cutoff, line = TRUE, size.legend = 0.8)
+  dev.off();
+
+  infoSet$imgSet[["diablo_circos"]] <- imgNm;
+  saveSet(infoSet);
+  return(1)
 }

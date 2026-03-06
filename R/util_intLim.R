@@ -647,7 +647,7 @@ GetVolcanoDnMat <- function(reductionSet=NA){
   
  
 
-PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=72,format="png"){
+PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=150,format="png"){
  
     reductionSet <- .get.rdt.set();
    imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")

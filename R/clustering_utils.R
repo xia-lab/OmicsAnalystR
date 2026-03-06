@@ -742,7 +742,7 @@ ComputeSilhouette <-function(type){
 }
 
 
-PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
+PlotDiagnostic <- function(alg, imgName, dpi=150, format="png"){
   dpi <- as.numeric(dpi);
   imgNm <- paste(imgName, "dpi", dpi, ".", format, sep="");
   load_cairo();
@@ -820,7 +820,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=72, format="png"){
 }
 
 
-PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"){
+PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum"){
   load_cairo();
   load_ggplot();
   dpi<-as.numeric(dpi)
@@ -887,7 +887,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=72, format="png",type="spectrum"
 }
 
 
-PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
+PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
   
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();

@@ -366,7 +366,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
   return(1);
 }
 
-PlotCorrViolin <- function(imgNm, dpi=72, format="png", corNetOpt="default"){
+PlotCorrViolin <- function(imgNm, dpi=150, format="png", corNetOpt="default"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
@@ -470,7 +470,7 @@ PlotCorrViolin <- function(imgNm, dpi=72, format="png", corNetOpt="default"){
 }
 
 
-PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
+PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   Cairo(file=imgNm, width=400, height=400, type="png", bg="white");
@@ -499,7 +499,7 @@ PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
   saveSet(infoSet);
 }
 
-PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=72, format="png"){
+PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   Cairo(file=imgNm, width=400, height=400, type="png", bg="white");
@@ -1028,7 +1028,7 @@ GetCorrNetIds <- function() {
 }
 
  
-plotFeatCorr <- function(reductionSet=NA,imgName,feat1="PC.O.18.2.0.16.0.0",feat2="DNMT3A",selMeta,group,dpi=72,format="png"){
+plotFeatCorr <- function(reductionSet=NA,imgName,feat1="PC.O.18.2.0.16.0.0",feat2="DNMT3A",selMeta,group,dpi=150,format="png"){
   
   reductionSet <- .get.rdt.set();
   

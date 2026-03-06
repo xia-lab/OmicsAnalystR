@@ -368,7 +368,7 @@ invert_named_vector <- function(input_named_vec) {
 }
 
 
-PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="png", dpi=72){
+PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="png", dpi=150){
  
   dataSet <- readDataset(dataName);
   both.mat <- dataSet$cov.mat
@@ -443,7 +443,7 @@ PlotCovariateMap <- function(dataName, theme="default", imgName="NA", format="pn
 #'License: GPL-3 License
 #'@export
 #'
-PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 72, plotType = "violin") {
+PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = NA, densityBool = F, version, format = "png", dpi = 150, plotType = "violin") {
    print(dataName)
   rdtSet <- .get.rdt.set()
 

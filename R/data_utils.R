@@ -394,7 +394,7 @@ PlotDataProfile<-function(dataName,type, boxplotName, pcaName){
 qc.boxplot2 <- function(dat, imgNm){
   require('lattice');
   load_cairo();
-  imgNm = paste(imgNm, "dpi", "72", ".png", sep="");
+  imgNm = paste(imgNm, "dpi", "150", ".png", sep="");
   subgene=10000;
   if (nrow(dat)>subgene) {
     set.seed(28051968);
@@ -439,7 +439,7 @@ qc.boxplot2 <- function(dat, imgNm){
 }
 
 qc.pcaplot2 <- function(x, imgNm){
-  imgNm = paste(imgNm, "dpi", "72", ".png", sep="");
+  imgNm = paste(imgNm, "dpi", "150", ".png", sep="");
   require('lattice');
   pca <- prcomp(t(na.omit(x)));
   names <- colnames(x);

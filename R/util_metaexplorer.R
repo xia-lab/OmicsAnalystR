@@ -8,7 +8,7 @@
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=96,width=NA){
+PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
   plotjs <- paste0(imgName, ".json");
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
@@ -172,7 +172,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",includeRowNames=T, imgName, format="png", dpi=96, width=NA){
+PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",includeRowNames=T, imgName, format="png", dpi=150, width=NA){
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
 
@@ -291,7 +291,7 @@ scale_rows = function(x){
   return((x - m) / s)
 }
 
-PlotPairwiseMetadata <- function(meta1, meta2, colorGradient ,imgName, format="png", dpi=96) {
+PlotPairwiseMetadata <- function(meta1, meta2, colorGradient ,imgName, format="png", dpi=150) {
 
   rdtSet <- .get.rdt.set();
 
