@@ -7,39 +7,155 @@
 
 FilterBipartiNet <- function(nd.type="all", min.dgr, min.btw){
 
-    all.nms <- V(overall.graph)$name;
-    edge.mat <- as_edgelist(overall.graph);
-    dgrs <- degree(overall.graph);
-    nodes2rm.dgr <- nodes2rm.btw <- NULL;
+  # igraph filtering + decompose in subprocess
+  if (!exists("overall.graph", envir = .GlobalEnv)) {
+      AddErrMsg("No graph available for filtering")
+      return(0)
+    }
+    reductionSet <- .get.rdt.set();
+    sel.nms <- names(mdata.all)[mdata.all==1];
+    dataSetList <- lapply(sel.nms, readDataset);
+    names(dataSetList) <- sel.nms;
 
-    if(nd.type == "gene"){
-        hit.inx <- all.nms %in% edge.mat[,1];
-    }else if(nd.type=="other"){
-        hit.inx <- all.nms %in% edge.mat[,2];
-    }else{ # all
-        hit.inx <- rep(TRUE, length(all.nms));
+    input_data <- list(
+      graph       = overall.graph,
+      nd.type     = nd.type,
+      min.dgr     = as.numeric(min.dgr),
+      min.btw     = as.numeric(min.btw),
+      reductionSet = reductionSet,
+      mdata.all   = mdata.all,
+      dataSetList = dataSetList,
+      sel.nms     = sel.nms
+    )
+    isolated_func <- function(input_data) {
+      library(igraph)
+      g              <- input_data$graph
+      nd.type        <- input_data$nd.type
+      min.dgr        <- input_data$min.dgr
+      min.btw        <- input_data$min.btw
+      reductionSet   <- input_data$reductionSet
+      mdata.all      <- input_data$mdata.all
+      dataSetList    <- input_data$dataSetList
+      sel.nms        <- input_data$sel.nms
+
+      # mock readDataset for ComputeSubnetStats / DecomposeGraph
+      readDataset <<- function(nm) { dataSetList[[nm]] }
+      .get.rdt.set <<- function() { reductionSet }
+
+      all.nms <- V(g)$name
+      edge.mat <- igraph::as_edgelist(g)
+      dgrs <- igraph::degree(g)
+      nodes2rm.dgr <- nodes2rm.btw <- NULL
+
+      if (nd.type == "gene") {
+        hit.inx <- all.nms %in% edge.mat[,1]
+      } else if (nd.type == "other") {
+        hit.inx <- all.nms %in% edge.mat[,2]
+      } else {
+        hit.inx <- rep(TRUE, length(all.nms))
+      }
+
+      if (min.dgr > 0) {
+        rm.inx <- dgrs <= min.dgr & hit.inx
+        nodes2rm.dgr <- V(g)$name[rm.inx]
+      }
+      if (min.btw > 0) {
+        btws <- igraph::betweenness(g)
+        rm.inx <- btws <= min.btw & hit.inx
+        nodes2rm.btw <- V(g)$name[rm.inx]
+      }
+
+      nodes2rm <- unique(c(nodes2rm.dgr, nodes2rm.btw))
+      g <- igraph::simplify(igraph::delete.vertices(g, nodes2rm))
+      msg <- paste("A total of", length(nodes2rm), "was reduced.")
+
+      # DecomposeGraph logic inline
+      comps <- igraph::decompose.graph(g, min.vertices = 2)
+      if (length(comps) == 0) {
+        return(list(success = FALSE, msg = "No subnetwork was identified"))
+      }
+
+      # ComputeSubnetStats inline
+      net.stats <- as.data.frame(matrix(0, ncol = 3, nrow = length(comps)))
+      colnames(net.stats) <- c("Node", "Edge", "Query")
+
+      if (exists("corr.mat.inter.taxa", reductionSet) & reductionSet$taxlvl != "Feature") {
+        for (j in 1:length(comps)) {
+          cg <- comps[[j]]
+          nd.queries <- V(cg)$name
+          nd.res <- ""
+          dataSet <- dataSetList[[sel.nms[reductionSet$micidx]]]
+          lbl <- reductionSet$taxlvl
+          nms <- unique(dataSet$taxa_table[, reductionSet$taxlvl])
+          if (sum(nms %in% nd.queries) > 0 && !grepl(lbl, nd.res)) {
+            nd.res <- paste0(lbl, ": ", sum(nms %in% nd.queries), "; ", nd.res)
+          }
+          dataSet2 <- dataSetList[[sel.nms[reductionSet$residx]]]
+          nms2 <- unique(unname(dataSet2$enrich_ids))
+          if (sum(nms2 %in% nd.queries) > 0) {
+            nd.res <- paste0("Metabolite: ", sum(nms2 %in% nd.queries), "; ", nd.res)
+          }
+          net.stats[j,] <- c(nd.res, igraph::ecount(cg), 0)
+        }
+      } else {
+        for (j in 1:length(comps)) {
+          cg <- comps[[j]]
+          nd.queries <- V(cg)$name
+          nd.res <- ""
+          for (i in 1:length(sel.nms)) {
+            dataSet <- dataSetList[[sel.nms[[i]]]]
+            lbl <- dataSet$readableType
+            if (sum(V(cg)$type == dataSet$type) && !grepl(lbl, nd.res)) {
+              nd.res <- paste0(lbl, ": ", sum(V(cg)$type == dataSet$type), "; ", nd.res)
+            }
+          }
+          net.stats[j,] <- c(nd.res, igraph::ecount(cg), 0)
+        }
+      }
+
+      ord.inx <- order(as.numeric(net.stats[,2]), decreasing = TRUE)
+      net.stats <- net.stats[ord.inx,]
+      comps <- comps[ord.inx]
+      names(comps) <- rownames(net.stats) <- paste0("subnetwork", 1:length(comps))
+      hit.inx <- net.stats$Node >= 2
+      comps <- comps[hit.inx]
+      sub.stats <- unlist(lapply(comps, igraph::vcount))
+
+      return(list(
+        success    = TRUE,
+        graph      = g,
+        ppi.comps  = comps,
+        net.stats  = net.stats,
+        sub.stats  = sub.stats,
+        msg        = msg,
+        graph.vcount = igraph::vcount(g),
+        graph.ecount = igraph::ecount(g),
+        num.comps    = length(comps)
+      ))
     }
 
-    if(min.dgr > 0){
-        rm.inx <- dgrs <= min.dgr & hit.inx;
-        nodes2rm.dgr <- V(overall.graph)$name[rm.inx];
-    }
-    if(min.btw > 0){
-        btws <- betweenness(overall.graph);
-        rm.inx <- btws <= min.btw & hit.inx;
-        nodes2rm.btw <- V(overall.graph)$name[rm.inx];
-    }
+    result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = input_data,
+        packages = c("igraph"),
+        timeout = 300,
+        output_type = "qs"
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("FilterBipartiNet failed:", e$message))
+      return(NULL)
+    })
 
-    nodes2rm <- unique(c(nodes2rm.dgr, nodes2rm.btw));
-    overall.graph <- simplify(delete.vertices(overall.graph, nodes2rm));
-    current.msg <<- paste("A total of", length(nodes2rm) , "was reduced.");
-    substats <- DecomposeGraph(overall.graph);
-    if(!is.null(substats)){
-        overall.graph <<- overall.graph;
-        return(c(length(seed.genes),length(seed.proteins), vcount(overall.graph), ecount(overall.graph), length(ppi.comps), substats));
-    }else{
-        return(0);
+    if (is.null(result) || !isTRUE(result$success)) {
+      return(0)
     }
+    # Restore globals from subprocess results
+    overall.graph <<- result$graph
+    ppi.comps <<- result$ppi.comps
+    net.stats <<- result$net.stats
+    current.msg <<- result$msg
+    return(c(length(seed.genes), length(seed.proteins), result$graph.vcount, result$graph.ecount, result$num.comps, result$sub.stats))
 }
 
 PrepareNetwork <- function(net.nm, json.nm){

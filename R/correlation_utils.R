@@ -167,13 +167,473 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
 }
 
 
-DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.5, 
+DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkInfer="NA", threshold.inter=0.5,
                                 threshold.intra=0.9, numToKeep=2000, updateRes="false", taxlvl="genus", datagem="agora"){
 
-    if(!exists("my.correlation.filter")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_correlation_filter.Rc");    
+  # igraph/dplyr/reshape2 in subprocess
+  reductionSet <- .get.rdt.set();
+    sel.inx <- mdata.all == 1;
+    sel.nms <- names(mdata.all)[sel.inx];
+
+    # Validate correlation matrix exists
+    if (is.null(reductionSet$corr.mat.path) || !file.exists(reductionSet$corr.mat.path)) {
+      msg.vec <<- "Correlation matrix not found. Please run DoOmicsCorrelation first."
+      return(0)
     }
-    return(my.correlation.filter(corSign, crossOmicsOnly, networkInfer, threshold.inter, threshold.intra, numToKeep, updateRes, taxlvl, datagem));
+
+    # Collect datasets
+    dataSetList <- lapply(sel.nms, readDataset)
+    names(dataSetList) <- sel.nms
+
+    has_taxa <- exists("selDatsCorr.taxa", reductionSet)
+
+    data_for_sub <- list(
+      sel.nms = sel.nms,
+      dataSetList = dataSetList,
+      selDatsCorr = reductionSet$selDatsCorr,
+      labels = reductionSet$labels,
+      corr.mat.path = reductionSet$corr.mat.path,
+      has_taxa = has_taxa
+    )
+
+    if (has_taxa) {
+      data_for_sub$selDatsCorr.taxa <- reductionSet$selDatsCorr.taxa
+      data_for_sub$corr.mat.taxa <- reductionSet$corr.mat.taxa
+      data_for_sub$micidx <- reductionSet$micidx
+      data_for_sub$residx <- reductionSet$residx
+    }
+
+    filter_result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = function(input_data) {
+          require(igraph)
+          require(dplyr)
+          require(reshape2)
+          require(qs)
+
+          data_obj <- input_data$data_obj
+          params <- input_data$params
+
+          sel.nms <- data_obj$sel.nms
+          dataSetList <- data_obj$dataSetList
+          selDatsCorr <- data_obj$selDatsCorr
+          labels <- data_obj$labels
+
+          tryCatch({
+            if (!data_obj$has_taxa) {
+              # =========== Standard correlation filter (non-taxa path) ===========
+              labels_vec <- unlist(lapply(dataSetList, function(x) x$enrich_ids))
+              types <- unlist(lapply(dataSetList, function(x) rep(x$type, length(x$enrich_ids))))
+              type_df <- data.frame(name = labels_vec, type = types)
+              type_lookup <- setNames(type_df$type, type_df$name)
+
+              corr.mat <- qs::qread(data_obj$corr.mat.path)
+              corr.p.mat <- qs::qread("corr.p.mat.qs")
+              corr.p.mat <- reshape2::melt(corr.p.mat)
+
+              g <- igraph::graph_from_adjacency_matrix(corr.mat, mode = "undirected",
+                                                        diag = FALSE, weighted = 'correlation')
+
+              toMatch <- unlist(lapply(dataSetList, function(x) x$type))
+              pattern <- paste0("^(.*)((", paste(toMatch, collapse = "|"), "))$")
+              igraph::V(g)$type <- gsub(pattern, "\\2", igraph::V(g)$name)
+              igraph::V(g)$label <- gsub(pattern, "", igraph::V(g)$name)
+
+              edge_list <- igraph::as_data_frame(igraph::simplify(g, remove.loops = TRUE, edge.attr.comb = "max"), "edges")
+
+              v1 <- igraph::V(g)$name[igraph::V(g)$type == unique(types)[1]]
+              v2 <- igraph::V(g)$name[igraph::V(g)$type == unique(types)[2]]
+
+              inter_inx <- igraph::V(g)[igraph::ends(g, igraph::E(g))[, 1]]$type != igraph::V(g)[igraph::ends(g, igraph::E(g))[, 2]]$type
+              intra_inx <- igraph::V(g)[igraph::ends(g, igraph::E(g))[, 1]]$type == igraph::V(g)[igraph::ends(g, igraph::E(g))[, 2]]$type
+              inter_g <- igraph::delete_edges(g, igraph::E(g)[intra_inx])
+              intra_g <- igraph::delete_edges(g, igraph::E(g)[inter_inx])
+
+              qs::qsave(list(corr.graph.inter = inter_g, corr.graph.intra = intra_g), "corr.graph.qs")
+
+              cor.list <- list(all = NULL, inter = NULL, intra = NULL)
+
+              if (params$corSign == "both") {
+                toRm.inter <- igraph::E(inter_g)[!abs(correlation) > params$threshold.inter]
+                toRm.intra <- igraph::E(intra_g)[!abs(correlation) > params$threshold.intra]
+              } else if (params$corSign == "positive") {
+                toRm.inter <- igraph::E(inter_g)[!correlation > params$threshold.inter]
+                toRm.intra <- igraph::E(intra_g)[!correlation > params$threshold.intra]
+              } else {
+                toRm.inter <- igraph::E(inter_g)[!correlation < -params$threshold.inter]
+                toRm.intra <- igraph::E(intra_g)[!correlation < -params$threshold.intra]
+              }
+
+              inter_g_sub <- igraph::delete_edges(inter_g, igraph::E(inter_g)[toRm.inter])
+              intra_g_sub <- igraph::delete_edges(intra_g, igraph::E(intra_g)[toRm.intra])
+
+              edge_list_inter <- igraph::as_edgelist(inter_g_sub)
+              edge_list_intra <- igraph::as_edgelist(intra_g_sub)
+
+              cor.list$inter <- data.frame(edge_list_inter, as.numeric(igraph::E(inter_g_sub)$correlation))
+              cor.list$intra <- data.frame(edge_list_intra, as.numeric(igraph::E(intra_g_sub)$correlation))
+              colnames(cor.list$inter) <- c("source", "target", "correlation")
+              colnames(cor.list$intra) <- c("source", "target", "correlation")
+              cor.list$all <- rbind(cor.list$inter, cor.list$intra)
+
+              qs::qsave(cor.list, file = "cor.list.qs")
+
+              if (params$crossOmicsOnly == "true") {
+                cor_edge_list <- cor.list$inter
+              } else {
+                cor_edge_list <- dplyr::bind_rows(cor.list$inter, cor.list$intra)
+              }
+
+              numToKeep <- params$numToKeep
+              if (numToKeep > length(unique(cor_edge_list$correlation))) {
+                numToKeep <- length(unique(cor_edge_list$correlation))
+              }
+
+              if (nrow(cor_edge_list) >= 3) {
+                top.edge <- sort(abs(unique(cor_edge_list$correlation)))[1:numToKeep]
+                top.inx <- match(abs(cor_edge_list$correlation), top.edge)
+                cor_edge_list <- cor_edge_list[!is.na(top.inx), , drop = FALSE]
+
+                new_g <- igraph::graph_from_data_frame(cor_edge_list, directed = FALSE)
+                new_g <- igraph::simplify(new_g, edge.attr.comb = "mean")
+
+                igraph::V(new_g)$type <- gsub(pattern, "\\2", igraph::V(new_g)$name)
+                toMatch2 <- unlist(lapply(dataSetList, function(x) paste0("_", x$type)))
+                pattern2 <- paste0("(", paste(toMatch2, collapse = "|"), ")$")
+                igraph::V(new_g)$featureId <- gsub(pattern2, "", igraph::V(new_g)$name)
+
+                type.list <- list()
+                for (i in 1:length(sel.nms)) {
+                  type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[, i])
+                }
+
+                cor_edge_list <- cor_edge_list %>%
+                  dplyr::left_join(corr.p.mat, by = c("source" = "Var1", "target" = "Var2")) %>%
+                  dplyr::mutate(pval = value)
+                cor_edge_list$value <- NULL
+
+                cor_edge_list$label1 <- gsub(paste(paste0("_", toMatch, "$"), collapse = "|"), "", cor_edge_list$source)
+                cor_edge_list$label2 <- gsub(paste(paste0("_", toMatch, "$"), collapse = "|"), "", cor_edge_list$target)
+                cor_edge_list$label1 <- names(labels)[match(cor_edge_list$label1, labels)]
+                cor_edge_list$label2 <- names(labels)[match(cor_edge_list$label2, labels)]
+
+                write.csv(corr.mat, "corNet.csv", row.names = FALSE)
+
+                # ProcessGraphFile logic
+                overall.graph <- new_g
+                nms <- igraph::V(new_g)$name
+                if (length(nms) < 1) {
+                  nms <- igraph::V(new_g)$id
+                  new_g <- igraph::set_vertex_attr(new_g, "name", value = nms)
+                }
+
+                lblsNm <- names(labels)
+                names(lblsNm) <- unname(labels)
+                lbls <- unname(lblsNm[igraph::V(new_g)$featureId])
+                node.data <- data.frame(nms, lbls)
+                new_g <- igraph::set_vertex_attr(new_g, "label", value = lbls)
+                seed.proteins <- nms
+
+                if (!is.null(type.list) && is.null(igraph::V(new_g)$type)) {
+                  typeVec <- rep("NA", length(nms))
+                  for (i in 1:length(type.list)) {
+                    inx <- nms %in% type.list[[i]]
+                    typeVec[inx] <- names(type.list)[i]
+                  }
+                  new_g <- igraph::set_vertex_attr(new_g, "type", value = typeVec)
+                }
+
+                e <- igraph::as_edgelist(new_g)
+                edge.data <- data.frame(Source = e[, 1], Target = e[, 2])
+
+                comps <- igraph::decompose(new_g, min.vertices = 3)
+                if (length(comps) == 0) {
+                  return(list(success = 0, msg = "No subnetworks containing at least 3 edges are identified"))
+                }
+
+                comp_sizes <- sapply(comps, function(x) igraph::vcount(x))
+                comps <- comps[order(comp_sizes, decreasing = TRUE)]
+                names(comps) <- paste0("subnetwork", 1:length(comps))
+
+                net.stats <- data.frame(Node = character(length(comps)),
+                                        Edge = integer(length(comps)),
+                                        Query = integer(length(comps)),
+                                        stringsAsFactors = FALSE)
+                rownames(net.stats) <- names(comps)
+
+                for (j in 1:length(comps)) {
+                  g <- comps[[j]]
+                  nd.res <- ""
+                  for (i in 1:length(sel.nms)) {
+                    dataSet <- dataSetList[[sel.nms[i]]]
+                    lbl <- dataSet$readableType
+                    if (sum(igraph::V(g)$type == dataSet$type) > 0 && !grepl(lbl, nd.res)) {
+                      nd.res <- paste0(lbl, ": ", sum(igraph::V(g)$type == dataSet$type), "; ", nd.res)
+                    }
+                  }
+                  net.stats[j, ] <- c(nd.res, igraph::ecount(g), 0)
+                }
+
+                qs::qsave(overall.graph, "overall.graph.qs")
+                qs::qsave(comps, "ppi.comps.qs")
+                qs::qsave(node.data, "node.data.qs")
+                qs::qsave(edge.data, "edge.data.qs")
+                qs::qsave(net.stats, "net.stats.qs")
+
+                gc(verbose = FALSE, full = TRUE)
+
+                return(list(
+                  success = 1,
+                  corNet = cor_edge_list,
+                  threshold.inter = params$threshold.inter,
+                  threshold.intra = params$threshold.intra,
+                  crossOmicsOnly = params$crossOmicsOnly,
+                  taxlvl = "Feature",
+                  seed.proteins = seed.proteins,
+                  current.net.nm = names(comps)[1],
+                  ppi.net = list(db.type = "abc", order = 1, seeds = nms, table.nm = " ",
+                                 node.data = node.data, edge.data = edge.data)
+                ))
+              } else {
+                return(list(success = 0, msg = "Less than 3 correlations have been identified using current parameters"))
+              }
+
+            } else {
+              # =========== Taxa-based correlation path ===========
+              selDatsCorr.taxa <- data_obj$selDatsCorr.taxa
+              corr.mat.taxa <- data_obj$corr.mat.taxa
+              micidx <- data_obj$micidx
+              residx <- data_obj$residx
+
+              taxlvl <- gsub("(^[[:alpha:]])", "\\U\\1", params$taxlvl, perl = TRUE)
+
+              if (!is.null(corr.mat.taxa) && taxlvl %in% names(corr.mat.taxa)) {
+                corr.mat <- corr.mat.taxa[[taxlvl]]
+              } else {
+                return(list(success = 0, msg = paste("Taxa correlation matrix not found for level:", taxlvl)))
+              }
+
+              sel.nms <- data_obj$sel.nms
+              dataSet_mic <- dataSetList[[sel.nms[micidx]]]
+              dataSet_res <- dataSetList[[sel.nms[residx]]]
+
+              taxa_names <- unique(dataSet_mic$taxa_table[, taxlvl])
+              metab_names <- dataSet_res$enrich_ids
+              labels <- c(setNames(taxa_names, taxa_names), metab_names)
+
+              mic_rows <- rownames(corr.mat) %in% names(taxa_names)
+              res_rows <- !mic_rows
+
+              corr.mat.inter <- corr.mat[mic_rows, res_rows, drop = FALSE]
+              corr.mat.intra1 <- corr.mat[mic_rows, mic_rows, drop = FALSE]
+              corr.mat.intra2 <- corr.mat[res_rows, res_rows, drop = FALSE]
+
+              cor_g_inter <- igraph::graph_from_incidence_matrix(corr.mat.inter, directed = FALSE, weighted = 'correlation')
+              cor_g_intra1 <- igraph::graph_from_incidence_matrix(corr.mat.intra1, directed = FALSE, weighted = 'correlation')
+              cor_g_intra2 <- igraph::graph_from_incidence_matrix(corr.mat.intra2, directed = FALSE, weighted = 'correlation')
+
+              cor_edge_list_inter1 <- igraph::as_data_frame(cor_g_inter, 'edges')
+              cor_edge_list_inter1 <- cor_edge_list_inter1[!is.na(cor_edge_list_inter1$correlation), ]
+              cor_edge_list_intra1 <- igraph::as_data_frame(cor_g_intra1, 'edges')
+              cor_edge_list_intra1 <- cor_edge_list_intra1[!is.na(cor_edge_list_intra1$correlation), ]
+              cor_edge_list_intra2 <- igraph::as_data_frame(cor_g_intra2, 'edges')
+              cor_edge_list_intra2 <- cor_edge_list_intra2[!is.na(cor_edge_list_intra2$correlation), ]
+
+              cor_edge_list_inter <- rbind(cor_edge_list_inter1, cor_edge_list_intra2)
+              cor_edge_list_intra <- cor_edge_list_intra1
+
+              cor_edge_list_inter <- cor_edge_list_inter[cor_edge_list_inter$correlation != 1, ]
+              cor_edge_list_intra <- cor_edge_list_intra[cor_edge_list_intra$correlation != 1, ]
+
+              cor.list <- list(
+                all = rbind(cor_edge_list_inter, cor_edge_list_intra),
+                inter = cor_edge_list_inter,
+                intra = cor_edge_list_intra
+              )
+              qs::qsave(cor.list, file = paste0("cor.list", taxlvl, ".qs"))
+
+              if (params$corSign == "both") {
+                cor.inx.inter <- abs(cor_edge_list_inter$correlation) > params$threshold.inter
+                cor.inx.intra <- abs(cor_edge_list_intra$correlation) > params$threshold.intra
+              } else if (params$corSign == "positive") {
+                cor.inx.inter <- cor_edge_list_inter$correlation > params$threshold.inter
+                cor.inx.intra <- cor_edge_list_intra$correlation > params$threshold.intra
+              } else {
+                cor.inx.inter <- cor_edge_list_inter$correlation < -params$threshold.inter
+                cor.inx.intra <- cor_edge_list_intra$correlation < -params$threshold.intra
+              }
+
+              cor_edge_list_inter <- cor_edge_list_inter[cor.inx.inter, ]
+              cor_edge_list_intra <- cor_edge_list_intra[cor.inx.intra, ]
+
+              if (params$crossOmicsOnly == "true") {
+                cor_edge_list <- cor_edge_list_inter
+              } else {
+                cor_edge_list <- dplyr::bind_rows(cor_edge_list_inter, cor_edge_list_intra)
+              }
+
+              numToKeep <- params$numToKeep
+              if (numToKeep > length(unique(cor_edge_list$correlation))) {
+                numToKeep <- length(unique(cor_edge_list$correlation))
+              }
+
+              top.edge <- sort(abs(unique(cor_edge_list$correlation)))[1:numToKeep]
+              top.inx <- match(abs(cor_edge_list$correlation), top.edge)
+              cor_edge_list <- cor_edge_list[!is.na(top.inx), , drop = FALSE]
+
+              if (nrow(cor_edge_list) < 3) {
+                return(list(success = 0, msg = paste0("Less than 3 correlations identified (inter threshold: ",
+                                                       params$threshold.inter, ", intra threshold: ", params$threshold.intra, ")")))
+              }
+
+              new_g <- igraph::graph_from_data_frame(cor_edge_list, directed = FALSE)
+              new_g <- igraph::simplify(new_g, edge.attr.comb = "mean")
+
+              cor_g_inter_all <- igraph::graph_from_data_frame(cor_edge_list_inter, directed = FALSE)
+              cor_g_intra_all <- igraph::graph_from_data_frame(cor_edge_list_intra, directed = FALSE)
+              qs::qsave(list(corr.graph.inter = cor_g_inter_all, corr.graph.intra = cor_g_intra_all), "corr.graph.qs")
+
+              # ProcessGraphFile logic
+              overall.graph <- new_g
+              nms <- igraph::V(new_g)$name
+              if (length(nms) < 1) {
+                nms <- igraph::V(new_g)$id
+                new_g <- igraph::set_vertex_attr(new_g, "name", value = nms)
+              }
+
+              lblsNm <- names(labels)
+              names(lblsNm) <- unname(labels)
+              lbls <- lblsNm[igraph::V(new_g)$name]
+              node.data <- data.frame(nms, lbls)
+              new_g <- igraph::set_vertex_attr(new_g, "label", value = lbls)
+              seed.proteins <- nms
+
+              e <- igraph::get.edgelist(new_g)
+              edge.data <- data.frame(Source = e[, 1], Target = e[, 2])
+
+              comps <- igraph::decompose(new_g, min.vertices = 3)
+              if (length(comps) == 0) {
+                return(list(success = 0, msg = "No subnetworks containing at least 3 edges are identified"))
+              }
+
+              comp_sizes <- sapply(comps, function(x) igraph::vcount(x))
+              comps <- comps[order(comp_sizes, decreasing = TRUE)]
+              names(comps) <- paste0("subnetwork", 1:length(comps))
+
+              net.stats <- data.frame(Node = character(length(comps)),
+                                      Edge = integer(length(comps)),
+                                      Query = integer(length(comps)),
+                                      stringsAsFactors = FALSE)
+              rownames(net.stats) <- names(comps)
+
+              for (j in 1:length(comps)) {
+                g <- comps[[j]]
+                nd.res <- ""
+                lbl_taxa <- taxlvl
+                taxa_count <- sum(grepl(paste0("^", dataSet_mic$type), igraph::V(g)$name))
+                if (taxa_count > 0 && !grepl(lbl_taxa, nd.res)) {
+                  nd.res <- paste0(lbl_taxa, ": ", taxa_count, "; ", nd.res)
+                }
+                lbl_metab <- "Metabolite"
+                metab_count <- sum(grepl(paste0("^", dataSet_res$type), igraph::V(g)$name))
+                if (metab_count > 0 && !grepl(lbl_metab, nd.res)) {
+                  nd.res <- paste0(lbl_metab, ": ", metab_count, "; ", nd.res)
+                }
+                net.stats[j, ] <- c(nd.res, igraph::ecount(g), 0)
+              }
+
+              qs::qsave(overall.graph, "overall.graph.qs")
+              qs::qsave(comps, "ppi.comps.qs")
+              qs::qsave(node.data, "node.data.qs")
+              qs::qsave(edge.data, "edge.data.qs")
+              qs::qsave(net.stats, "net.stats.qs")
+
+              gc(verbose = FALSE, full = TRUE)
+
+              return(list(
+                success = 1,
+                taxlvl = taxlvl,
+                datagem = params$datagem,
+                threshold.inter = params$threshold.inter,
+                threshold.intra = params$threshold.intra,
+                crossOmicsOnly = params$crossOmicsOnly,
+                seed.proteins = seed.proteins,
+                current.net.nm = names(comps)[1],
+                ppi.net = list(db.type = "abc", order = 1, seeds = nms, table.nm = " ",
+                               node.data = node.data, edge.data = edge.data)
+              ))
+            }
+
+          }, error = function(e) {
+            return(list(success = -1, msg = paste("Correlation filter failed:", e$message)))
+          })
+        },
+        input_data = list(
+          data_obj = data_for_sub,
+          params = list(
+            corSign = corSign,
+            crossOmicsOnly = crossOmicsOnly,
+            networkInfer = networkInfer,
+            threshold.inter = as.numeric(threshold.inter),
+            threshold.intra = as.numeric(threshold.intra),
+            numToKeep = as.numeric(numToKeep),
+            updateRes = updateRes,
+            taxlvl = taxlvl,
+            datagem = datagem
+          )
+        ),
+        packages = c("igraph", "dplyr", "reshape2", "qs"),
+        timeout = 600
+      )
+    }, error = function(e) {
+      msg.vec <<- paste("Correlation filter failed:", e$message)
+      NULL
+    })
+    if (is.list(filter_result) && isFALSE(filter_result$success)) { AddErrMsg(filter_result$message); return(0) }
+
+    if (is.null(filter_result)) return(0)
+
+    if (filter_result$success == 1) {
+      # Restore state to Master session
+      reductionSet$corr.graph.path <- "corr.graph.qs"
+      reductionSet$cor.list.path <- "cor.list.qs"
+      reductionSet$threshold.inter <- filter_result$threshold.inter
+      reductionSet$threshold.intra <- filter_result$threshold.intra
+      reductionSet$crossOmicsOnly <- filter_result$crossOmicsOnly
+      reductionSet$taxlvl <- filter_result$taxlvl
+
+      if (!is.null(filter_result$datagem)) {
+        reductionSet$datagem <- filter_result$datagem
+      }
+      if (!is.null(filter_result$corNet)) {
+        reductionSet$corNet <- filter_result$corNet
+      }
+
+      .set.rdt.set(reductionSet)
+
+      # Restore globals from qs files
+      overall.graph <<- qs::qread("overall.graph.qs")
+      ppi.comps <<- qs::qread("ppi.comps.qs")
+      net.stats <<- qs::qread("net.stats.qs")
+      seed.proteins <<- filter_result$seed.proteins
+      seed.genes <<- filter_result$seed.proteins
+      seed.expr <<- rep(0, nrow(filter_result$ppi.net$node.data))
+      current.net.nm <<- filter_result$current.net.nm
+      net.nmu <<- filter_result$current.net.nm
+      ppi.net <<- filter_result$ppi.net
+      data.idType <<- "NA"
+
+      return(1)
+
+    } else if (filter_result$success == 0) {
+      msg.vec <<- filter_result$msg
+      return(0)
+
+    } else {
+      msg.vec <<- filter_result$msg
+      return(0)
+    }
+
 }
 
 GenerateNetworkJson <- function(fileName="omicsanalyst_net_0.json"){
@@ -192,10 +652,10 @@ ExportOmicsPairs <- function(fileName, type){
 
 
 DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll="true",metaSel,group){
-  labels <- vector(); 
+  labels <- vector();
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
-   
+
   m2midx<-0
   for(i in 1:length(sel.nms)){
     dataName = sel.nms[i]
@@ -208,18 +668,16 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
       labels.taxa <- lapply(labels.taxa, function(x) c(x,dataSet$enrich_ids))
     }
   }
-  
+
   reductionSet <- .get.rdt.set();
   reductionSet$cor.stat <- cor.stat;
   reductionSet$cor.method <- cor.method;
   sel.dats <- reductionSet$selDatsCorr;
   load_igraph();
 
-
   if(ifAll != "true"){
     meta.info = reductionSet$dataSet$meta.info
     sampleInclude = row.names(meta.info[which(meta.info[[metaSel]]==group),])
-  
 
     if(length(sampleInclude)<4){
          return(-1)
@@ -227,138 +685,143 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
      sel.dats <- lapply(sel.dats,function(x){
          return(x[,sampleInclude])
      })
-   
    }
-   }
- 
-  residx <- reductionSet$residx
-
-  if(cor.method == "univariate"){
-    
-   # corr.mat <- cor(cbind(t(sel.dats[[1]]), t(sel.dats[[2]])), method=cor.stat);
-    if(exists("selDatsCorr.taxa",reductionSet)){
-      # Optimize: transpose once and reuse to avoid multiple temporary copies
-      corr.mat.taxa <- lapply(reductionSet$selDatsCorr.taxa, function(x){
-        transposed_taxa <- cbind(t(x), t(sel.dats[[residx]]))
-        result <- cor(transposed_taxa, method=cor.stat)
-        rm(transposed_taxa)  # Clean up transpose immediately
-        return(result)
-      })
-
-      reductionSet$corr.mat.taxa <- corr.mat.taxa
-    }
-
-  library(Hmisc)
-
-    # Transpose once and reuse to avoid creating multiple copies
-    transposed_data <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
-
-    # rcorr only supports pearson and spearman
-    if(tolower(cor.stat) == "kendall") {
-      # For Kendall, compute correlation and p-values separately
-      corr.mat <- cor(transposed_data, method="kendall", use="pairwise.complete.obs")
-
-      # Compute p-values efficiently
-      n_samples <- nrow(transposed_data)
-      n_vars <- ncol(transposed_data)
-      corr.p.mat <- matrix(NA, nrow=n_vars, ncol=n_vars)
-      rownames(corr.p.mat) <- colnames(corr.p.mat) <- colnames(corr.mat)
-
-      # Vectorized p-value computation using normal approximation
-      for(i in 1:(n_vars-1)) {
-        for(j in (i+1):n_vars) {
-          # Remove NA pairs
-          valid_idx <- complete.cases(transposed_data[,i], transposed_data[,j])
-          n_valid <- sum(valid_idx)
-          tau <- corr.mat[i,j]
-
-          # Z-score approximation for Kendall's tau
-          z <- tau / sqrt((2*(2*n_valid+5))/(9*n_valid*(n_valid-1)))
-          corr.p.mat[i,j] <- corr.p.mat[j,i] <- 2 * pnorm(-abs(z))
-        }
-      }
-      diag(corr.p.mat) <- 0
-    } else {
-      res = rcorr(as.matrix(transposed_data), type = cor.stat);
-      corr.mat <- res$r
-      corr.p.mat <- res$P
-      rm(res)  # Clean up rcorr result object
-    }
-
-    rm(transposed_data)  # Clean up transpose immediately
-    gc(verbose = FALSE)  # Force garbage collection
-
-  }else if(cor.method == "MI"){
-    library(parmigene)
-    # Combine data once and reuse
-    combined_data <- rbind(sel.dats[[1]], sel.dats[[2]])
-    res = knnmi.all(combined_data, k=5)
-    rm(combined_data)  # Clean up immediately
-
-    scale = 1/max(res)
-    corr.mat = res * scale
-    rm(res, scale)  # Clean up MI result and scale
-    gc(verbose = FALSE)
-
-    if(exists("selDatsCorr.taxa",reductionSet)){
-      corr.mat.taxa <- list()
-      for(j in 1:length(reductionSet$selDatsCorr.taxa)){
-        combined_taxa <- rbind(reductionSet$selDatsCorr.taxa[[j]], sel.dats[[residx]])
-        res = knnmi.all(combined_taxa, k=5)
-        rm(combined_taxa)
-        scale = 1/max(res)
-        corr.mat.taxa[[j]] = res * scale
-        rm(res, scale)
-      }
-      reductionSet$corr.mat.taxa <- corr.mat.taxa
-      gc(verbose = FALSE)
-    }
-
-
-  }else{
-    library(ppcor);
-    # Transpose once and reuse to avoid multiple copies
-    sel.res <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
-    res <- pcor(sel.res, method=cor.stat);
-    corr.mat <- res$estimate;
-    corr.p.mat <- res$p.value;
-    rm(res)  # Clean up pcor result
-
-    rownames(corr.mat) <-    colnames(corr.mat) <- colnames(sel.res)
-    rownames(corr.p.mat) <-    colnames(corr.p.mat) <-colnames(sel.res)
-    rm(sel.res)  # Clean up transposed data
-    gc(verbose = FALSE)
-    
-    if(exists("selDatsCorr.taxa",reductionSet)){
-      
-      sel.res <- lapply(reductionSet$selDatsCorr.taxa, function(x){
-        cbind(t(x), t(sel.dats[[residx]]))
-      })
-      res <- lapply(sel.res, function(x){pcor(x, method=cor.stat)})
-      corr.mat.taxa <- lapply(res, function(x) x$estimate);
-      for(j in 1:length(corr.mat.taxa)){
-
-        rownames(corr.mat.taxa[[j]]) <- colnames(sel.res[[j]])
-        colnames(corr.mat.taxa[[j]]) <- colnames(sel.res[[j]])
-      }
-      reductionSet$corr.mat.taxa <- corr.mat.taxa
-
-      # Clean up transposed data and pcor results
-      rm(sel.res, res)
-      gc(verbose = FALSE)
-    }
   }
+
+  residx <- reductionSet$residx
+  selDatsCorr.taxa <- if (exists("selDatsCorr.taxa", reductionSet)) reductionSet$selDatsCorr.taxa else NULL
+
+  # Hmisc/parmigene/ppcor in subprocess
+  corr_result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = function(input_data) {
+          sel.dats <- input_data$sel.dats
+          selDatsCorr.taxa <- input_data$selDatsCorr.taxa
+          cor.method <- input_data$cor.method
+          cor.stat <- input_data$cor.stat
+          residx <- input_data$residx
+
+          corr.mat.taxa <- NULL
+          corr.p.mat <- NULL
+
+          if (cor.method == "univariate") {
+            require(Hmisc)
+
+            if (!is.null(selDatsCorr.taxa)) {
+              corr.mat.taxa <- lapply(selDatsCorr.taxa, function(x) {
+                transposed_taxa <- cbind(t(x), t(sel.dats[[residx]]))
+                result <- cor(transposed_taxa, method = cor.stat)
+                rm(transposed_taxa)
+                return(result)
+              })
+            }
+
+            transposed_data <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
+
+            if (tolower(cor.stat) == "kendall") {
+              corr.mat <- cor(transposed_data, method = "kendall", use = "pairwise.complete.obs")
+              n_vars <- ncol(transposed_data)
+              corr.p.mat <- matrix(NA, nrow = n_vars, ncol = n_vars)
+              rownames(corr.p.mat) <- colnames(corr.p.mat) <- colnames(corr.mat)
+              for (i in 1:(n_vars - 1)) {
+                for (j in (i + 1):n_vars) {
+                  valid_idx <- complete.cases(transposed_data[, i], transposed_data[, j])
+                  n_valid <- sum(valid_idx)
+                  tau <- corr.mat[i, j]
+                  z <- tau / sqrt((2 * (2 * n_valid + 5)) / (9 * n_valid * (n_valid - 1)))
+                  corr.p.mat[i, j] <- corr.p.mat[j, i] <- 2 * pnorm(-abs(z))
+                }
+              }
+              diag(corr.p.mat) <- 0
+            } else {
+              res <- Hmisc::rcorr(as.matrix(transposed_data), type = cor.stat)
+              corr.mat <- res$r
+              corr.p.mat <- res$P
+              rm(res)
+            }
+            rm(transposed_data)
+
+          } else if (cor.method == "MI") {
+            require(parmigene)
+            combined_data <- rbind(sel.dats[[1]], sel.dats[[2]])
+            res <- parmigene::knnmi.all(combined_data, k = 5)
+            rm(combined_data)
+            scale <- 1 / max(res)
+            corr.mat <- res * scale
+            rm(res, scale)
+
+            if (!is.null(selDatsCorr.taxa)) {
+              corr.mat.taxa <- list()
+              for (j in 1:length(selDatsCorr.taxa)) {
+                combined_taxa <- rbind(selDatsCorr.taxa[[j]], sel.dats[[residx]])
+                res <- parmigene::knnmi.all(combined_taxa, k = 5)
+                rm(combined_taxa)
+                scale <- 1 / max(res)
+                corr.mat.taxa[[j]] <- res * scale
+                rm(res, scale)
+              }
+            }
+
+          } else {
+            require(ppcor)
+            sel.res <- cbind(t(sel.dats[[1]]), t(sel.dats[[2]]))
+            res <- ppcor::pcor(sel.res, method = cor.stat)
+            corr.mat <- res$estimate
+            corr.p.mat <- res$p.value
+            rm(res)
+            rownames(corr.mat) <- colnames(corr.mat) <- colnames(sel.res)
+            rownames(corr.p.mat) <- colnames(corr.p.mat) <- colnames(sel.res)
+            rm(sel.res)
+
+            if (!is.null(selDatsCorr.taxa)) {
+              sel.res <- lapply(selDatsCorr.taxa, function(x) {
+                cbind(t(x), t(sel.dats[[residx]]))
+              })
+              res <- lapply(sel.res, function(x) { ppcor::pcor(x, method = cor.stat) })
+              corr.mat.taxa <- lapply(res, function(x) x$estimate)
+              for (j in 1:length(corr.mat.taxa)) {
+                rownames(corr.mat.taxa[[j]]) <- colnames(sel.res[[j]])
+                colnames(corr.mat.taxa[[j]]) <- colnames(sel.res[[j]])
+              }
+              rm(sel.res, res)
+            }
+          }
+
+          gc(verbose = FALSE, full = TRUE)
+          list(corr.mat = corr.mat, corr.p.mat = corr.p.mat, corr.mat.taxa = corr.mat.taxa)
+        },
+        input_data = list(
+          sel.dats = sel.dats,
+          selDatsCorr.taxa = selDatsCorr.taxa,
+          cor.method = cor.method,
+          cor.stat = cor.stat,
+          residx = residx
+        ),
+        packages = if (cor.method == "univariate") c("Hmisc")
+                   else if (cor.method == "MI") c("parmigene")
+                   else c("ppcor"),
+        timeout = 300
+      )
+    }, error = function(e) {
+      msg.vec <<- paste("Correlation analysis failed:", e$message)
+      NULL
+    })
+    if (is.list(corr_result) && isFALSE(corr_result$success)) { AddErrMsg(corr_result$message); return(0) }
+
+    if (is.null(corr_result)) return(0)
+
+    # Save results to disk
+    qs::qsave(corr_result$corr.mat, "corr.mat.qs")
+    if (!is.null(corr_result$corr.p.mat)) {
+      qs::qsave(corr_result$corr.p.mat, "corr.p.mat.qs")
+    }
+    if (!is.null(corr_result$corr.mat.taxa)) {
+      reductionSet$corr.mat.taxa <- corr_result$corr.mat.taxa
+    }
+    rm(corr_result)
   reductionSet$labels <- labels
   reductionSet$corr.mat.path <- "corr.mat.qs"
-
-  # Save correlation matrices to disk
-  qs::qsave(corr.mat, "corr.mat.qs");
-  qs::qsave(corr.p.mat,"corr.p.mat.qs")
-
-  # CRITICAL: Free large correlation matrices from memory after saving to disk
-  # This is the single biggest memory optimization for multi-user environments
-  # For 2000 features: ~90 MB per user freed here
-  rm(corr.mat, corr.p.mat, labels)
+  rm(labels)
   gc(verbose = FALSE)
 
   .set.rdt.set(reductionSet);
@@ -369,130 +832,211 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
 PlotCorrViolin <- function(imgNm, dpi=150, format="png", corNetOpt="default"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  load_ggplot();
-  library(scales)
-  
+
   reductionSet <- .get.rdt.set();
 
- if(corNetOpt=="intLim"){
-  df_res <- reductionSet$intLim_filtres[,c(1,2,3,5)]
-
-  colnames(df_res) <- c("source", "target","correlation","pval");
-  df_res <- df_res[rownames(df_res) %in% rownames(reductionSet$intLim_sigmat),]
-  df_res$type <-  "Between-omics coefficient";
-  threshold1 <- min( df_res$correlation[df_res$correlation>0])
-  threshold2 <- max( df_res$correlation[ df_res$correlation<0])
-  sig.pos <- oob_censor(df_res$correlation, c(threshold1, max(df_res$correlation)))
-  sig.neg <- oob_censor(df_res$correlation, c(min(df_res$correlation), threshold2))
-  sig.pos.num <- length(na.omit(sig.pos))
-  sig.neg.num <- length(na.omit(sig.neg))
-   fig.list<-list()
-  fig.list[[1]] <- ggplot2::ggplot(df_res, aes(x = type, y = correlation, fill = type)) +
-    geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) + 
-    labs(x = "Between-omics coefficient") +labs(y=paste0("coefficient (p-value <",reductionSet$intLim$pvalcutoff,")"))+
-    geom_jitter(height = 0, width = 0.05, alpha=0,show.legend = FALSE) +
-    theme(legend.position = "none") +     scale_x_discrete(labels = NULL) +
-    scale_y_continuous(limits = c(min(df_res$correlation), max(df_res$correlation))) +
-    geom_hline(yintercept = threshold1, linetype = "dashed", color = "red", size = 0.5) +
-    annotate("text", x =0.5, y = threshold1, label = sig.pos.num, vjust = -1) +
-    geom_hline(yintercept = threshold2, linetype = "dashed", color = "red", size = 0.5) +
-    annotate("text", x =0.5, y = threshold2, label = sig.neg.num, vjust = 1.5) +
-    theme_bw()+
-    theme(text=element_text(size=13), plot.title = element_text(size = 11, hjust=0.5), panel.grid.minor = element_blank(), panel.grid.major = element_blank())
-  fig.list[[2]] <- ggplot() + theme_void()
-  load_cairo();
-  library(ggpubr)
-  Cairo(file=imgNm, width=10, height=8, unit="in", type="png", bg="white", dpi=dpi);
-  p1 <- ggarrange(plotlist=fig.list, ncol = 2)
-  print(p1)
-  dev.off();
-  
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$correlation_distribution <- imgNm;
-  saveSet(infoSet);
-  return(1);
-}
-
-
-
-  graphs <- qs::qread(reductionSet$corr.graph.path);
-
-  
-  fig.list <- list();
-  for( i in 1:2){
-    if(i == 1){
-      g <- graphs$corr.graph.inter 
-      titleText <- "Between-omics correlation"
-      threshold <- reductionSet$threshold.inter
-    }else{
-      g <- graphs$corr.graph.intra
-      titleText <- "Intra-omics correlation"
-      threshold <- reductionSet$threshold.intra
-      
+  # ggpubr/ggplot2/Cairo/igraph in subprocess
+  # Prepare data for subprocess
+    if (corNetOpt == "intLim") {
+      intLim_filtres <- reductionSet$intLim_filtres
+      intLim_sigmat <- reductionSet$intLim_sigmat
+      intLim_pvalcutoff <- reductionSet$intLim$pvalcutoff
+      graphs <- NULL
+      threshold_inter <- NULL
+      threshold_intra <- NULL
+    } else {
+      intLim_filtres <- NULL
+      intLim_sigmat <- NULL
+      intLim_pvalcutoff <- NULL
+      if (!is.null(reductionSet$corr.graph.path) && file.exists(reductionSet$corr.graph.path)) {
+        graphs <- qs::qread(reductionSet$corr.graph.path)
+      } else {
+        msg.vec <<- "No correlation graph available for violin plot"
+        return(0)
+      }
+      threshold_inter <- reductionSet$threshold.inter
+      threshold_intra <- reductionSet$threshold.intra
     }
-    
-    df_res <- data.frame(as_edgelist(g),  as.numeric(E(g)$correlation))
-    df_res <- df_res[!duplicated(df_res), ]
-    colnames(df_res) <- c("source", "target","correlation");
-    df_res$type <- titleText;
-    
-    sig.pos <- oob_censor(df_res$correlation, c(threshold, 1))
-    sig.neg <- oob_censor(df_res$correlation, c(-1, -threshold))
-    sig.pos.num <- length(na.omit(sig.pos))
-    sig.neg.num <- length(na.omit(sig.neg))
-    
-    fig.list[[i]] <- ggplot2::ggplot(df_res, aes(x = type, y = correlation, fill = type)) +
-      geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) + 
-      labs(x = titleText) +
-      geom_jitter(height = 0, width = 0.05, alpha=0,show.legend = FALSE) +
-      theme(legend.position = "none") + 
-      scale_x_discrete(labels = NULL) +
-      scale_y_continuous(limits = c(-1, 1)) +
-      geom_hline(yintercept = threshold, linetype = "dashed", color = "red", size = 0.5) +
-      annotate("text", x =0.5, y = threshold, label = sig.pos.num, vjust = -1) +
-      geom_hline(yintercept = -threshold, linetype = "dashed", color = "red", size = 0.5) +
-      annotate("text", x =0.5, y = -threshold, label = sig.neg.num, vjust = 1.5) +
-      theme_bw()+
-      theme(text=element_text(size=13), plot.title = element_text(size = 11, hjust=0.5), panel.grid.minor = element_blank(), panel.grid.major = element_blank())
-  }
-  load_cairo();
-  library(ggpubr)
-  Cairo(file=imgNm, width=10, height=8, unit="in", type="png", bg="white", dpi=dpi);
-  p1 <- ggarrange(plotlist=fig.list, ncol = 2)
-  print(p1)
-  dev.off();
-  
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$correlation_distribution <- imgNm;
-  saveSet(infoSet);
 
+    plot_result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = function(input_data) {
+          require(ggpubr)
+          require(ggplot2)
+          require(Cairo)
+          require(scales)
+          require(igraph)
+
+          imgNm <- input_data$imgNm
+          dpi <- input_data$dpi
+          format <- input_data$format
+          corNetOpt <- input_data$corNetOpt
+          intLim_filtres <- input_data$intLim_filtres
+          intLim_sigmat <- input_data$intLim_sigmat
+          intLim_pvalcutoff <- input_data$intLim_pvalcutoff
+          graphs <- input_data$graphs
+          threshold_inter <- input_data$threshold_inter
+          threshold_intra <- input_data$threshold_intra
+
+          fig.list <- list()
+
+          if (corNetOpt == "intLim") {
+            df_res <- intLim_filtres[, c(1, 2, 3, 5)]
+            colnames(df_res) <- c("source", "target", "correlation", "pval")
+            df_res <- df_res[rownames(df_res) %in% rownames(intLim_sigmat), ]
+            df_res$type <- "Between-omics coefficient"
+            threshold1 <- min(df_res$correlation[df_res$correlation > 0])
+            threshold2 <- max(df_res$correlation[df_res$correlation < 0])
+            sig.pos <- scales::oob_censor(df_res$correlation, c(threshold1, max(df_res$correlation)))
+            sig.neg <- scales::oob_censor(df_res$correlation, c(min(df_res$correlation), threshold2))
+            sig.pos.num <- length(na.omit(sig.pos))
+            sig.neg.num <- length(na.omit(sig.neg))
+
+            fig.list[[1]] <- ggplot2::ggplot(df_res, ggplot2::aes(x = type, y = correlation, fill = type)) +
+              ggplot2::geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) +
+              ggplot2::labs(x = "Between-omics coefficient") +
+              ggplot2::labs(y = paste0("coefficient (p-value <", intLim_pvalcutoff, ")")) +
+              ggplot2::geom_jitter(height = 0, width = 0.05, alpha = 0, show.legend = FALSE) +
+              ggplot2::theme(legend.position = "none") +
+              ggplot2::scale_x_discrete(labels = NULL) +
+              ggplot2::scale_y_continuous(limits = c(min(df_res$correlation), max(df_res$correlation))) +
+              ggplot2::geom_hline(yintercept = threshold1, linetype = "dashed", color = "red", size = 0.5) +
+              ggplot2::annotate("text", x = 0.5, y = threshold1, label = sig.pos.num, vjust = -1) +
+              ggplot2::geom_hline(yintercept = threshold2, linetype = "dashed", color = "red", size = 0.5) +
+              ggplot2::annotate("text", x = 0.5, y = threshold2, label = sig.neg.num, vjust = 1.5) +
+              ggplot2::theme_bw() +
+              ggplot2::theme(text = ggplot2::element_text(size = 13),
+                             plot.title = ggplot2::element_text(size = 11, hjust = 0.5),
+                             panel.grid.minor = ggplot2::element_blank(),
+                             panel.grid.major = ggplot2::element_blank())
+            fig.list[[2]] <- ggplot2::ggplot() + ggplot2::theme_void()
+
+          } else {
+            for (i in 1:2) {
+              if (i == 1) {
+                g <- graphs$corr.graph.inter
+                titleText <- "Between-omics correlation"
+                threshold <- threshold_inter
+              } else {
+                g <- graphs$corr.graph.intra
+                titleText <- "Intra-omics correlation"
+                threshold <- threshold_intra
+              }
+
+              df_res <- data.frame(igraph::as_edgelist(g), as.numeric(igraph::E(g)$correlation))
+              df_res <- df_res[!duplicated(df_res), ]
+              colnames(df_res) <- c("source", "target", "correlation")
+              df_res$type <- titleText
+
+              sig.pos <- scales::oob_censor(df_res$correlation, c(threshold, 1))
+              sig.neg <- scales::oob_censor(df_res$correlation, c(-1, -threshold))
+              sig.pos.num <- length(na.omit(sig.pos))
+              sig.neg.num <- length(na.omit(sig.neg))
+
+              fig.list[[i]] <- ggplot2::ggplot(df_res, ggplot2::aes(x = type, y = correlation, fill = type)) +
+                ggplot2::geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) +
+                ggplot2::labs(x = titleText) +
+                ggplot2::geom_jitter(height = 0, width = 0.05, alpha = 0, show.legend = FALSE) +
+                ggplot2::theme(legend.position = "none") +
+                ggplot2::scale_x_discrete(labels = NULL) +
+                ggplot2::scale_y_continuous(limits = c(-1, 1)) +
+                ggplot2::geom_hline(yintercept = threshold, linetype = "dashed", color = "red", size = 0.5) +
+                ggplot2::annotate("text", x = 0.5, y = threshold, label = sig.pos.num, vjust = -1) +
+                ggplot2::geom_hline(yintercept = -threshold, linetype = "dashed", color = "red", size = 0.5) +
+                ggplot2::annotate("text", x = 0.5, y = -threshold, label = sig.neg.num, vjust = 1.5) +
+                ggplot2::theme_bw() +
+                ggplot2::theme(text = ggplot2::element_text(size = 13),
+                               plot.title = ggplot2::element_text(size = 11, hjust = 0.5),
+                               panel.grid.minor = ggplot2::element_blank(),
+                               panel.grid.major = ggplot2::element_blank())
+            }
+          }
+
+          Cairo::Cairo(file = imgNm, width = 10, height = 8, unit = "in", type = "png", bg = "white", dpi = dpi)
+          p1 <- ggpubr::ggarrange(plotlist = fig.list, ncol = 2)
+          print(p1)
+          dev.off()
+
+          gc(verbose = FALSE, full = TRUE)
+          list(imgNm = imgNm, success = 1)
+        },
+        input_data = list(
+          imgNm = imgNm,
+          dpi = dpi,
+          format = format,
+          corNetOpt = corNetOpt,
+          intLim_filtres = intLim_filtres,
+          intLim_sigmat = intLim_sigmat,
+          intLim_pvalcutoff = intLim_pvalcutoff,
+          graphs = graphs,
+          threshold_inter = threshold_inter,
+          threshold_intra = threshold_intra
+        ),
+        packages = c("ggpubr", "ggplot2", "Cairo", "scales", "igraph"),
+        timeout = 300
+      )
+    }, error = function(e) {
+      msg.vec <<- paste("PlotCorrViolin failed:", e$message)
+      NULL
+    })
+    if (is.list(plot_result) && isFALSE(plot_result$success)) { AddErrMsg(plot_result$message); return(0) }
+
+    if (is.null(plot_result)) return(0)
+
+    infoSet <- readSet(infoSet, "infoSet");
+    infoSet$imgSet$correlation_distribution <- plot_result$imgNm;
+    saveSet(infoSet);
+    return(plot_result$success);
 }
 
 
 PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  Cairo(file=imgNm, width=400, height=400, type="png", bg="white");
-  load_ggplot();
-  G.degrees <- degree(overall.graph)
-  
-  G.degree.histogram <- as.data.frame(table(G.degrees))
-  G.degree.histogram[,1] <- as.numeric(G.degree.histogram[,1])
-  
-  p <- ggplot(G.degree.histogram, aes(x = G.degrees, y = Freq)) +
-    geom_point() +
-    scale_x_continuous("Degree\n(nodes containing that amount of connections)",
-                       breaks = c(1, 3, 10, 30, 100, 300),
-                       trans = "log10") +
-    scale_y_continuous("Frequency\n(number of nodes)",
-                       breaks = c(1, 3, 10, 30, 100, 300, 1000),
-                       trans = "log10") +
-    ggtitle("Degree Distribution (log-log)") +
-    theme_bw()  +
-    theme(plot.title = element_text(hjust = 0.5))
-  print(p)
-  dev.off();
+
+  # igraph degree + ggplot in subprocess
+  graph_to_plot <- overall.graph;
+    input_data <- list(
+      graph = graph_to_plot,
+      imgNm = imgNm
+    )
+    isolated_func <- function(input_data) {
+      library(igraph)
+      library(ggplot2)
+      library(Cairo)
+      graph <- input_data$graph
+      imgNm <- input_data$imgNm
+      Cairo(file=imgNm, width=400, height=400, type="png", bg="white")
+      G.degrees <- igraph::degree(graph)
+      G.degree.histogram <- as.data.frame(table(G.degrees))
+      G.degree.histogram[,1] <- as.numeric(G.degree.histogram[,1])
+      p <- ggplot(G.degree.histogram, aes(x = G.degrees, y = Freq)) +
+        geom_point() +
+        scale_x_continuous("Degree\n(nodes containing that amount of connections)",
+                           breaks = c(1, 3, 10, 30, 100, 300),
+                           trans = "log10") +
+        scale_y_continuous("Frequency\n(number of nodes)",
+                           breaks = c(1, 3, 10, 30, 100, 300, 1000),
+                           trans = "log10") +
+        ggtitle("Degree Distribution (log-log)") +
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5))
+      print(p)
+      dev.off()
+      return(list(success = 1))
+    }
+    tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = input_data,
+        packages = c("igraph", "ggplot2", "Cairo"),
+        timeout = 300
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("PlotDegreeHistogram failed:", e$message))
+      return(0)
+    })
+    # plot/write failure is non-fatal
 
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$degree_distribution <- imgNm;
@@ -502,30 +1046,55 @@ PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
 PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  Cairo(file=imgNm, width=400, height=400, type="png", bg="white");
-  load_ggplot();
+
   if(netNm != "NA"){
-    overall.graph <- ppi.comps[[netNm]];
+    graph_to_plot <- ppi.comps[[netNm]];
+  } else {
+    graph_to_plot <- overall.graph;
   }
- 
-  G.degrees <- betweenness(overall.graph)
-  
-  G.degree.histogram <- as.data.frame(table(G.degrees))
-  G.degree.histogram[,1] <- as.numeric(G.degree.histogram[,1])
-  
-  p <- ggplot(G.degree.histogram, aes(x = G.degrees, y = Freq)) +
-    geom_point() +
-    scale_x_continuous("Betweenness\n(nodes with that amount of betweenness)",
-                       breaks = c(1, 3, 10, 30, 100, 300,1000,3000,10000,30000),
-                       trans = "log10") +
-    scale_y_continuous("Frequency\n(number of nodes)",
-                       breaks = c(1, 3, 10, 30, 100, 300, 1000),
-                       trans = "log10") +
-    ggtitle("Betweenness Distribution (log-log)") +
-    theme_bw()  +
-    theme(plot.title = element_text(hjust = 0.5))
-  print(p)
-  dev.off();
+
+  # igraph betweenness + ggplot in subprocess
+  input_data <- list(
+      graph = graph_to_plot,
+      imgNm = imgNm
+    )
+    isolated_func <- function(input_data) {
+      library(igraph)
+      library(ggplot2)
+      library(Cairo)
+      graph <- input_data$graph
+      imgNm <- input_data$imgNm
+      Cairo(file=imgNm, width=400, height=400, type="png", bg="white")
+      G.degrees <- igraph::betweenness(graph)
+      G.degree.histogram <- as.data.frame(table(G.degrees))
+      G.degree.histogram[,1] <- as.numeric(G.degree.histogram[,1])
+      p <- ggplot(G.degree.histogram, aes(x = G.degrees, y = Freq)) +
+        geom_point() +
+        scale_x_continuous("Betweenness\n(nodes with that amount of betweenness)",
+                           breaks = c(1, 3, 10, 30, 100, 300, 1000, 3000, 10000, 30000),
+                           trans = "log10") +
+        scale_y_continuous("Frequency\n(number of nodes)",
+                           breaks = c(1, 3, 10, 30, 100, 300, 1000),
+                           trans = "log10") +
+        ggtitle("Betweenness Distribution (log-log)") +
+        theme_bw() +
+        theme(plot.title = element_text(hjust = 0.5))
+      print(p)
+      dev.off()
+      return(list(success = 1))
+    }
+    tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = input_data,
+        packages = c("igraph", "ggplot2", "Cairo"),
+        timeout = 300
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("PlotBetweennessHistogram failed:", e$message))
+      return(0)
+    })
+    # plot/write failure is non-fatal
 
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$betweenness_distribution <- imgNm;

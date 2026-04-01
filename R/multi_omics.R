@@ -18,25 +18,48 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   }
   reductionSet<-.get.rdt.set();
   res <- reductionSet$dim.res
-  net.res <- mixOmics:::network(res, cutoff = threshold, save="jpeg")
-  
-  cor_edge_list <- igraph:::as_data_frame(net.res$gR, 'edges');
+
+  # Isolate mixOmics::network + igraph in subprocess
+  net_result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = function(input_data) {
+        library(mixOmics)
+        library(igraph)
+        res <- input_data$dim.res
+        threshold <- input_data$threshold
+        net.res <- mixOmics::network(res, cutoff = threshold, save = "jpeg")
+        cor_edge_list <- igraph::as_data_frame(net.res$gR, 'edges')
+        gc(verbose = FALSE, full = TRUE)
+        return(list(cor_edge_list = cor_edge_list))
+      },
+      input_data = list(dim.res = res, threshold = threshold),
+      packages = c("mixOmics", "igraph", "qs"),
+      timeout = 300,
+      output_type = "qs"
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("Integrative analysis failed:", e$message))
+    NULL
+  })
+  if (is.list(net_result) && isFALSE(net_result$success)) { AddErrMsg(net_result$message); return(0) }
+  if (is.null(net_result)) return(0)
+
+  cor_edge_list <- net_result$cor_edge_list
   if(sign == "both"){
     cor.inx <- abs(cor_edge_list$weight) > threshold
   }else if(sign == "positive"){
     cor.inx <- cor_edge_list$weight > threshold
   }else{
-    cor.inx <- cor_edge_list$weigth < -threshold
+    cor.inx <- cor_edge_list$weight < -threshold
   }
-  
   only_sig <- cor_edge_list[cor.inx, ];
-  new_g <- graph_from_data_frame(only_sig, F);
-  
+  new_g <- igraph::graph_from_data_frame(only_sig, FALSE);
+
   type.list <- list()
   for(i in 1:length(sel.nms)){
     type.list[[sel.nms[[i]]]] <- unique(cor_edge_list[,i]);
   }
-  ProcessGraphFile(new_g, labels, type.list, T);
+  ProcessGraphFile(new_g, labels, type.list, TRUE);
 }
 
 NormalizeDataWrapper <-function (nm, opt, colNorm){
@@ -365,56 +388,82 @@ SameElements <- function(a, b) return(identical(sort(a), sort(b)));
 #'
 
 PlotMultiTsne <- function(imgNm, dpi=150, format="png",factor="1"){
-  load_cairo();
-  load_ggplot();
-  library(Rtsne)
   dpi<-as.numeric(dpi)
-  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
-  sel.nms <- names(mdata.all)
-  fig.list <- list()
-  
-  pca.list<- list()
-  pct <- list();
-  
-  for(i in 1:length(sel.nms)){
-    dataSet = readDataset(sel.nms[i])
-    
-    x <- t(dataSet$data.proc)
-    max.perx <- floor((nrow(x)-1)/3);
-    if(max.perx > 30){
-      max.perx <- 30;
-    }
-    tsne_out <- Rtsne(x,pca=FALSE,perplexity=max.perx,theta=0.0, check_duplicates=F) # Run TSNE
-    xlabel <- "tsne1"
-    ylabel <-"tsne2"
-    names <- colnames(x);
-    pca.res <- as.data.frame(tsne_out$Y);
-    pca.res <- pca.res[,c(1,2)]
-    colnames(pca.res) <- c("tsne1", "tsne2")
-    xlim <- GetExtendRange(pca.res[,1]);
-    ylim <- GetExtendRange(pca.res[,2]);
-    
-    Factor <- dataSet$meta[,1];
-    pca.rest <- pca.res
-    pca.rest$Conditions <- Factor
-    pca.rest$names <- rownames(pca.res)
-    
-    pcafig <- ggplot(pca.rest, aes(x=tsne1, y=tsne2,  color=Conditions)) +
-      geom_point(size=3, alpha=0.5) + 
-      xlim(xlim) + 
-      ylim(ylim) + 
-      xlab(xlabel) + 
-      ylab(ylabel) +
-      theme_bw()
-    fig.list[[i]] <- pcafig
+
+  sel.nms <- names(mdata.all)[mdata.all == 1]
+  data_list <- list()
+  meta_list <- list()
+  for (i in 1:length(sel.nms)) {
+    dataSet <- readDataset(sel.nms[i])
+    data_list[[sel.nms[i]]] <- dataSet$data.proc
+    meta_list[[sel.nms[i]]] <- dataSet$meta
   }
-  
-  h<-6*round(length(fig.list)/2)
-  Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
-  library("ggpubr")
-  p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
-  print(p1)
-  dev.off();
-  
+
+  # Isolate ggpubr + Rtsne in subprocess
+  params <- list(
+    imgNm = imgNm, dpi = dpi, format = format, factor = factor, sel.nms = sel.nms
+  )
+
+  tsne_result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = function(input_data) {
+        library(ggpubr)
+        library(ggplot2)
+        library(Rtsne)
+        library(Cairo)
+
+        data_list <- input_data$data_obj$data_list
+        meta_list <- input_data$data_obj$meta_list
+        params <- input_data$params
+
+        imgNm <- paste(params$imgNm, "dpi", params$dpi, ".", params$format, sep = "")
+        sel.nms <- params$sel.nms
+        fig.list <- list()
+
+        for (i in 1:length(sel.nms)) {
+          x <- t(data_list[[sel.nms[i]]])
+          max.perx <- floor((nrow(x) - 1) / 3)
+          if (max.perx > 30) max.perx <- 30
+          tsne_out <- Rtsne::Rtsne(x, pca = FALSE, perplexity = max.perx, theta = 0.0, check_duplicates = FALSE)
+          pca.res <- as.data.frame(tsne_out$Y)
+          colnames(pca.res) <- c("tsne1", "tsne2")
+          xlim <- range(pca.res[, 1])
+          xlim <- xlim + c(-1, 1) * diff(xlim) * 0.1
+          ylim <- range(pca.res[, 2])
+          ylim <- ylim + c(-1, 1) * diff(ylim) * 0.1
+          Factor <- meta_list[[sel.nms[i]]][, 1]
+          pca.rest <- pca.res
+          pca.rest$Conditions <- Factor
+          pca.rest$names <- rownames(pca.res)
+          pcafig <- ggplot2::ggplot(pca.rest, ggplot2::aes(x = tsne1, y = tsne2, color = Conditions)) +
+            ggplot2::geom_point(size = 3, alpha = 0.5) +
+            ggplot2::xlim(xlim) + ggplot2::ylim(ylim) +
+            ggplot2::xlab("tsne1") + ggplot2::ylab("tsne2") +
+            ggplot2::theme_bw()
+          fig.list[[i]] <- pcafig
+        }
+
+        h <- 6 * round(length(fig.list) / 2)
+        Cairo::Cairo(file = imgNm, width = 14, height = h, type = params$format, bg = "white", unit = "in", dpi = params$dpi)
+        p1 <- ggpubr::ggarrange(plotlist = fig.list, ncol = 2, nrow = round(length(fig.list) / 2), labels = sel.nms)
+        print(p1)
+        dev.off()
+        gc(verbose = FALSE, full = TRUE)
+        return(1)
+      },
+      input_data = list(
+        data_obj = list(data_list = data_list, meta_list = meta_list),
+        params = params
+      ),
+      packages = c("ggpubr", "ggplot2", "Rtsne", "Cairo", "qs"),
+      timeout = 300,
+      output_type = "qs"
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("PlotMultiTsne failed:", e$message))
+    NULL
+  })
+  if (is.list(tsne_result) && isFALSE(tsne_result$success)) { AddErrMsg(tsne_result$message); return(0) }
+  if (is.null(tsne_result)) return(0)
+  return(tsne_result)
 }

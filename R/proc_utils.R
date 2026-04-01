@@ -9,48 +9,86 @@
 doGeneIDMapping <- function(q.vec, org, type){
   print("doGeneIDMapping")
   org <- data.org
-  suppressMessages(library(RSQLite))
-  db.path <- paste0(sqlite.path, org, "_genes.sqlite")
-  con <- dbConnect(SQLite(), db.path)
-  
-  # Sanitize input to prevent SQL injection
-  q.vec <- gsub("'", "''", q.vec)
-  q.vec.in <- paste0("('", paste(q.vec, collapse = "','"), "')")
-  
-  if(type == "symbol"){
-    query <- paste("SELECT gene_id, symbol FROM entrez WHERE symbol IN", q.vec.in)
-    db.map <- dbGetQuery(con, query)
-    hit.inx <- match(q.vec, db.map[, "symbol"])
-    entrezs <- db.map[hit.inx, "gene_id"]
-  } else if(type == "entrez"){
-    query <- paste("SELECT gene_id FROM entrez WHERE gene_id IN", q.vec.in)
-    db.map <- dbGetQuery(con, query)
-    hit.inx <- match(q.vec, db.map[, "gene_id"])
-    entrezs <- db.map[hit.inx, "gene_id"]
-  } else {
-    if(type == "gb"){
-      table.name <- "entrez_gb"
-    } else if(type == "embl_gene" || type == "embl"){
-      table.name <- "entrez_embl_gene"
-    } else if(type == "uniprot"){
-      table.name <- "entrez_uniprot"
-    } else if(type == "refseq"){
-      table.name <- "entrez_refseq"
-      q.mat <- do.call(rbind, strsplit(q.vec, "\\."))
-      q.vec <- q.mat[,1]
+
+  # Isolate RSQLite/DBI in subprocess
+  sqlite_path_local <- sqlite.path
+
+  isolated_func <- function(input_data) {
+    library(RSQLite)
+    library(DBI)
+
+    q.vec <- input_data$q.vec
+    org <- input_data$org
+    type <- input_data$type
+    sqlite_path <- input_data$sqlite_path
+
+    tryCatch({
+      db.path <- paste0(sqlite_path, org, "_genes.sqlite")
+      con <- DBI::dbConnect(RSQLite::SQLite(), db.path)
+      on.exit(DBI::dbDisconnect(con), add = TRUE)
+
+      q.vec <- gsub("'", "''", q.vec)
       q.vec.in <- paste0("('", paste(q.vec, collapse = "','"), "')")
-    } else if(type == "kos"){
-      table.name <- "entrez_ortholog"
-    }
-    
-    query <- paste("SELECT gene_id, accession FROM", table.name, "WHERE accession IN", q.vec.in)
-    db.map <- dbGetQuery(con, query)
-    hit.inx <- match(q.vec, db.map[, "accession"])
-    entrezs <- db.map[hit.inx, "gene_id"]
+
+      if (type == "symbol") {
+        query <- paste("SELECT gene_id, symbol FROM entrez WHERE symbol IN", q.vec.in)
+        db.map <- DBI::dbGetQuery(con, query)
+        hit.inx <- match(q.vec, db.map[, "symbol"])
+        entrezs <- db.map[hit.inx, "gene_id"]
+      } else if (type == "entrez") {
+        query <- paste("SELECT gene_id FROM entrez WHERE gene_id IN", q.vec.in)
+        db.map <- DBI::dbGetQuery(con, query)
+        hit.inx <- match(q.vec, db.map[, "gene_id"])
+        entrezs <- db.map[hit.inx, "gene_id"]
+      } else {
+        if (type == "gb") {
+          table.name <- "entrez_gb"
+        } else if (type == "embl_gene" || type == "embl") {
+          table.name <- "entrez_embl_gene"
+        } else if (type == "uniprot") {
+          table.name <- "entrez_uniprot"
+        } else if (type == "refseq") {
+          table.name <- "entrez_refseq"
+          q.mat <- do.call(rbind, strsplit(q.vec, "\\."))
+          q.vec <- q.mat[, 1]
+          q.vec.in <- paste0("('", paste(q.vec, collapse = "','"), "')")
+        } else if (type == "kos") {
+          table.name <- "entrez_ortholog"
+        }
+
+        query <- paste("SELECT gene_id, accession FROM", table.name, "WHERE accession IN", q.vec.in)
+        db.map <- DBI::dbGetQuery(con, query)
+        hit.inx <- match(q.vec, db.map[, "accession"])
+        entrezs <- db.map[hit.inx, "gene_id"]
+      }
+
+      gc(verbose = FALSE)
+      return(entrezs)
+    }, error = function(e) {
+      stop(paste("Gene ID mapping failed:", e$message))
+    })
   }
-  
-  dbDisconnect(con)
-  return(entrezs)
+
+  result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = isolated_func,
+      input_data = list(
+        q.vec = q.vec,
+        org = org,
+        type = type,
+        sqlite_path = sqlite_path_local
+      ),
+      packages = c("RSQLite", "DBI", "qs"),
+      timeout = 300,
+      output_type = "qs"
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("Gene ID mapping failed:", e$message))
+    return(NULL)
+  })
+  if (is.list(result) && isFALSE(result$success)) { AddErrMsg(result$message); return(NULL) }
+
+  return(result)
 }
 
 
@@ -514,6 +552,167 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   rnms <- rownames(data)
   cnms <- colnames(data)
 
+  # Isolate heavy normalization packages (limma, edgeR, preprocessCore, metagenomeSeq) in subprocess
+  heavy_norm_opts <- c("vsn", "quantile", "combined", "logcount", "rle", "TMM")
+  heavy_scale_opts <- c("upperquartile", "CSS")
+
+  if (norm.opt %in% heavy_norm_opts || scaleNorm %in% heavy_scale_opts) {
+    isolated_func <- function(input_data) {
+      data <- input_data$data
+      norm.opt <- input_data$norm.opt
+      colNorm <- input_data$colNorm
+      scaleNorm <- input_data$scaleNorm
+      rnms <- input_data$rnms
+      cnms <- input_data$cnms
+
+      msg <- ""
+
+      edgeRnorm_local <- function(x, method) {
+        library(edgeR)
+        library(limma)
+        nf <- edgeR::calcNormFactors(x, method = method)
+        y <- limma::voom(x, plot = FALSE, lib.size = colSums(x) * nf)
+        return(y$E)
+      }
+
+      tryCatch({
+        # Column normalization
+        if (colNorm == "SumNorm") {
+          data <- t(t(data) / colSums(data))
+          msg <- paste(msg, "Sum normalization.", collapse = " ")
+        } else if (colNorm == "MedianNorm") {
+          data <- t(apply(data, 2, function(x) x / median(x, na.rm = TRUE)))
+          msg <- paste(msg, "Normalization to sample median.", collapse = " ")
+        }
+
+        if (norm.opt == "vsn") {
+          library(limma)
+          data <- limma::normalizeVSN(data)
+          msg <- paste(msg, "VSN normalization.", collapse = " ")
+        } else if (norm.opt == "quantile") {
+          library(preprocessCore)
+          data <- preprocessCore::normalize.quantiles(as.matrix(data), copy = TRUE)
+          msg <- paste(msg, "Quantile normalization.", collapse = " ")
+        } else if (norm.opt == "combined") {
+          library(limma)
+          library(preprocessCore)
+          data <- limma::normalizeVSN(data)
+          data <- preprocessCore::normalize.quantiles(as.matrix(data), copy = TRUE)
+          msg <- paste(msg, "VSN followed by quantile normalization.", collapse = " ")
+        } else if (norm.opt == "logcount") {
+          library(edgeR)
+          library(limma)
+          nf <- edgeR::calcNormFactors(data)
+          y <- limma::voom(data, plot = FALSE, lib.size = colSums(data) * nf)
+          data <- y$E
+          msg <- paste(msg, "Limma based on log2-counts per million transformation.", collapse = " ")
+        } else if (norm.opt == "rle") {
+          data <- edgeRnorm_local(data, method = "RLE")
+          msg <- c(msg, "Performed RLE Normalization")
+        } else if (norm.opt == "TMM") {
+          data <- edgeRnorm_local(data, method = "TMM")
+          msg <- c(msg, "Performed TMM Normalization")
+        } else if (norm.opt == "log") {
+          min.val <- min(data[data > 0], na.rm = TRUE) / 10
+          data[data <= 0] <- min.val
+          data <- log2(data)
+          msg <- paste(msg, "Log2 transformation.", collapse = " ")
+        }
+
+        if (scaleNorm == "upperquartile") {
+          data <- edgeRnorm_local(data, method = "upperquartile")
+          data <- as.matrix(data)
+          msg <- c(msg, "Performed upper quartile normalization")
+        } else if (scaleNorm == "CSS") {
+          library(metagenomeSeq)
+          data1 <- as(data, "matrix")
+          dataMR <- metagenomeSeq::newMRexperiment(data1)
+          data <- metagenomeSeq::cumNorm(dataMR, p = metagenomeSeq::cumNormStat(dataMR))
+          data <- metagenomeSeq::MRcounts(data, norm = TRUE)
+          msg <- c(msg, "Performed cumulative sum scaling normalization")
+        }
+
+        data <- as.data.frame(data)
+        rownames(data) <- rnms
+        colnames(data) <- cnms
+
+        gc(verbose = FALSE)
+        return(list(data = data, msg = msg))
+      }, error = function(e) {
+        stop(paste("Normalization failed:", e$message))
+      })
+    }
+
+    result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = list(
+          data = data,
+          norm.opt = norm.opt,
+          colNorm = colNorm,
+          scaleNorm = scaleNorm,
+          rnms = rnms,
+          cnms = cnms
+        ),
+        packages = c("limma", "edgeR", "preprocessCore", "metagenomeSeq", "qs"),
+        timeout = 300,
+        output_type = "qs"
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("Normalization failed:", e$message))
+      return(0)
+    })
+    if (is.list(result) && isFALSE(result$success)) { AddErrMsg(result$message); msg.vec <<- "Normalization failed"; return(data) }
+
+    if (is.numeric(result) && result == 0) {
+      msg.vec <<- "Normalization failed"
+      return(data)
+    }
+
+    # Apply remaining non-heavy scaling on the returned data
+    data <- result$data
+    msg <- result$msg
+
+    # Handle non-heavy scaling that wasn't done in subprocess
+    if(scaleNorm %in% c('MeanCenter', 'AutoNorm', 'ParetoNorm', 'RangeNorm')){
+      if(scaleNorm=='MeanCenter'){
+        data<-apply(data, 1, MeanCenter);
+        scalenm<-"Mean Centering";
+      }else if(scaleNorm=='AutoNorm'){
+        data<-apply(data, 1, AutoNorm);
+        scalenm<-"Autoscaling";
+      }else if(scaleNorm=='ParetoNorm'){
+        data<-apply(data, 1, ParetoNorm);
+        scalenm<-"Pareto Scaling";
+      }else if(scaleNorm=='RangeNorm'){
+        data<-apply(data, 1, RangeNorm);
+        scalenm<-"Range Scaling";
+      }
+      data <- t(data)
+    } else if(scaleNorm=="colsum"){
+      data <- sweep(data, 2, colSums(data), FUN="/")
+      data <- data*10000000;
+      msg <- c(msg, paste("Performed total sum normalization."));
+    }
+
+    data <- as.data.frame(data)
+    rownames(data) <- rnms;
+    colnames(data) <- cnms;
+
+    df_complete <- data[complete.cases(data), ]
+    dim1 <- dim(data);
+    dim2 <- dim(df_complete);
+
+    if (dim1[1] != dim2[1]) {
+      removed.num <- dim2[1] - dim1[1];
+      msg <- c(msg, paste(removed.num, "features have been removed for having NA values after normalization!"));
+    }
+
+    msg.vec <<- msg;
+    return(df_complete)
+  }
+
+  # Standard path: run normalization directly in master session
   # column(sample)-wise normalization
   if(colNorm=="SumNorm"){
     data<-t(apply(data, 2, SumNorm));
@@ -525,33 +724,33 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
     # nothing to do
     rownm<-"N/A";
   }
-  
+
   if(norm.opt=="log"){
     min.val <- min(data[data>0], na.rm=T)/10;
-    numberOfNeg = sum(data<=0, na.rm = TRUE) + 1; 
+    numberOfNeg = sum(data<=0, na.rm = TRUE) + 1;
     totalNumber = length(data)
     data[data<=0] <- min.val;
     data <- log2(data);
     msg <- paste(msg, "Log2 transformation.", collapse=" ");
   }else if(norm.opt=="vsn"){
     require(limma);
-    data <- normalizeVSN(data);
+    data <- limma::normalizeVSN(data);
     msg <- paste(msg, "VSN normalization.", collapse=" ");
   }else if(norm.opt=="quantile"){
     require('preprocessCore');
-    data <- normalize.quantiles(as.matrix(data), copy=TRUE);
+    data <- preprocessCore::normalize.quantiles(as.matrix(data), copy=TRUE);
     msg <- paste(msg, "Quantile normalization.", collapse=" ");
   }else if(norm.opt=="combined"){
     require(limma);
-    data <- normalizeVSN(data);
+    data <- limma::normalizeVSN(data);
     require('preprocessCore');
-    data <- normalize.quantiles(as.matrix(data), copy=TRUE);
+    data <- preprocessCore::normalize.quantiles(as.matrix(data), copy=TRUE);
     msg <- paste(msg, "VSN followed by quantile normalization.", collapse=" ");
-  }else if(norm.opt=="logcount"){ # for count data, do it in DE analysis, as it is dependent on design matrix
+  }else if(norm.opt=="logcount"){
     require(edgeR);
-    nf <- calcNormFactors(data);
-    y <- voom(data,plot=F,lib.size=colSums(data)*nf);
-    data <- y$E; # copy per million
+    nf <- edgeR::calcNormFactors(data);
+    y <- limma::voom(data,plot=F,lib.size=colSums(data)*nf);
+    data <- y$E;
     msg <- paste(msg, "Limma based on log2-counts per million transformation.", collapse=" ");
   } else if(norm.opt=="rle"){
     data <- edgeRnorm(data,method="RLE");
@@ -570,8 +769,8 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
     norm.data[data<0] <- - norm.data[data<0];
     data <- norm.data;
   }
-  
-  
+
+
   # scaling
   if(scaleNorm=='MeanCenter'){
     data<-apply(data, 1, MeanCenter);
@@ -596,11 +795,10 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
     msg <- c(msg, paste("Performed upper quartile normalization"));
   }else if(scaleNorm=="CSS"){
     suppressMessages(library(metagenomeSeq))
-    #biom and mothur data also has to be in class(matrix only not in phyloseq:otu_table)
     data1 <- as(data,"matrix");
-    dataMR <- newMRexperiment(data1);
-    data <- cumNorm(dataMR,p=cumNormStat(dataMR));
-    data <- MRcounts(data,norm = T);
+    dataMR <- metagenomeSeq::newMRexperiment(data1);
+    data <- metagenomeSeq::cumNorm(dataMR,p=metagenomeSeq::cumNormStat(dataMR));
+    data <- metagenomeSeq::MRcounts(data,norm = T);
     msg <- c(msg, paste("Performed cumulative sum scaling normalization"));
   }else{
     scalenm<-"N/A";
@@ -608,7 +806,7 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   if(scaleNorm %in% c('MeanCenter', 'AutoNorm', 'ParetoNorm', 'RangeNorm')){
     data <- t(data)
   }
-  
+
   data <- as.data.frame(data)
   rownames(data) <- rnms;
   colnames(data) <- cnms;

@@ -26,17 +26,17 @@ load_cairo <- function(){
 
 # Load igraph
 load_igraph <- function(){
-  suppressMessages(library(igraph))
+  return(invisible(NULL))
 }
 
 # Load biocparallel
 load_biocparallel <- function(){
-  suppressMessages(library(BiocParallel))
+  return(invisible(NULL))
 }
 
 # Load deseq2
 load_deseq <- function(){
-  suppressMessages(library(DESeq2))
+  return(invisible(NULL))
 }
 
 # Load vegan
@@ -66,7 +66,7 @@ load_xtable <- function(){
 
 # Load genefilter
 load_genefilter <- function(){
-  suppressMessages(library(genefilter))
+  return(invisible(NULL))
 }
 
 # Load data.table
@@ -93,12 +93,12 @@ load_gridExtra <- function(){
 
 # Load edgeR
 load_edgeR <- function(){
-  suppressMessages(library(edgeR))
+  return(invisible(NULL))
 }
 
 # Load globaltest
 load_globaltest <- function(){
-  suppressMessages(library(globaltest))
+  return(invisible(NULL))
 }
 
 # Load ppcor
@@ -113,7 +113,7 @@ load_metagenomeseq <- function(){
 
 # Load limma
 load_limma <- function(){
-  suppressMessages(library(limma))
+  return(invisible(NULL))
 }
 
 # Load cluster
@@ -123,12 +123,12 @@ load_cluster <- function(){
 
 # Load ADPclust
 load_adpclust <- function(){
-  suppressMessages(library(ADPclust))
+  return(invisible(NULL))
 }
 
 # Load factoextra
 load_factoextra <- function(){
-  suppressMessages(library(factoextra))
+  return(invisible(NULL))
 }
 
 # Load ks
@@ -138,5 +138,5 @@ load_ks <- function(){
 
 # Load rgl
 load_rgl <- function(){
-  suppressMessages(library(rgl))
+  return(invisible(NULL))
 }

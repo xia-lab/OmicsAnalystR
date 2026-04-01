@@ -13,22 +13,19 @@
 #' @param thresh threshold
 #' @param contrast.cls contrast group
 #' @export
-CovariateScatter.Anal <- function(dataName, 
-                                  imgName="NA", 
-                                  imgFormat="png", 
-                                  analysis.var, 
-                                  ref = NULL, 
-                                  block = "NA", 
+CovariateScatter.Anal <- function(dataName,
+                                  imgName="NA",
+                                  imgFormat="png",
+                                  analysis.var,
+                                  ref = NULL,
+                                  block = "NA",
                                   thresh=0.05,
                                   contrast.cls = "anova",pval.type="raw"){
 print(pval.type)
   dataSet <- readDataset(dataName);
- 
+
   rdtSet <- .get.rdt.set();
    msg.lm <- ""
-  # load libraries
-  library(limma)
-  library(dplyr)
 
   # get inputs
   if(!exists('adj.vec')){
@@ -51,18 +48,18 @@ print(pval.type)
       covariates.vec <- "NA"
     }
   }
- 
+
   covariates <- rdtSet$dataSet$meta.info
   covariates <- droplevels(covariates)
   var.types <- rdtSet$dataSet[["meta.types"]]
   feature_table <- dataSet$data.proc;
   covariates <- covariates[which(rownames(covariates) %in% colnames(feature_table)),,drop=F]
- 
+
   # process inputs
   thresh <- as.numeric(thresh)
   ref <- make.names(ref)
   analysis.type <- unname(rdtSet$dataSet$meta.types[analysis.var]);
-  
+
   # process metadata table (covariates)
    for(i in c(1:length(var.types))){ # ensure all columns are the right type
     if(var.types[i] == "disc"){
@@ -75,206 +72,211 @@ print(pval.type)
       }else{
         covariates[,i] <- covariates[,i] %>% as.character() %>% as.numeric()
       }
-      
+
     }
   }
   #subset to samples contained in dataset
   covariates <- covariates[match(colnames(feature_table), rownames(covariates)),,drop=F]
- 
-  if (block != "NA"){    
+
+  if (block != "NA"){
     if(rdtSet$dataSet$meta.types[block] == "cont"){
       AddMsg("Blocking factor can not be continuous data type.")
       return(c(-1,-1));
     }
     # recent update: remove check for unbalanced design. Limma can handle.
   }
-  
+
   sig.num <- 0;
- 
-  if(analysis.type == "disc"){
-    # build design and contrast matrix
-    #covariates[, analysis.var] <- covariates[, analysis.var] %>% make.names() %>% factor();
-    grp.nms <- levels(covariates[, analysis.var]);
-    design <- model.matrix(formula(paste0("~ 0", paste0(" + ", vars, collapse = ""))), data = covariates);
-    colnames(design)[1:length(grp.nms)] <- grp.nms;
-    myargs <- list();
- 
-    # perform specified contrast
-    if(contrast.cls == "anova"){
-      cntr.cls <- grp.nms[grp.nms != ref];
-      myargs <- as.list(paste(cntr.cls, "-", ref, sep = ""));
-    } else {
-      myargs <- as.list(paste(contrast.cls, "-", ref, sep = ""));
+
+  # Isolate limma in subprocess
+  params <- list(
+      analysis.var = analysis.var,
+      ref = ref,
+      block = block,
+      thresh = thresh,
+      contrast.cls = contrast.cls,
+      pval.type = pval.type,
+      analysis.type = analysis.type,
+      vars = vars
+    )
+
+    isolated_func <- function(input_data) {
+      library(limma)
+      library(dplyr)
+
+      feature_table <- input_data$feature_table
+      covariates <- input_data$covariates
+      analysis.var <- input_data$params$analysis.var
+      ref <- input_data$params$ref
+      block <- input_data$params$block
+      thresh <- input_data$params$thresh
+      contrast.cls <- input_data$params$contrast.cls
+      pval.type <- input_data$params$pval.type
+      analysis.type <- input_data$params$analysis.type
+      vars <- input_data$params$vars
+
+      tryCatch({
+        if (analysis.type == "disc") {
+          grp.nms <- levels(factor(covariates[, analysis.var]))
+          design <- model.matrix(formula(paste0("~ 0", paste0(" + ", vars, collapse = ""))), data = covariates)
+          colnames(design)[1:length(grp.nms)] <- grp.nms
+          myargs <- list()
+
+          if (contrast.cls == "anova") {
+            cntr.cls <- grp.nms[grp.nms != ref]
+            myargs <- as.list(paste(cntr.cls, "-", ref, sep = ""))
+          } else {
+            myargs <- as.list(paste(contrast.cls, "-", ref, sep = ""))
+          }
+          myargs[["levels"]] <- design
+          contrast.matrix <- do.call(limma::makeContrasts, myargs)
+          feature_table <- feature_table[, which(colnames(feature_table) %in% rownames(design))]
+
+          if (block == "NA") {
+            fit <- limma::lmFit(feature_table, design)
+          } else {
+            block.vec <- covariates[, block]
+            corfit <- limma::duplicateCorrelation(feature_table, design, block = block.vec)
+            fit <- limma::lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
+          }
+          fit2 <- limma::contrasts.fit(fit, contrast.matrix)
+          fit2 <- limma::eBayes(fit2)
+          rest <- limma::topTable(fit2, number = Inf)
+
+          # Non-adjusted results
+          design_noadj <- model.matrix(formula(paste0("~ 0 + ", analysis.var)), data = covariates)
+          colnames(design_noadj)[1:length(grp.nms)] <- grp.nms
+          myargs_noadj <- myargs
+          myargs_noadj[["levels"]] <- design_noadj
+          contrast.matrix_noadj <- do.call(limma::makeContrasts, myargs_noadj)
+          fit_noadj <- limma::lmFit(feature_table, design_noadj)
+          fit_noadj <- limma::contrasts.fit(fit_noadj, contrast.matrix_noadj)
+          fit_noadj <- limma::eBayes(fit_noadj)
+          res.noadj <- limma::topTable(fit_noadj, number = Inf)
+
+        } else {
+          covariates[, analysis.var] <- as.numeric(covariates[, analysis.var])
+          design <- model.matrix(formula(paste0("~", paste0(" + ", vars, collapse = ""))), data = covariates)
+          feature_table <- feature_table[, which(colnames(feature_table) %in% rownames(design))]
+
+          if (block == "NA") {
+            fit <- limma::lmFit(feature_table, design)
+          } else {
+            block.vec <- covariates[, block]
+            corfit <- limma::duplicateCorrelation(feature_table, design, block = block.vec)
+            fit <- limma::lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
+          }
+          fit <- limma::eBayes(fit)
+          rest <- limma::topTable(fit, number = Inf, coef = analysis.var)
+          colnames(rest)[1] <- analysis.var
+
+          # Non-adjusted results
+          design_noadj <- model.matrix(formula(paste0("~", analysis.var)), data = covariates)
+          fit_noadj <- limma::eBayes(limma::lmFit(feature_table, design_noadj))
+          res.noadj <- limma::topTable(fit_noadj, number = Inf)
+        }
+
+        # Order by p-value
+        ord.inx <- order(rest[, "P.Value"], decreasing = FALSE)
+        rest <- rest[ord.inx, , drop = FALSE]
+        if (analysis.type != "disc") {
+          colnames(rest)[1] <- "coefficient"
+        }
+        rest$ids <- rownames(rest)
+
+        # Create both.mat for visualization (adjusted vs non-adjusted)
+        adj.mat <- rest[, c("P.Value", "adj.P.Val")]
+        noadj.mat <- res.noadj[, c("P.Value", "adj.P.Val")]
+        colnames(adj.mat) <- c("pval.adj", "fdr.adj")
+        colnames(noadj.mat) <- c("pval.no", "fdr.no")
+        both.mat <- merge(adj.mat, noadj.mat, by = "row.names")
+        both.mat$pval.adj <- -log10(both.mat$pval.adj)
+        both.mat$fdr.adj <- -log10(both.mat$fdr.adj)
+        both.mat$pval.no <- -log10(both.mat$pval.no)
+        both.mat$fdr.no <- -log10(both.mat$fdr.no)
+        rownames(both.mat) <- both.mat[, 1]
+        both.mat <- both.mat[rownames(rest), ]
+
+        # Calculate significance
+        p.value <- rest[, "P.Value"]
+        fdr.p <- rest[, "adj.P.Val"]
+        names(p.value) <- names(fdr.p) <- rownames(rest)
+
+        if (pval.type == "fdr") {
+          inx.imp <- fdr.p <= thresh
+        } else {
+          inx.imp <- p.value <= thresh
+        }
+        inx.imp <- ifelse(is.na(inx.imp), FALSE, inx.imp)
+        sig.num <- sum(inx.imp)
+
+        # Build sig.mat
+        if (sig.num > 0) {
+          sig.mat <- rest[inx.imp, ]
+          sig.mat[, -ncol(sig.mat)] <- sapply(sig.mat[, -ncol(sig.mat)], function(x) signif(x, 5))
+          rownames(sig.mat) <- make.names(rownames(rest)[inx.imp])
+        } else {
+          sig.mat <- NULL
+        }
+
+        gc(verbose = FALSE, full = TRUE)
+
+        return(list(
+          rest = rest,
+          sig.mat = sig.mat,
+          sig.num = sig.num,
+          design = design,
+          both.mat = both.mat,
+          p.value = p.value,
+          inx.imp = inx.imp,
+          analysis.type = analysis.type
+        ))
+      }, error = function(e) {
+        stop(paste("Covariate analysis failed:", e$message))
+      })
     }
- 
-    myargs[["levels"]] <- design;
 
-    contrast.matrix <- do.call(makeContrasts, myargs);
-
-    feature_table <- feature_table[,which(colnames(feature_table) %in% rownames(design)) ]
- 
-    # handle blocking factor
-    if (block == "NA") {
-      fit <- tryCatch({
-        lmFit(feature_table, design)
-        }, error=function(e){
-           msg.lm <- c(msg.lm,e)
-        }, warning=function(w){
-          msg.lm <- c(msg.lm,w)
-        })
-    } else {
-      block.vec <- covariates[,block];
-      corfit <- duplicateCorrelation(feature_table, design, block = block.vec)
-      fit <- tryCatch({
-        lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
-      }, error=function(e){
-        msg.lm <- c(msg.lm,e)
-      }, warning=function(w){
-        msg.lm <- c(msg.lm,w)
-      })
-  }
- 
-    fit <-  tryCatch({
-      contrasts.fit(fit, contrast.matrix);
-    }, error=function(e){
-      msg.lm <- c(msg.lm,e)
-    }, warning=function(w){
-      msg.lm <- c(msg.lm,w)
+    limma_result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = list(
+          feature_table = feature_table,
+          covariates = covariates,
+          params = params
+        ),
+        packages = c("limma", "dplyr", "qs"),
+        timeout = 300,
+        output_type = "qs"
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("Covariate analysis failed:", e$message))
+      return(0)
     })
- 
-    fit <-  tryCatch({
-      eBayes(fit);
-    }, error=function(e){
-      msg.lm <- c(msg.lm,e)
-    }, warning=function(w){
-      msg.lm <- c(msg.lm,w)
-    })
+    if (is.list(limma_result) && isFALSE(limma_result$success)) { AddErrMsg(limma_result$message); return(c(0, 0)) }
 
-    rest <- limma::topTable(fit, number = Inf);
-    print(head(rest))
-    ### get results with no adjustment
-    design <- model.matrix(formula(paste0("~ 0", paste0(" + ", analysis.var, collapse = ""))), data = covariates);
-    colnames(design)[1:length(grp.nms)] <- grp.nms;
-    myargs[["levels"]] <- design;
-    contrast.matrix <- do.call(makeContrasts, myargs);
-    fit <- lmFit(feature_table, design)
-    fit <- contrasts.fit(fit, contrast.matrix);
-    fit <- eBayes(fit);
-    res.noadj <- limma::topTable(fit, number = Inf);
-    
-  } else { 
-    covariates[, analysis.var] <- covariates[, analysis.var] %>% as.numeric();
-    types <- unname(rdtSet$dataSet$meta.types[vars])
-    if(sum(types == "cont") == length(vars)){ #in case of single, continuous variable, must use different intercept or limma will give unreasonable results
-      design <- model.matrix(formula(paste0("~", paste0(" + ", vars, collapse = ""))), data = covariates);
-    } else {
-      design <- model.matrix(formula(paste0("~ 0", paste0(" + ", vars, collapse = ""))), data = covariates);
+    if (is.numeric(limma_result) && limma_result == 0) {
+      return(c(0, 0))
     }
-    
-    feature_table <- feature_table[,which(colnames(feature_table) %in% rownames(design)) ]
-    # recent update: enable blocking factor for continuous primary metadata
-    if (block == "NA") {
-      fit <-  tryCatch({
-        lmFit(feature_table, design)
-      }, error=function(e){
-        msg.lm <- c(msg.lm,e)
-      }, warning=function(w){
-        msg.lm <- c(msg.lm,w)
-      })
-    } else {
-      block.vec <- covariates[,block];
-      corfit <- duplicateCorrelation(feature_table, design, block = block.vec)
-      fit <- tryCatch({
-        lmFit(feature_table, design, block = block.vec, correlation = corfit$consensus)
-      }, error=function(e){
-         msg.lm <- c(msg.lm,e)
-      }, warning=function(w){
-        msg.lm <- c(msg.lm,w)
-      })
-   
- }
-    fit <-   tryCatch({
-      eBayes(fit);
-    }, error=function(e){
-      msg.lm <- c(msg.lm,e)
-    }, warning=function(w){
-      msg.lm <- c(msg.lm,w)
-    })
-    
-    rest <- topTable(fit, number = Inf, coef = analysis.var);
-    colnames(rest)[1] <- analysis.var;
-    
-    ### get results with no adjustment
-    design <- model.matrix(formula(paste0("~", analysis.var)), data = covariates);
-    
-    fit <- eBayes(lmFit(feature_table, design));
-    res.noadj <- topTable(fit, number = Inf);
-  }
 
-  if(msg.lm!=""){
-  AddMsg(msg.lm)
-  return(c(-1,-1));
-  }
- 
-  # make visualization
-  adj.mat <- rest[, c("P.Value", "adj.P.Val")]
-  noadj.mat <- res.noadj[, c("P.Value", "adj.P.Val")]
+    # Unpack results
+    rest <- limma_result$rest
+    sig.mat <- limma_result$sig.mat
+    sig.num <- limma_result$sig.num
+    design <- limma_result$design
+    both.mat <- limma_result$both.mat
+    p.value <- limma_result$p.value
+    inx.imp <- limma_result$inx.imp
+    analysis.type <- limma_result$analysis.type
+    res.noadj <- NULL  # not needed, both.mat already computed
   
-  colnames(adj.mat) <- c("pval.adj", "fdr.adj")
-  colnames(noadj.mat) <- c("pval.no", "fdr.no")
-  
-  both.mat <- merge(adj.mat, noadj.mat, by = "row.names")
-  
-  both.mat$pval.adj <- -log10(both.mat$pval.adj)
-  both.mat$fdr.adj <- -log10(both.mat$fdr.adj)
-  both.mat$pval.no <- -log10(both.mat$pval.no)
-  both.mat$fdr.no <- -log10(both.mat$fdr.no)
-  both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];  
-  
-  # make plot
-  if( "F" %in% colnames(rest)){
-    fstat <- rest[, "F"];
-  }else{
-    fstat <- rest[, "t"];
-  }  
 
-  p.value <- rest[,"P.Value"];
-  ord.inx <- order(rest[,"P.Value"], decreasing = FALSE);
-  rest <- rest[ord.inx,,drop=F];
-   if(analysis.type != "disc"){
-    colnames(rest)[1] <- "coefficient"; 
-  }
-  rest$ids <- rownames(rest);
-
-
-  fdr.p <- rest[,"adj.P.Val"];
-  names(fstat) <- names(p.value) <- names(fdr.p) <- rownames(dataSet$data.proc);
-  if(pval.type=="fdr"){
-    inx.imp <- fdr.p <= thresh;
-    # locate the cutoff on the sorted raw p value
-    raw.thresh <- mean(c(p.value[sum(inx.imp)], p.value[sum(inx.imp)+1]),na.rm = T);
-  }else{ # raw p value
-    inx.imp <- p.value <= thresh;
-    raw.thresh <- thresh;
-  }
- 
-  inx.imp <- ifelse(is.na(inx.imp), FALSE, inx.imp);
-  sig.num <- length(which(inx.imp == TRUE))
-  
-  if(sig.num > 0){ 
-    sig.p <- p.value[inx.imp];
-    sig.mat <- rest[inx.imp,];
-    sig.mat[,-ncol(sig.mat)] <- sapply(sig.mat[,-ncol(sig.mat)], function(x) signif(x, 5));
-    rownames(sig.mat) <- make.names(rownames(rest)[inx.imp])
-    # order the result simultaneously
-  }else{
+  if(sig.num == 0){
     return(c(0, 0));
   }
 
-  AddMsg(paste(c("A total of", length(which(inx.imp == TRUE)), "significant features were found."), collapse=" "));
-  rownames(both.mat) = both.mat[,1]
-  both.mat <- both.mat[rownames(rest),]
- 
+  AddMsg(paste(c("A total of", sig.num, "significant features were found."), collapse=" "));
+
+  both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];
   rest$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rest$ids)];
   sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
   rownames(sig.mat) <- sig.mat$ids;
@@ -308,13 +310,12 @@ print(pval.type)
       pval.type = pval.type
     );
   }
- 
+
   dataSet$design <- design;
   dataSet$contrast.type <- analysis.type;
   dataSet$comp.res <- rest;
   dataSet$de.method <- "limma"
   dataSet$comp.type <- "default"
-  dataSet$fit.obj <- fit;
 
   dataSet$pval <- thresh;
   dataSet$fc.val <- 1;
@@ -322,10 +323,10 @@ print(pval.type)
   dataSet$de.adj <- covariates.vec;
 
   # for detail table
-  dataSet$analSet$cov <- cov; 
+  dataSet$analSet$cov <- cov;
   # for plotting adjp vs p
-  dataSet$analSet$cov.mat <- both.mat; 
-  both.list <- apply(both.mat, 2, function(x){unname(as.list(x))})
+  dataSet$analSet$cov.mat <- both.mat;
+  both.list <- lapply(both.mat, function(x){unname(as.list(x))})
 
   both.list$thresh <- thresh;
    both.list$pvalType <- pval.type;
@@ -334,10 +335,9 @@ print(pval.type)
   sink(jsonNm);
   cat(jsonObj);
   sink();
-    
+
   nonSig <- nrow(dataSet$comp.res) - sig.num;
 
-  comp_res_path <- paste0(names(dataSets)[i], "_data/", "comp_res.csv");
   fast.write.csv(rest, file=paste0(dataName, "_data/", "comp_res.csv"))
 
   # IMPORTANT: RegisterData MUST be called BEFORE ExportCovSigArrow

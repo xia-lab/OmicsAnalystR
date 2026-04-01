@@ -216,91 +216,130 @@ saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.inf
   if(topN <= 0){
     return(NULL);
   }
-  mat <- dat[1:topN, , drop=FALSE];
-  if(!is.null(lbls) && length(lbls) >= topN){
-    rownames(mat) <- lbls[1:topN];
-  }
-  anno <- NULL;
-  annotation_colors <- list();
-  if(!is.null(meta.info) && nrow(meta.info) == ncol(mat)){
-    primary <- names(meta.info)[1];
-    if(!is.null(primary) && primary %in% names(meta.info)){
-      col.order <- order(meta.info[[primary]]);
-      mat <- mat[, col.order, drop=FALSE];
-      if(!is.null(lbls) && length(lbls) >= ncol(mat)){
-        lbls <- lbls[col.order];
-      }
-      meta.info <- meta.info[col.order, , drop=FALSE];
-    }
-    num.cols <- min(4, ncol(meta.info));
-    if(num.cols > 0){
-      anno <- as.data.frame(meta.info[, seq_len(num.cols), drop=FALSE]);
-      rownames(anno) <- rownames(meta.info);
-      for(col in colnames(anno)){
-        type <- if(!is.null(meta.types)) meta.types[col] else NULL;
-        is_cont <- !is.null(type) && grepl("cont", type, ignore.case=TRUE);
 
-        if(is_cont){
-          # Continuous metadata: use color gradient
-          values <- suppressWarnings(as.numeric(as.character(anno[[col]])));
-          if(!all(is.na(values))){
-            # Keep as numeric for pheatmap (not factor)
-            anno[[col]] <- values;
-            # Use colorRampPalette which returns a vector (pheatmap-compatible)
-            n_colors <- 100
-            color_func <- grDevices::colorRampPalette(c("blue", "white", "red"))
-            annotation_colors[[col]] <- color_func(n_colors)
-          } else {
-            # All NA - remove from anno
-            anno[[col]] <- NULL;
-          }
-        } else {
-          # Discrete metadata (default): use categorical colors
-          # Convert to character to avoid factor level mismatch issues
-          anno[[col]] <- as.character(anno[[col]]);
-          values <- unique(anno[[col]]);
-          values <- values[!is.na(values)];  # Remove NA values
-          values <- values[order(values)];
-          if(length(values) > 0){
-            pal <- if(length(values) <= 8) RColorBrewer::brewer.pal(max(3, length(values)), "Set2")
-                   else grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, "Set2"))(length(values));
-            annotation_colors[[col]] <- setNames(pal[seq_along(values)], as.character(values));
-          } else {
-            # No valid values - remove from anno
-            anno[[col]] <- NULL;
-          }
-        }
-      }
-      # Clean up: remove empty annotation
-      if(ncol(anno) == 0) anno <- NULL;
-    }
-  }
-  load_pheatmap();
-  load_cairo();
-  load_rcolorbrewer();
-  dims <- get_pheatmap_dims(mat, NA, "overview", 0);
-  width <- dims$width;
-  height <- dims$height;
-  safeName <- gsub("[^A-Za-z0-9_]+", "_", dataSet$name);
-  if(safeName == ""){
+  # Isolate pheatmap in subprocess
+  ds_name <- tryCatch({
+    if(is.null(dataSet$name)) "dataset"
+    else if(is.function(dataSet$name)) "dataset"
+    else as.character(dataSet$name)[1]
+  }, error = function(e) "dataset")
+  safeName <- gsub("[^A-Za-z0-9_]+", "_", ds_name);
+  if(is.na(safeName) || safeName == ""){
     safeName <- "dataset";
   }
   heatmap_file <- paste0("heatmap_top50_", safeName, ".png");
-  Cairo::Cairo(file = heatmap_file, unit="in", dpi=150, width=width, height=height, type="png", bg="white");
-  pheatmap::pheatmap(mat,
-                     color = rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256)),
-                     fontsize=10, fontsize_row=8,
-                     border_color = NA,
-                     cluster_rows = FALSE,
-                     cluster_cols = FALSE,
-                     scale = "column",
-                     annotation_col = anno,
-                     annotation_colors = if(length(annotation_colors)>0) annotation_colors else NULL,
-                     show_rownames = TRUE,
-                     show_colnames = TRUE,
-                     display_numbers = FALSE);
-  dev.off();
-  return(heatmap_file);
+
+  data_for_callr <- list(
+    dat = dat,
+    lbls = lbls,
+    topN = topN,
+    meta.info = meta.info,
+    meta.types = meta.types,
+    heatmap_file = heatmap_file,
+    lib_paths = .libPaths()
+  )
+
+  isolated_func <- function(input_data) {
+    if (!is.null(input_data$lib_paths)) {
+      .libPaths(input_data$lib_paths)
+    }
+
+    dat <- input_data$dat
+    lbls <- input_data$lbls
+    topN <- input_data$topN
+    meta.info <- input_data$meta.info
+    meta.types <- input_data$meta.types
+    heatmap_file <- input_data$heatmap_file
+
+    mat <- dat[1:topN, , drop=FALSE];
+    if(!is.null(lbls) && length(lbls) >= topN){
+      rownames(mat) <- lbls[1:topN];
+    }
+
+    anno <- NULL;
+    annotation_colors <- list();
+
+    if(!is.null(meta.info) && nrow(meta.info) == ncol(mat)){
+      primary <- names(meta.info)[1];
+      if(!is.null(primary) && primary %in% names(meta.info)){
+        col.order <- order(meta.info[[primary]]);
+        mat <- mat[, col.order, drop=FALSE];
+        if(!is.null(lbls) && length(lbls) >= ncol(mat)){
+          lbls <- lbls[col.order];
+        }
+        meta.info <- meta.info[col.order, , drop=FALSE];
+      }
+      num.cols <- min(4, ncol(meta.info));
+      if(num.cols > 0){
+        anno <- as.data.frame(meta.info[, seq_len(num.cols), drop=FALSE]);
+        rownames(anno) <- rownames(meta.info);
+        for(col in colnames(anno)){
+          type <- if(!is.null(meta.types)) meta.types[col] else NULL;
+          is_cont <- !is.null(type) && grepl("cont", type, ignore.case=TRUE);
+
+          if(is_cont){
+            values <- suppressWarnings(as.numeric(as.character(anno[[col]])));
+            if(!all(is.na(values))){
+              anno[[col]] <- values;
+              n_colors <- 100
+              color_func <- grDevices::colorRampPalette(c("blue", "white", "red"))
+              annotation_colors[[col]] <- color_func(n_colors)
+            } else {
+              anno[[col]] <- NULL;
+            }
+          } else {
+            anno[[col]] <- as.character(anno[[col]]);
+            values <- unique(anno[[col]]);
+            values <- values[!is.na(values)];
+            values <- values[order(values)];
+            if(length(values) > 0){
+              pal <- if(length(values) <= 8) RColorBrewer::brewer.pal(max(3, length(values)), "Set2")
+                     else grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, "Set2"))(length(values));
+              annotation_colors[[col]] <- setNames(pal[seq_along(values)], as.character(values));
+            } else {
+              anno[[col]] <- NULL;
+            }
+          }
+        }
+        if(is.null(anno) || ncol(anno) == 0) anno <- NULL;
+      }
+    }
+
+    width <- max(6, ncol(mat) * 0.15 + 2)
+    height <- max(4, topN * 0.12 + 1.5)
+
+    Cairo::Cairo(file = heatmap_file, unit="in", dpi=150, width=width, height=height, type="png", bg="white");
+    pheatmap::pheatmap(mat,
+                       color = rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256)),
+                       fontsize=10, fontsize_row=8,
+                       border_color = NA,
+                       cluster_rows = FALSE,
+                       cluster_cols = FALSE,
+                       scale = "column",
+                       annotation_col = anno,
+                       annotation_colors = if(length(annotation_colors)>0) annotation_colors else NULL,
+                       show_rownames = TRUE,
+                       show_colnames = TRUE,
+                       display_numbers = FALSE);
+    dev.off();
+
+    return(heatmap_file)
+  }
+
+  result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = isolated_func,
+      input_data = data_for_callr,
+      packages = c("pheatmap", "Cairo", "RColorBrewer"),
+      timeout = 120
+    )
+  }, error = function(e) {
+    message(sprintf("saveTopRowsHeatmapImage failed: %s", e$message))
+    return(NULL)
+  })
+  # plot/write failure is non-fatal
+
+  return(result)
 }
 
 ComputeKmeans <- function(clusterNum="-1"){
@@ -431,7 +470,6 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$omicstype <- sel.nms
   
   clusterNum <- as.numeric(clusterNum)
-  library("Spectrum")
   if(clusterNum == -1){
     clusterNum = NULL;
     if(method == "eigengap"){
@@ -442,11 +480,29 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   }else{
     method=3;
   }
-  
-  res <- Spectrum::Spectrum(data.list, method=method, fixk=clusterNum, maxk=10, missing=TRUE, fontsize=8, dotsize=2, showres=F, silent=T)
 
-  clust <- res$assignments
-  
+  spec_result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = function(input_data) {
+        require(Spectrum)
+        res <- Spectrum::Spectrum(input_data$data.list, method=input_data$method,
+                                  fixk=input_data$clusterNum, maxk=10, missing=TRUE,
+                                  fontsize=8, dotsize=2, showres=FALSE, silent=TRUE)
+        list(assignments = res$assignments, res = res, similarity_matrix = res$similarity_matrix)
+      },
+      input_data = list(data.list = data.list, method = method, clusterNum = clusterNum),
+      packages = c("Spectrum"),
+      timeout = 300
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("ComputeSpectrum failed:", e$message))
+    NULL
+  })
+  if (is.list(spec_result) && isFALSE(spec_result$success)) { AddErrMsg(spec_result$message); return(0) }
+  if (is.null(spec_result)) return(0)
+  res <- spec_result$res
+  clust <- spec_result$assignments
+
   SNFNMI = .calNMI(clust, as.numeric(dat$cls));
  
   reductionSet$clustType <- "Spectrum"
@@ -482,11 +538,30 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   if(clusterNum == -1){
     clusterNum = NULL;
   }
-  
-  library("PINSPlus")
-  result <- SubtypingOmicsData(dataList = data.list, clusteringMethod = "hclust", k = clusterNum, verbose=F, agreementCutoff=0.8)
-  clust <- result$cluster1
-  
+
+  pins_result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = function(input_data) {
+        require(PINSPlus)
+        result <- PINSPlus::SubtypingOmicsData(dataList = input_data$data.list,
+                                                 clusteringMethod = "hclust",
+                                                 k = input_data$clusterNum,
+                                                 verbose = FALSE, agreementCutoff = 0.8)
+        list(cluster1 = result$cluster1, result = result)
+      },
+      input_data = list(data.list = data.list, clusterNum = clusterNum),
+      packages = c("PINSPlus"),
+      timeout = 300
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("ComputePins failed:", e$message))
+    NULL
+  })
+  if (is.list(pins_result) && isFALSE(pins_result$success)) { AddErrMsg(pins_result$message); return(0) }
+  if (is.null(pins_result)) return(0)
+  result <- pins_result$result
+  clust <- pins_result$cluster1
+
   SNFNMI = .calNMI(clust, as.numeric(dat$cls))
   
   reductionSet$clustType <- "Perturbation"
@@ -669,27 +744,60 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   reductionSet <- .get.rdt.set();
   reductionSet$omicstype <- sel.nms
   
-  library("SNFtool")
   truelabel = as.numeric(dat$cls)
   Data1 <- t(data.list[[1]])
   Data2 <- t(data.list[[2]])
-  
-  Dist1 = dist2(as.matrix(Data1),as.matrix(Data1));
-  Dist2 = dist2(as.matrix(Data2),as.matrix(Data2));
-  
-  W1 = affinityMatrix(Dist1, K, alpha)
-  W2 = affinityMatrix(Dist2, K, alpha)
-  
-  W = SNF(list(W1,W2), K, T);
-  res <- estimateClusters(W, 2:10);
   clusterNum <- as.numeric(clusterNum)
-  if(clusterNum == -1){
-    C = res[[1]]
-  }else{
-    C = clusterNum
-  }
-  group = spectralClustering(W, C); 
-  SNFNMI = .calNMI(group, truelabel) 
+
+  snf_result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = function(input_data) {
+        require(SNFtool)
+        K <- input_data$K; alpha <- input_data$alpha; T_iter <- input_data$T_iter
+        Data1 <- input_data$Data1; Data2 <- input_data$Data2
+        clusterNum <- input_data$clusterNum
+
+        Dist1 <- SNFtool::dist2(as.matrix(Data1), as.matrix(Data1))
+        Dist2 <- SNFtool::dist2(as.matrix(Data2), as.matrix(Data2))
+        W1 <- SNFtool::affinityMatrix(Dist1, K, alpha)
+        W2 <- SNFtool::affinityMatrix(Dist2, K, alpha)
+        W <- SNFtool::SNF(list(W1, W2), K, T_iter)
+
+        # estimateClusters is defined in clustering_utils.R, not SNFtool
+        # Inline the eigen-gap estimation here
+        W2m <- (W + t(W)) / 2; diag(W2m) <- 0
+        degs <- rowSums(W2m); degs[degs == 0] <- .Machine$double.eps
+        D <- diag(degs); L <- D - W2m; Di <- diag(1/sqrt(degs))
+        L <- Di %*% L %*% Di
+        eigs <- eigen(L)
+        eigs_order <- sort(eigs$values, index.return = TRUE)$ix
+        eigs$values <- eigs$values[eigs_order]
+        eigengap <- abs(diff(eigs$values))
+        NUMC <- 2:10
+        t1 <- sort(eigengap[NUMC], decreasing = TRUE, index.return = TRUE)$ix
+        auto_k <- NUMC[t1[1]]
+        eigs_vals <- (1 - eigs$values)[NUMC]
+
+        C <- if (clusterNum == -1) auto_k else clusterNum
+        group <- SNFtool::spectralClustering(W, C)
+
+        list(group = group, W = W, auto_k = auto_k, eigs_vals = eigs_vals)
+      },
+      input_data = list(Data1 = Data1, Data2 = Data2, K = K, alpha = alpha,
+                        T_iter = T, clusterNum = clusterNum),
+      packages = c("SNFtool"),
+      timeout = 300
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("ComputeSNF failed:", e$message))
+    NULL
+  })
+  if (is.list(snf_result) && isFALSE(snf_result$success)) { AddErrMsg(snf_result$message); return(0) }
+  if (is.null(snf_result)) return(0)
+  group <- snf_result$group
+  W <- snf_result$W
+  res <- estimateClusters(W, 2:10)
+  SNFNMI = .calNMI(group, truelabel)
   reductionSet$clustType <- "SNF"
   reductionSet$clustVec <- group
   reductionSet$clustRes <- res
@@ -725,7 +833,6 @@ ComputeSilhouette <-function(type){
     data.list[[i]] <- dat$data.proc
   }
   
-  library(cluster)
   reductionSet <- .get.rdt.set();
   clusterVec <- reductionSet$clustVec
   # function to compute average silhouette for k clusters
@@ -734,85 +841,129 @@ ComputeSilhouette <-function(type){
   }else if(type == "snf"){
     clustMatrix <- reductionSet$clustDistMat
   }
-  
-  ss1 <- cluster::silhouette(clusterVec, daisy(t(data.list[[1]])))
-  ss2 <- cluster::silhouette(clusterVec, daisy(t(data.list[[2]])))
-  
-  return(list(ss1,ss2))
+
+  sil_result <- tryCatch({
+    rsclient_isolated_exec(
+      func_body = function(input_data) {
+        require(cluster)
+        ss1 <- cluster::silhouette(input_data$clusterVec, cluster::daisy(t(input_data$data1)))
+        ss2 <- cluster::silhouette(input_data$clusterVec, cluster::daisy(t(input_data$data2)))
+        list(ss1 = ss1, ss2 = ss2)
+      },
+      input_data = list(clusterVec = clusterVec,
+                        data1 = data.list[[1]], data2 = data.list[[2]]),
+      packages = c("cluster"),
+      timeout = 120
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("ComputeSilhouette failed:", e$message))
+    NULL
+  })
+  if (is.list(sil_result) && isFALSE(sil_result$success)) { AddErrMsg(sil_result$message); return(0) }
+  if (is.null(sil_result)) return(0)
+  return(list(sil_result$ss1, sil_result$ss2))
 }
 
 
 PlotDiagnostic <- function(alg, imgName, dpi=150, format="png"){
   dpi <- as.numeric(dpi);
   imgNm <- paste(imgName, "dpi", dpi, ".", format, sep="");
-  load_cairo();
-  if(alg %in% c("snf", "spectrum","kmeans") ){
-    h=8
-    fig.list <- list()
-    library(ggpubr);
-  }else{
-    h=8
-  }
+  h <- 8;
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
   reductionSet<-.get.rdt.set();
-  
-  Cairo(file=imgNm, width=10, height=h, type="png",unit="in", bg="white", dpi=dpi);
-  if(alg == "spectrum"){
-    if(!is.null(reductionSet$clustRes$eigenvector_analysis)){
-      plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigenvector_analysis[,2]);
-    }else{
-      plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigensystem$values[1:10]);
-    }
-  }else if(alg == "perturbation"){
-    
-    res <- reductionSet$clustRes
-    library(ggpubr)
-    load_ggplot();
-    xlabel="Number of clusters"
-    ylabel="AUC"
-    auc1 <- res$dataTypeResult[[1]]$Discrepancy$AUC[-1]
-    auc.df1 <- data.frame(K=seq.int(length(auc1))+1, evals=auc1)
-    auc2 <- res$dataTypeResult[[2]]$Discrepancy$AUC[-1]
-    auc.df2 <- data.frame(K=seq.int(length(auc2))+1, evals=auc2)
-    auc.df1$evals2 = auc.df2$evals
-    colnames(auc.df1) = c("K", sel.nms[[1]], sel.nms[[2]])
-    library("tidyverse")
-    df <- auc.df1 %>%
-      select(K,  sel.nms[[1]], sel.nms[[2]]) %>%
-      gather(key = "variable", value = "value", -K)
-    p1 <- ggplot(df, aes(x = K, y = value)) + 
-      geom_point(aes(color = variable), size=2) + 
-      geom_line(aes(color = variable)) + 
-      geom_vline(xintercept = length(unique(res$cluster1)),linetype="dashed")+ xlab(xlabel) + 
-      ylab(ylabel) +
-      theme_bw()
-    print(p1)
-  }else if(alg == "snf"){
-    #res <- ComputeSilhouette("snf");
-    
-    #sp2 <- fviz_silhouette(res[[2]], titlenm=sel.nms[[2]])+
-    #theme(axis.title.y=element_blank())
-    #lims <- layer_scales(sp2)$y$get_limits()
-    
-    #sp1 <- fviz_silhouette(res[[1]], titlenm=sel.nms[[1]])+ ylim(lims)+
-    #theme(legend.position="none")
-    
-    #fig.list.sub<-list();
-    #fig.list.sub[[1]] <- sp1
-    #fig.list.sub[[2]] <- sp2
-    
-    #p11 <- ggarrange(plotlist=fig.list.sub, ncol = 2, nrow = 1)
-    #fig.list[[1]] <- p11
-    #fig.list[[1]] <-  function(){plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])}
-    #p1 <- ggarrange(plotlist=fig.list, ncol = 1, nrow = 1)
-    plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
-  }else if(alg == "kmeans"){
-    plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$frac_explained)
 
- }
-  dev.off();
-  
+  if (alg == "perturbation") {
+    # Perturbation branch uses ggpubr/tidyverse - isolate
+    res <- reductionSet$clustRes
+    auc1 <- res$dataTypeResult[[1]]$Discrepancy$AUC[-1]
+    auc2 <- res$dataTypeResult[[2]]$Discrepancy$AUC[-1]
+    n_clust <- length(unique(res$cluster1))
+
+    tryCatch({
+      rsclient_isolated_exec(
+        func_body = function(input_data) {
+          require(ggplot2)
+          require(Cairo)
+          require(tidyr)
+
+          auc.df1 <- data.frame(K = seq.int(length(input_data$auc1)) + 1, evals = input_data$auc1)
+          auc.df2 <- data.frame(K = seq.int(length(input_data$auc2)) + 1, evals = input_data$auc2)
+          auc.df1$evals2 <- auc.df2$evals
+          colnames(auc.df1) <- c("K", input_data$sel_nm1, input_data$sel_nm2)
+
+          df <- tidyr::gather(auc.df1, key = "variable", value = "value", -K)
+
+          p1 <- ggplot2::ggplot(df, ggplot2::aes(x = K, y = value)) +
+            ggplot2::geom_point(ggplot2::aes(color = variable), size = 2) +
+            ggplot2::geom_line(ggplot2::aes(color = variable)) +
+            ggplot2::geom_vline(xintercept = input_data$n_clust, linetype = "dashed") +
+            ggplot2::xlab("Number of clusters") + ggplot2::ylab("AUC") +
+            ggplot2::theme_bw()
+
+          Cairo::Cairo(file = input_data$imgNm, width = 10, height = 8,
+                       type = "png", unit = "in", bg = "white", dpi = input_data$dpi)
+          print(p1)
+          dev.off()
+          return(1)
+        },
+        input_data = list(auc1 = auc1, auc2 = auc2, sel_nm1 = sel.nms[[1]],
+                          sel_nm2 = sel.nms[[2]], n_clust = n_clust,
+                          imgNm = imgNm, dpi = dpi),
+        packages = c("ggplot2", "Cairo", "tidyr", "qs"),
+        timeout = 300
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("PlotDiagnostic failed:", e$message))
+      return(0)
+    })
+    # plot/write failure is non-fatal
+  } else {
+    # Standard path or non-perturbation algorithms (base R plotting)
+    load_cairo();
+    if(alg %in% c("snf", "spectrum","kmeans") ){
+      fig.list <- list()
+      library(ggpubr);
+    }
+
+    Cairo(file=imgNm, width=10, height=h, type="png",unit="in", bg="white", dpi=dpi);
+    if(alg == "spectrum"){
+      if(!is.null(reductionSet$clustRes$eigenvector_analysis)){
+        plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigenvector_analysis[,2]);
+      }else{
+        plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigensystem$values[1:10]);
+      }
+    }else if(alg == "perturbation"){
+      res <- reductionSet$clustRes
+      library(ggpubr)
+      load_ggplot();
+      xlabel="Number of clusters"
+      ylabel="AUC"
+      auc1 <- res$dataTypeResult[[1]]$Discrepancy$AUC[-1]
+      auc.df1 <- data.frame(K=seq.int(length(auc1))+1, evals=auc1)
+      auc2 <- res$dataTypeResult[[2]]$Discrepancy$AUC[-1]
+      auc.df2 <- data.frame(K=seq.int(length(auc2))+1, evals=auc2)
+      auc.df1$evals2 = auc.df2$evals
+      colnames(auc.df1) = c("K", sel.nms[[1]], sel.nms[[2]])
+      library("tidyverse")
+      df <- auc.df1 %>%
+        select(K,  sel.nms[[1]], sel.nms[[2]]) %>%
+        gather(key = "variable", value = "value", -K)
+      p1 <- ggplot(df, aes(x = K, y = value)) +
+        geom_point(aes(color = variable), size=2) +
+        geom_line(aes(color = variable)) +
+        geom_vline(xintercept = length(unique(res$cluster1)),linetype="dashed")+ xlab(xlabel) +
+        ylab(ylabel) +
+        theme_bw()
+      print(p1)
+    }else if(alg == "snf"){
+      plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
+    }else if(alg == "kmeans"){
+      plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$frac_explained)
+    }
+    dev.off();
+  }
+
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$diagnostic_components <- imgNm;
   saveSet(infoSet);
@@ -821,83 +972,93 @@ PlotDiagnostic <- function(alg, imgName, dpi=150, format="png"){
 
 
 PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum"){
-  load_cairo();
-  load_ggplot();
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
-  
+
   sel.nms <- names(mdata.all)
   data.list <- list()
+  cls.list <- list()
   for(i in 1:length(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
+    data.list[[sel.nms[i]]] <- dat$data.proc
+    cls.list[[sel.nms[i]]] <- dat$cls
   }
   reductionSet <- .get.rdt.set();
-  
-  fig.list <- list();
-  result <- reductionSet$clustRes
   clust <- reductionSet$clustVec
-  
-  fig.list <- list()
-  for(i in 1:length(sel.nms)){
-   print(sel.nms[i])
-    dataSet = readDataset(sel.nms[i])
-    x <- dataSet$data.proc
-    pca <- prcomp(t(na.omit(x)));
-    imp.pca<-summary(pca)$importance;
-    xlabel <- paste0("PC1"," (", 100*round(imp.pca[2,][1], 3), "%)")
-    ylabel <- paste0("PC2"," (", 100*round(imp.pca[2,][2], 3), "%)")
-    names <- colnames(x);
-    pca.res <- as.data.frame(pca$x);
-    pca.res <- pca.res[,c(1,2)]
-    
-    xlim <- GetExtendRange(pca.res$PC1);
-    ylim <- GetExtendRange(pca.res$PC2);
-    
-    Factor <- as.factor(clust)
-    pca.rest <- pca.res
-    pca.rest$Cluster <- Factor
-    pca.rest$names <- rownames(pca.res)
-    Conditions = as.factor(dataSet$cls)
-    pca.rest$Conditions <- Conditions
-    
-    pcafig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Cluster, shape=Conditions)) +
-      geom_point(size=3, alpha=0.5) + 
-      xlim(xlim) + ylim(ylim) + xlab(xlabel) + ylab(ylabel) +
-      theme_bw()
-    fig.list[[i]] <- pcafig
-    
-    pcafigcls <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
-      geom_point(size=3, alpha=0.5) + 
-      xlim(xlim) + ylim(ylim) + xlab(xlabel) + ylab(ylabel) +
-      theme_bw()
-    if(i == 1){
-      
-      #fig.list[[3]] <- pcafigcls
-    }else if( i == 2){
-      #fig.list[[4]] <- pcafigcls
-    }
-  }
-  h <- 6*round(length(fig.list)/2)
-  Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
-  library("ggpubr")
-  p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2), labels=sel.nms)
-  print(p1)
-  dev.off();
+
+  tryCatch({
+    rsclient_isolated_exec(
+      func_body = function(input_data) {
+        require(ggpubr)
+        require(ggplot2)
+        require(Cairo)
+
+        sel.nms <- input_data$sel.nms
+        data.list <- input_data$data.list
+        cls.list <- input_data$cls.list
+        clust <- input_data$clust
+
+        fig.list <- list()
+        for (i in 1:length(sel.nms)) {
+          x <- data.list[[sel.nms[i]]]
+          pca <- prcomp(t(na.omit(x)))
+          imp.pca <- summary(pca)$importance
+          xlabel <- paste0("PC1", " (", 100 * round(imp.pca[2, ][1], 3), "%)")
+          ylabel <- paste0("PC2", " (", 100 * round(imp.pca[2, ][2], 3), "%)")
+          pca.res <- as.data.frame(pca$x)
+          pca.res <- pca.res[, c(1, 2)]
+
+          xlim <- range(pca.res$PC1)
+          xlim <- xlim + c(-1, 1) * diff(xlim) * 0.1
+          ylim <- range(pca.res$PC2)
+          ylim <- ylim + c(-1, 1) * diff(ylim) * 0.1
+
+          Factor <- as.factor(clust)
+          pca.rest <- pca.res
+          pca.rest$Cluster <- Factor
+          pca.rest$names <- rownames(pca.res)
+          Conditions <- as.factor(cls.list[[sel.nms[i]]])
+          pca.rest$Conditions <- Conditions
+
+          pcafig <- ggplot2::ggplot(pca.rest, ggplot2::aes(x = PC1, y = PC2, color = Cluster, shape = Conditions)) +
+            ggplot2::geom_point(size = 3, alpha = 0.5) +
+            ggplot2::xlim(xlim) + ggplot2::ylim(ylim) + ggplot2::xlab(xlabel) + ggplot2::ylab(ylabel) +
+            ggplot2::theme_bw()
+          fig.list[[i]] <- pcafig
+        }
+
+        h <- 6 * round(length(fig.list) / 2)
+        Cairo::Cairo(file = input_data$imgNm, width = 14, height = h,
+                     type = input_data$format, bg = "white", unit = "in", dpi = input_data$dpi)
+        p1 <- ggpubr::ggarrange(plotlist = fig.list, ncol = 2,
+                                 nrow = round(length(fig.list) / 2), labels = sel.nms)
+        print(p1)
+        dev.off()
+        return(1)
+      },
+      input_data = list(sel.nms = sel.nms, data.list = data.list, cls.list = cls.list,
+                        clust = clust, imgNm = imgNm, dpi = dpi, format = format),
+      packages = c("ggpubr", "ggplot2", "Cairo", "qs"),
+      timeout = 300
+    )
+  }, error = function(e) {
+    AddErrMsg(paste("PlotHeatmapDiagnosticPca failed:", e$message))
+    return(0)
+  })
+  # plot/write failure is non-fatal
 }
 
 
 PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
-  
+
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
-   
-  metaData <- rdtSet$clustResTable;
-  metaData = metaData[order( metaData$Cluster),]
-  smp.nms <- rownames(metaData);
-  meta.num <- ncol(metaData)
 
-  var.nms <- rownames(metaData);
+  metaData <- rdtSet$clustResTable;
+  if(is.null(metaData) || nrow(metaData) == 0){
+    return(.set.rdt.set(rdtSet));
+  }
+
   rdtSet$imgSet$clusterHeat <- imgName;
 
   # Also save to infoSet for report generation
@@ -905,81 +1066,96 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
   infoSet$imgSet$clusterHeat <- imgName;
   saveSet(infoSet);
 
+  # Isolate pheatmap in subprocess
+  metaData = metaData[order( metaData$Cluster),]
+  smp.nms <- rownames(metaData);
   met <- sapply(metaData, function(x) as.integer(x))
   rownames(met) <- smp.nms;
 
+  data_for_callr <- list(
+    metaData = metaData,
+    met = met,
+    viewOpt = viewOpt,
+    clustSelOpt = clustSelOpt,
+    smplDist = smplDist,
+    clstDist = clstDist,
+    colorGradient = colorGradient,
+    includeRowNames = includeRowNames,
+    imgName = imgName,
+    format = format,
+    dpi = dpi,
+    width = width,
+    lib_paths = .libPaths()
+  )
 
-
-  # set up parameter for heatmap
-  if(colorGradient=="gbr"){
-    colors <- colorRampPalette(c("green", "black", "red"), space="rgb")(256);
-    }else if(colorGradient == "heat"){
-    colors <- heat.colors(256);
-    }else if(colorGradient == "topo"){
-    colors <- topo.colors(256);
-    }else if(colorGradient == "gray"){
-        colors <- grDevices::colorRampPalette(c("grey90", "grey10"), space="rgb")(256);
-    }else if(colorGradient == "byr"){
-        colors <- rev(grDevices::colorRampPalette(RColorBrewer::brewer.pal(10, "RdYlBu"))(256));
-    }else if(colorGradient == "viridis") {
-        colors <- rev(viridis::viridis(10))
-    }else if(colorGradient == "plasma") {
-        colors <- rev(viridis::plasma(10))
-    }else if(colorGradient == "npj"){
-        colors <- c("#00A087FF","white","#E64B35FF")
-    }else if(colorGradient == "aaas"){
-        colors <- c("#4DBBD5FF","white","#E64B35FF");
-    }else if(colorGradient == "d3"){
-        colors <- c("#2CA02CFF","white","#FF7F0EFF");
-    }else {
-         colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+  isolated_func <- function(input_data) {
+    if (!is.null(input_data$lib_paths)) {
+      .libPaths(input_data$lib_paths)
     }
-   
-  if(clustSelOpt == "both"){
-    rowBool = T;
-    colBool = T;
-  }else if(clustSelOpt == "row"){
-    rowBool = T;
-    colBool = F;
-  }else if(clustSelOpt == "col"){
-    rowBool = F;
-    colBool = T;
-  }else{
-    rowBool = F;
-    colBool = F;
+
+    met <- input_data$met
+    metaData <- input_data$metaData
+
+    colorGradient <- input_data$colorGradient
+    if(colorGradient == "gbr"){
+      colors <- colorRampPalette(c("green", "black", "red"), space="rgb")(256)
+    } else if(colorGradient == "heat") {
+      colors <- rev(heat.colors(10))
+    } else if(colorGradient == "topo") {
+      colors <- rev(topo.colors(10))
+    } else if(colorGradient == "bwm") {
+      colors <- colorRampPalette(c("#0000FF","white","#FF0000"))(256)
+    } else {
+      colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+    }
+
+    clustSelOpt <- input_data$clustSelOpt
+    if(clustSelOpt == "both"){
+      rowBool <- TRUE; colBool <- TRUE;
+    } else if(clustSelOpt == "row"){
+      rowBool <- TRUE; colBool <- FALSE;
+    } else if(clustSelOpt == "col"){
+      rowBool <- FALSE; colBool <- TRUE;
+    } else {
+      rowBool <- FALSE; colBool <- FALSE;
+    }
+
+    met <- scale(met)
+
+    w <- max(6, ncol(met) * 0.3 + 2)
+    h <- max(4, nrow(met) * 0.15 + 1.5)
+
+    Cairo::Cairo(file = input_data$imgName, unit="in", dpi=input_data$dpi,
+                 width=w, height=h, type=input_data$format, bg="white");
+
+    pheatmap::pheatmap(met,
+                       fontsize=12, fontsize_row=8,
+                       clustering_distance_rows = input_data$smplDist,
+                       clustering_distance_cols = input_data$smplDist,
+                       clustering_method = input_data$clstDist,
+                       border_color = NA,
+                       cluster_rows = FALSE,
+                       cluster_cols = FALSE,
+                       scale = "column",
+                       show_rownames = input_data$includeRowNames,
+                       color = colors,
+                       display_numbers = FALSE);
+    dev.off();
+
+    return(input_data$imgName)
   }
 
-    w = min(500,ncol(met)*100+50)
-    h = min(2000,nrow(met)*14+50);
- 
-   met <- scale_mat(met,  "column")
- 
-
-  ##plot static
-  plot_dims <- get_pheatmap_dims(met, NA, "overview", width);
-  h <- plot_dims$height;
-  w <- plot_dims$width;
-  viewOpt <- "overview";
-  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
-       displayText = metaData;
-    if(viewOpt == "overview"){
-       displayText = F;
-    }
- 
-    
-    pheatmap::pheatmap(met, 
-                       fontsize=12, fontsize_row=8, 
-                       clustering_distance_rows = smplDist,
-                       clustering_distance_cols = smplDist,
-                       clustering_method = clstDist, 
-                        border_color = NA,#border.col,
-                       cluster_rows = F, 
-                       cluster_cols = F,
-                       scale = "column",
-                       show_rownames= includeRowNames,
-                       color = colors,
-                       display_numbers=displayText);
-  dev.off();
+  tryCatch({
+    rsclient_isolated_exec(
+      func_body = isolated_func,
+      input_data = data_for_callr,
+      packages = c("pheatmap", "Cairo", "RColorBrewer"),
+      timeout = 120
+    )
+  }, error = function(e) {
+    message(sprintf("PlotClusterHeatmap failed: %s", e$message))
+  })
+  # plot/write failure is non-fatal
 
   return(.set.rdt.set(rdtSet));
 }

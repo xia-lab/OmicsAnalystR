@@ -12,7 +12,6 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
   plotjs <- paste0(imgName, ".json");
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
-  require(iheatmapr);
 
   metaData <- rdtSet$dataSet$meta.info;
   smp.nms <- rownames(metaData);
@@ -23,8 +22,6 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
 
   met <- sapply(metaData, function(x) as.integer(x))
   rownames(met) <- smp.nms;
-
-
 
   # set up parameter for heatmap
   if(colorGradient=="gbr"){
@@ -50,7 +47,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
     }else {
          colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
     }
-   
+
   if(clustSelOpt == "both"){
     rowBool = T;
     colBool = T;
@@ -67,98 +64,82 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
 
     w = min(1000,ncol(met)*150+50)
     h = min(2000,nrow(met)*14+50);
- 
+
    met <- scale_mat(met,  "column")
-    p <- iheatmap(met,  name = " ", 
-                  colors = colors, 
-          colorbar_grid = setup_colorbar_grid(y_start = 0.85)) %>%
-      add_col_labels(size = 0.1, font = list(size = 14)) 
 
-    if (includeRowNames) {
-      p <- p%>%
-        add_row_labels(size = 0.2, font = list(size = 10), side = "right") 
-    }
- 
-     if (rowBool) {
-     if(smplDist=="correlation"){
-      my.dist <- cor(t(met), method="pearson")
-      my.dist <- 1-my.dist 
-      my.dist <- as.dist(my.dist, diag = FALSE, upper = F)
-    }else{
-      my.dist = dist(met, method = smplDist)
-    }
- 
-    dend_row <- hclust(my.dist, method = clstDist)
-    p <- p %>% add_row_dendro(dend_row,  size = 0.15)  
-  } 
-     if (colBool) {
-    if(smplDist=="correlation"){
-      my.dist2 <- cor(met, method="pearson")
-      my.dist2 <- 1-my.dist2 
-      my.dist2 <- as.dist(my.dist2, diag = FALSE, upper = F)
-    }else{
-      my.dist2 = dist(t(met), method = smplDist)
-    }
-    dend_col <- hclust( my.dist2, method = clstDist)
-    p <- p %>% add_col_dendro(dend_col,  size = ifelse(h>1300,0.02,0.05))
-    } 
-    saveRDS(p,"metadata_heatmap.rds");
+  # Isolate pheatmap in subprocess
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$heatmap <- imgName;
+  saveSet(infoSet);
 
-     # Adjust the height and width (in pixels)
-    options(device = "pdf") 
-    as_list <- to_plotly_list(p)
-    as_list[["layout"]][["width"]] <- w
-    as_list[["layout"]][["height"]] <- max(h,500)
-  
-    as_json <- attr(as_list, "TOJSON_FUNC")(as_list)
-    as_json <- paste0("{ \"x\":", as_json, ",\"evals\": [],\"jsHooks\": []}")
- 
-    print(plotjs)
-    write(as_json, plotjs)
+  data_for_callr <- list(
+    met = met,
+    metaData = metaData,
+    viewOpt = viewOpt,
+    clustSelOpt = clustSelOpt,
+    smplDist = smplDist,
+    clstDist = clstDist,
+    colorGradient = colorGradient,
+    includeRowNames = includeRowNames,
+    rowBool = rowBool,
+    colBool = colBool,
+    imgName = imgName,
+    format = format,
+    dpi = dpi,
+    width = width,
+    colors = colors,
+    lib_paths = .libPaths()
+  )
 
-  ##plot static
-  plot_dims <- get_pheatmap_dims(met, NA, "overview", width);
-  h <- plot_dims$height;
-  w <- plot_dims$width;
-  viewOpt <- "overview";
-  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
-       displayText = metaData;
-    if(viewOpt == "overview"){
-       displayText = F;
+  isolated_func <- function(input_data) {
+    if (!is.null(input_data$lib_paths)) {
+      .libPaths(input_data$lib_paths)
     }
 
-   p <- pheatmap::pheatmap(met, 
-                       fontsize=12, fontsize_row=8, 
-                       clustering_distance_rows = smplDist,
-                       clustering_distance_cols = smplDist,
-                       clustering_method = clstDist, 
-                       border_color = NA,#border.col,
-                       cluster_rows = rowBool, 
+    met <- input_data$met
+    metaData <- input_data$metaData
+    colors <- input_data$colors
+    rowBool <- input_data$rowBool
+    colBool <- input_data$colBool
+
+    if(nrow(met) > 1000){
+      met <- met[1:1000, , drop=FALSE]
+    }
+
+    w <- max(8, ncol(met) * 0.2 + 2)
+    h <- max(6, min(nrow(met) * 0.02 + 2, 20))
+
+    Cairo::Cairo(file = input_data$imgName, unit="in", dpi=input_data$dpi,
+                 width=w, height=h, type=input_data$format, bg="white");
+
+    pheatmap::pheatmap(met,
+                       fontsize=12, fontsize_row=8,
+                       clustering_distance_rows = input_data$smplDist,
+                       clustering_distance_cols = input_data$smplDist,
+                       clustering_method = input_data$clstDist,
+                       border_color = NA,
+                       cluster_rows = rowBool,
                        cluster_cols = colBool,
                        scale = "column",
-                       show_rownames= includeRowNames,
+                       show_rownames = input_data$includeRowNames,
                        color = colors,
-                       display_numbers=displayText,silent = TRUE);
-       if(rowBool){
-         p$tree_row$order <- rev(p$tree_row$order)
-         rowBool <-  p$tree_row
-      }else{
-         met <- met[,ncol(met):1]
-      }
-    
-    pheatmap::pheatmap(met, 
-                       fontsize=12, fontsize_row=8, 
-                       clustering_distance_rows = smplDist,
-                       clustering_distance_cols = smplDist,
-                       clustering_method = clstDist, 
-                        border_color = NA,#border.col,
-                       cluster_rows = rowBool, 
-                       cluster_cols = colBool,
-                       scale = "column",
-                       show_rownames= includeRowNames,
-                       color = colors,
-                       display_numbers=displayText);
-  dev.off();
+                       display_numbers = FALSE);
+    dev.off();
+
+    return(input_data$imgName)
+  }
+
+  tryCatch({
+    rsclient_isolated_exec(
+      func_body = isolated_func,
+      input_data = data_for_callr,
+      packages = c("pheatmap", "Cairo", "RColorBrewer", "fastcluster"),
+      timeout = 180
+    )
+  }, error = function(e) {
+    message(sprintf("PlotMetaHeatmap failed: %s", e$message))
+  })
+  # plot/write failure is non-fatal
 
   return(.set.rdt.set(rdtSet));
 }
@@ -186,10 +167,6 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
   met <- sapply(metaData, function(x) as.integer(x))
   rownames(met) <- smp.nms;
 
-  plot_dims <- get_pheatmap_dims(met, NA, viewOpt, width);
-  h <- plot_dims$height;
-  w <- plot_dims$width;
-
   # set up parameter for heatmap
   if(colorGradient=="gbr"){
     colors <- colorRampPalette(c("green", "black", "red"), space="rgb")(256);
@@ -212,11 +189,9 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
     }else if(colorGradient == "d3"){
         colors <- c("#2CA02CFF","white","#FF7F0EFF");
     }else {
-         colors <- c( "blue", "white",  "red") #rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
+         colors <- c( "blue", "white",  "red")
     }
 
- 
-   
   if(clustSelOpt == "both"){
     rowBool = T;
     colBool = T;
@@ -231,48 +206,79 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
     colBool = F;
   }
 
-  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
-       displayText = metaData;
-    if(viewOpt == "overview"){
-       displayText = F;
-    }
-
-   p <- pheatmap::pheatmap(met, 
-                       fontsize=12, fontsize_row=8, 
-                       clustering_distance_rows = smplDist,
-                       clustering_distance_cols = smplDist,
-                       clustering_method = clstDist, 
-                      # border_color = border.col,
-                       cluster_rows = rowBool, 
-                       cluster_cols = colBool,
-                       scale = "column",
-                       show_rownames= includeRowNames,
-                       color = colors,
-                       display_numbers=displayText,silent = TRUE);
-       if(rowBool){
-         p$tree_row$order <- rev(p$tree_row$order)
-         rowBool <-  p$tree_row
-      }else{
-         met <- met[,ncol(met):1]
-      }
-    
-    pheatmap::pheatmap(met, 
-                       fontsize=12, fontsize_row=8, 
-                       clustering_distance_rows = smplDist,
-                       clustering_distance_cols = smplDist,
-                       clustering_method = clstDist, 
-                      # border_color = border.col,
-                       cluster_rows = rowBool, 
-                       cluster_cols = colBool,
-                       scale = "column",
-                       show_rownames= includeRowNames,
-                       color = colors,
-                       display_numbers=displayText);
-  dev.off();
-
+  # Isolate pheatmap in subprocess
   infoSet <- readSet(infoSet, "infoSet");
   infoSet$imgSet$metaHeatmap <- imgName;
   saveSet(infoSet);
+
+  data_for_callr <- list(
+    met = met,
+    metaData = metaData,
+    viewOpt = viewOpt,
+    clustSelOpt = clustSelOpt,
+    smplDist = smplDist,
+    clstDist = clstDist,
+    colorGradient = colorGradient,
+    includeRowNames = includeRowNames,
+    rowBool = rowBool,
+    colBool = colBool,
+    imgName = imgName,
+    format = format,
+    dpi = dpi,
+    width = width,
+    colors = colors,
+    lib_paths = .libPaths()
+  )
+
+  isolated_func <- function(input_data) {
+    if (!is.null(input_data$lib_paths)) {
+      .libPaths(input_data$lib_paths)
+    }
+
+    met <- input_data$met
+    metaData <- input_data$metaData
+    colors <- input_data$colors
+    rowBool <- input_data$rowBool
+    colBool <- input_data$colBool
+
+    if(nrow(met) > 1000){
+      met <- met[1:1000, , drop=FALSE]
+    }
+
+    w <- max(8, ncol(met) * 0.2 + 2)
+    h <- max(6, min(nrow(met) * 0.02 + 2, 20))
+
+    Cairo::Cairo(file = input_data$imgName, unit="in", dpi=input_data$dpi,
+                 width=w, height=h, type=input_data$format, bg="white");
+
+    pheatmap::pheatmap(met,
+                       fontsize=12, fontsize_row=8,
+                       clustering_distance_rows = input_data$smplDist,
+                       clustering_distance_cols = input_data$smplDist,
+                       clustering_method = input_data$clstDist,
+                       border_color = NA,
+                       cluster_rows = rowBool,
+                       cluster_cols = colBool,
+                       scale = "column",
+                       show_rownames = input_data$includeRowNames,
+                       color = colors,
+                       display_numbers = FALSE);
+    dev.off();
+
+    return(input_data$imgName)
+  }
+
+  tryCatch({
+    rsclient_isolated_exec(
+      func_body = isolated_func,
+      input_data = data_for_callr,
+      packages = c("pheatmap", "Cairo", "RColorBrewer", "fastcluster"),
+      timeout = 180
+    )
+  }, error = function(e) {
+    message(sprintf("PlotStaticMetaHeatmap failed: %s", e$message))
+  })
+  # plot/write failure is non-fatal
 
   return(.set.rdt.set(rdtSet));
 }

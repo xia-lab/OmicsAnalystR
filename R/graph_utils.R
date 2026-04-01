@@ -242,7 +242,7 @@ ExtractModule<- function(nodeids){
 }
 
 PerformLayOut <- function(net.nm, algo, focus=""){
-    if(!exists("my.perform.layout")){ # public web on same user dir
+    if(!exists("my.perform.layout")){
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_graph.Rc");    
     }
     return(my.perform.layout(net.nm, algo, focus));
@@ -409,8 +409,7 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
     return(list(all.communities=all.communities, gene.community=gene.community, pval.vec=pval.vec));
   }
 
-  if(exists("callr_isolated_exec", mode="function")){
-    input_data <- list(
+  input_data <- list(
       g = ppi.comps[[current.net.nm]],
       node_data = ppi.net$node.data,
       seed_expr = seed.expr,
@@ -545,13 +544,14 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
       }
       return(list(all.communities=all.communities, gene.community=gene.community, pval.vec=pval.vec))
     }
-    result <- callr_isolated_exec(
+    result <- rsclient_isolated_exec(
       func_body = isolated_func,
       input_data = input_data,
       packages = c("igraph", "qs"),
       timeout = 300,
       output_type = "qs"
     )
+    if (is.list(result) && isFALSE(result$success)) { AddErrMsg(result$message); return(0) }
     if(!is.null(result$gene.community)){
       if(exists("fast.write", mode="function")){
         fast.write(result$gene.community, file="module_table.csv", row.names=F)
@@ -563,21 +563,6 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
       pvall <<- result$pval.vec
     }
     return(result$all.communities)
-  }
-
-  load_igraph()
-  res <- .local_find_communities(
-    g = ppi.comps[[current.net.nm]],
-    node_data = ppi.net$node.data,
-    seed_expr = seed.expr,
-    seed_proteins = seed.proteins,
-    method = method,
-    use_weight = use.weight
-  )
-  if(!is.null(res$gene.community)){
-    fast.write(res$gene.community, file="module_table.csv", row.names=F)
-  }
-  return(res$all.communities)
 }
 
 community.significance.test <- function(graph, vs, ...) {
@@ -590,11 +575,110 @@ community.significance.test <- function(graph, vs, ...) {
 
 convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
 
-    if(!exists("my.convert.igraph")){ # public web on same user dir
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_graph.Rc");    
+  # Whole-function isolation (igraph + compiled scripts in subprocess)
+  reductionSet <- .get.rdt.set();
+    sel.nms <- names(mdata.all)[mdata.all==1];
+    dataSetList <- lapply(sel.nms, readDataset);
+    names(dataSetList) <- sel.nms;
+
+    input_data <- list(
+      ppi.comps      = ppi.comps,
+      ppi.net        = ppi.net,
+      current.net.nm = net.nm,
+      mdata.all      = mdata.all,
+      data.org       = if (exists("data.org", envir = .GlobalEnv)) get("data.org", envir = .GlobalEnv) else "NA",
+      anal.type      = if (exists("anal.type", envir = .GlobalEnv)) get("anal.type", envir = .GlobalEnv) else "multiomics",
+      sel.nms        = sel.nms,
+      dataSetList    = dataSetList,
+      reductionSet   = reductionSet,
+      fileName       = filenm,
+      idType         = idType,
+      globalConfig   = globalConfig,
+      infoSet        = if (exists("infoSet", envir = .GlobalEnv)) get("infoSet", envir = .GlobalEnv) else NULL,
+      seed.proteins  = if (exists("seed.proteins", envir = .GlobalEnv)) seed.proteins else character(0),
+      seed.expr      = if (exists("seed.expr", envir = .GlobalEnv)) seed.expr else numeric(0)
+    )
+    isolated_func <- function(input_data) {
+      library(igraph)
+      library(rjson)
+      library(RColorBrewer)
+      library(Cairo)
+      library(compiler)
+
+      # Restore globals in subprocess
+      ppi.comps        <<- input_data$ppi.comps
+      ppi.net          <<- input_data$ppi.net
+      current.net.nm   <<- input_data$current.net.nm
+      mdata.all        <<- input_data$mdata.all
+      data.org         <<- input_data$data.org
+      anal.type        <<- input_data$anal.type
+      globalConfig     <<- input_data$globalConfig
+      seed.proteins    <<- input_data$seed.proteins
+      seed.expr        <<- input_data$seed.expr
+      if (!exists(".on.public.web")) .on.public.web <<- TRUE
+
+      sel.nms          <- input_data$sel.nms
+      dataSetList      <- input_data$dataSetList
+      fileName         <- input_data$fileName
+      idType           <- input_data$idType
+      reductionSet_local <- input_data$reductionSet
+      infoSet          <- input_data$infoSet
+
+      # Mock helpers for subprocess
+      readDataset  <<- function(nm) { dataSetList[[nm]] }
+      .get.rdt.set <<- function() { reductionSet_local }
+      .set.rdt.set <<- function(rdtSet) { reductionSet_local <<- rdtSet }
+      readSet      <<- function(obj, nm) { infoSet }
+      saveSet      <<- function(obj) { infoSet <<- obj }
+      load_cairo   <<- function() { library(Cairo) }
+      load_pheatmap <<- function() { library(pheatmap) }
+
+      tryCatch({
+        # Load compiled utility files
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/general_load_libs.Rc", .GlobalEnv)
+        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/data_utils.Rc", .GlobalEnv)
+        source("../../rscripts/OmicsAnalystR/R/misc_utils.R", local = FALSE)
+        source("../../rscripts/OmicsAnalystR/R/graph_utils.R", local = FALSE)
+        source("../../rscripts/OmicsAnalystR/R/util_graph.R", local = FALSE)
+
+        result <- my.convert.igraph(current.net.nm, fileName, idType)
+
+        return(list(
+          success        = result,
+          current.net.nm = current.net.nm,
+          infoSet        = infoSet,
+          reductionSet   = reductionSet_local,
+          ppi.comps      = ppi.comps
+        ))
+      }, error = function(e) {
+        return(list(success = 0, msg = paste("convertIgraph2JSON failed:", e$message)))
+      })
     }
-   
-    return(my.convert.igraph(net.nm, filenm, idType));
+
+    result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = input_data,
+        packages = c("igraph", "rjson", "RColorBrewer", "Cairo", "pheatmap", "compiler", "qs"),
+        timeout = 300,
+        output_type = "qs"
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("convertIgraph2JSON failed:", e$message))
+      return(NULL)
+    })
+
+    if (is.null(result) || result$success != 1) {
+      return(0)
+    }
+    # Restore updated state to Master
+    current.net.nm <<- result$current.net.nm
+    if (!is.null(result$infoSet)) saveSet(result$infoSet)
+    if (!is.null(result$reductionSet)) .set.rdt.set(result$reductionSet)
+    if (!is.null(result$ppi.comps)) {
+      qs::qsave(result$ppi.comps, "ppi.comps.qs", preset = "fast")
+    }
+    return(1)
 }
 
 
@@ -713,43 +797,140 @@ ProcessGraphFile <- function(graph=new_g, labels, typeList=type.list, generateJs
 
 
 
-ProcessIntLIMGraphFile <- function(graph=new_g,  generateJson = F){  
-  library(igraph)
-  overall.graph <<- graph
-  nms <- V(graph)$name; 
-  lbls <- V(graph)$label
-  node.data = data.frame(nms, lbls); 
-  seed.proteins <<- nms;
-    
-  seed.genes <<- seed.proteins;
-  e=as_edgelist(graph)
-  edge.data= data.frame(Source=e[,1], Target=e[,2])
-  
-  seed.expr <<- rep(0, length(node.data));
-  substats <- DecomposeGraph(graph);
-  
-  if(is.null(substats)){
-    msg.vec <<- "No subnetworks containing at least 3 edges are identified"
-    return(0);
-  }
-  
-  net.nm <- names(ppi.comps)[1];
-  net.nmu <<- net.nm;
-  current.net.nm <<- net.nm;
-  #ppi.comps[["overall"]] <- graph
-  ppi.comps <<- ppi.comps
-  g <- ppi.comps[[net.nm]];
-  ppi.net <<- list(db.type="abc",
-                   db.type="ppi", 
-                   order=1, 
-                   seeds=nms, 
-                   table.nm=" ", 
-                   node.data = node.data,
-                   edge.data = edge.data
-  );
-  data.idType <<- "NA"; 
-  if(generateJson){
-    convertIgraph2JSON(current.net.nm , "omicsanalyst_net_0.json");
-  }
-  return(1);
+ProcessIntLIMGraphFile <- function(graph=new_g,  generateJson = F){
+
+  # igraph operations + DecomposeGraph in subprocess
+  reductionSet <- .get.rdt.set();
+    sel.nms <- names(mdata.all)[mdata.all==1];
+    dataSetList <- lapply(sel.nms, readDataset);
+    names(dataSetList) <- sel.nms;
+
+    input_data <- list(
+      graph       = graph,
+      mdata.all   = mdata.all,
+      reductionSet = reductionSet,
+      dataSetList = dataSetList,
+      sel.nms     = sel.nms
+    )
+    isolated_func <- function(input_data) {
+      library(igraph)
+      graph          <- input_data$graph
+      mdata.all      <<- input_data$mdata.all
+      reductionSet   <- input_data$reductionSet
+      dataSetList    <- input_data$dataSetList
+      sel.nms        <- input_data$sel.nms
+
+      # Mock helpers
+      readDataset  <<- function(nm) { dataSetList[[nm]] }
+      .get.rdt.set <<- function() { reductionSet }
+
+      nms <- V(graph)$name
+      lbls <- V(graph)$label
+      node.data <- data.frame(nms = nms, lbls = lbls)
+      e <- igraph::as_edgelist(graph)
+      edge.data <- data.frame(Source = e[,1], Target = e[,2])
+
+      # DecomposeGraph inline
+      comps <- igraph::decompose.graph(graph, min.vertices = 2)
+      if (length(comps) == 0) {
+        return(list(success = FALSE, msg = "No subnetworks containing at least 3 edges are identified"))
+      }
+
+      # ComputeSubnetStats inline
+      net.stats <- as.data.frame(matrix(0, ncol = 3, nrow = length(comps)))
+      colnames(net.stats) <- c("Node", "Edge", "Query")
+      if (exists("corr.mat.inter.taxa", reductionSet) & reductionSet$taxlvl != "Feature") {
+        for (j in 1:length(comps)) {
+          cg <- comps[[j]]
+          nd.queries <- V(cg)$name
+          nd.res <- ""
+          dataSet <- dataSetList[[sel.nms[reductionSet$micidx]]]
+          lbl <- reductionSet$taxlvl
+          tax.nms <- unique(dataSet$taxa_table[, reductionSet$taxlvl])
+          if (sum(tax.nms %in% nd.queries) > 0 && !grepl(lbl, nd.res)) {
+            nd.res <- paste0(lbl, ": ", sum(tax.nms %in% nd.queries), "; ", nd.res)
+          }
+          dataSet2 <- dataSetList[[sel.nms[reductionSet$residx]]]
+          met.nms <- unique(unname(dataSet2$enrich_ids))
+          if (sum(met.nms %in% nd.queries) > 0) {
+            nd.res <- paste0("Metabolite: ", sum(met.nms %in% nd.queries), "; ", nd.res)
+          }
+          net.stats[j,] <- c(nd.res, igraph::ecount(cg), 0)
+        }
+      } else {
+        for (j in 1:length(comps)) {
+          cg <- comps[[j]]
+          nd.res <- ""
+          for (i in 1:length(sel.nms)) {
+            dataSet <- dataSetList[[sel.nms[[i]]]]
+            lbl <- dataSet$readableType
+            if (sum(V(cg)$type == dataSet$type) && !grepl(lbl, nd.res)) {
+              nd.res <- paste0(lbl, ": ", sum(V(cg)$type == dataSet$type), "; ", nd.res)
+            }
+          }
+          net.stats[j,] <- c(nd.res, igraph::ecount(cg), 0)
+        }
+      }
+
+      ord.inx <- order(as.numeric(net.stats[,2]), decreasing = TRUE)
+      net.stats <- net.stats[ord.inx,]
+      comps <- comps[ord.inx]
+      names(comps) <- rownames(net.stats) <- paste0("subnetwork", 1:length(comps))
+      hit.inx <- net.stats$Node >= 2
+      comps <- comps[hit.inx]
+      sub.stats <- unlist(lapply(comps, igraph::vcount))
+
+      return(list(
+        success    = TRUE,
+        nms        = nms,
+        node.data  = node.data,
+        edge.data  = edge.data,
+        ppi.comps  = comps,
+        net.stats  = net.stats,
+        sub.stats  = sub.stats
+      ))
+    }
+
+    result <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = input_data,
+        packages = c("igraph"),
+        timeout = 300,
+        output_type = "qs"
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("ProcessIntLIMGraphFile failed:", e$message))
+      return(NULL)
+    })
+
+    if (is.null(result) || !isTRUE(result$success)) {
+      msg.vec <<- if (!is.null(result$message)) result$message else "ProcessIntLIMGraphFile failed"
+      return(0)
+    }
+
+    # Restore globals from subprocess
+    nms <- result$nms
+    overall.graph <<- graph
+    seed.proteins <<- nms
+    seed.genes <<- seed.proteins
+    seed.expr <<- rep(0, length(result$node.data))
+    ppi.comps <<- result$ppi.comps
+    net.stats <<- result$net.stats
+
+    net.nm <- names(ppi.comps)[1]
+    net.nmu <<- net.nm
+    current.net.nm <<- net.nm
+    ppi.net <<- list(db.type="abc",
+                     db.type="ppi",
+                     order=1,
+                     seeds=nms,
+                     table.nm=" ",
+                     node.data = result$node.data,
+                     edge.data = result$edge.data)
+    data.idType <<- "NA"
+    if(generateJson){
+      convertIgraph2JSON(current.net.nm, "omicsanalyst_net_0.json")
+    }
+    return(1)
 }

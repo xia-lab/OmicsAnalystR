@@ -230,3 +230,76 @@ CheckDetailsTablePerformed <-function(type, dataName){
 
   return(performed)
 }
+
+# =============================================================================
+# RSclient Subprocess Execution (Rserve fork isolation)
+# =============================================================================
+# Core infrastructure for isolating heavy R packages in forked Rserve children.
+# RSclient comes with Rserve and is available on all deployments.
+# pro_report_utils.R provides report rendering isolation.
+
+#' Execute R function in forked Rserve child via RSclient
+#' @param func Function to run
+#' @param args List of arguments passed via do.call
+#' @param timeout_sec Hard timeout in seconds
+#' @return Result of do.call(func, args)
+run_func_via_rsclient <- function(func, args = list(), timeout_sec = 60) {
+  conn <- RSclient::RS.connect(host = "localhost", port = 6311)
+  on.exit(try(RSclient::RS.close(conn), silent = TRUE))
+  RSclient::RS.assign(conn, ".exec_wd", getwd())
+  RSclient::RS.assign(conn, ".exec_func", func)
+  RSclient::RS.assign(conn, ".exec_args", args)
+  RSclient::RS.assign(conn, ".exec_timeout", timeout_sec)
+  RSclient::RS.eval(conn, quote({
+    setwd(.exec_wd)
+    setTimeLimit(elapsed = .exec_timeout, transient = TRUE)
+    on.exit(setTimeLimit(elapsed = Inf))
+    do.call(.exec_func, .exec_args)
+  }))
+}
+
+#' Execute heavy package function in isolated RSclient fork
+#' @param func_body Function(input_data) to run in child
+#' @param input_data List serialized via qs to child
+#' @param packages Packages to load in child before execution
+#' @param timeout Timeout in seconds
+#' @param output_type "qs" for complex objects
+#' @return Result from child process
+rsclient_isolated_exec <- function(func_body, input_data, packages = character(0),
+                                   timeout = 180, output_type = "qs") {
+  bridge_tmp <- file.path(tempdir(), "rsclient_bridge")
+  if (!dir.exists(bridge_tmp)) dir.create(bridge_tmp, recursive = TRUE)
+  uid <- paste0(sample(letters, 6), collapse = "")
+  input_path <- file.path(bridge_tmp, paste0(uid, "_in.qs"))
+  output_path <- file.path(bridge_tmp, paste0(uid, "_out.qs"))
+  qs::qsave(input_data, input_path, preset = "fast")
+  Sys.sleep(0.02)
+  on.exit({ for (p in c(input_path, output_path)) if (file.exists(p)) unlink(p) }, add = TRUE)
+  result <- run_func_via_rsclient(
+    func = function(input_path, output_path, func_body, pkgs) {
+      tryCatch({
+        for (pkg in pkgs) suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+        input_data <- qs::qread(input_path)
+        res <- func_body(input_data)
+        qs::qsave(res, output_path, preset = "fast")
+        Sys.sleep(0.02)
+        list(success = TRUE)
+      }, error = function(e) {
+        list(success = FALSE, message = e$message)
+      })
+    },
+    args = list(input_path = input_path, output_path = output_path,
+                func_body = func_body, pkgs = packages),
+    timeout_sec = timeout
+  )
+  if (isTRUE(result$success) && file.exists(output_path)) {
+    return(qs::qread(output_path))
+  }
+  msg <- if (!is.null(result$message)) result$message else "RSclient subprocess failed"
+  message("[rsclient_isolated_exec] ", msg)
+  return(list(success = FALSE, message = msg))
+}
+
+# Null-coalescing operator
+if (!exists("%||%")) `%||%` <- function(a, b) if (is.null(a)) b else a
+

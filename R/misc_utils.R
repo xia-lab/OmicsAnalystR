@@ -131,7 +131,7 @@ all.numeric <- function (x, what = c("test", "vector"), extras = c(".", "NA")){
 # Adds an error message
 AddErrMsg <- function(msg){
   msg.vec <<- c(msg.vec, msg);
-  print(msg);
+  message("[ERROR] ", msg);
 }
 
 UnzipUploadedFile<-function(zip_file){
@@ -411,14 +411,6 @@ color_scale <- function(c1="grey", c2="red") {
   pal <- colorRampPalette(c(c1, c2))
   colors <- pal(100)
   return(colors)
-}
-
-
-# in public web, this is done by microservice
-.perform.computing <- function(){
-  dat.in <- qs::qread("dat.in.qs"); 
-  dat.in$my.res <- dat.in$my.fun();
-  qs::qsave(dat.in, file="dat.in.qs");    
 }
 
 fast.write <- function(dat, file, row.names=TRUE){
@@ -829,9 +821,8 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 saveSet <- function(obj=NA, set="", output=1){
 
     #if(globalConfig$anal.mode == "api"){
-      qs:::qsave(obj, paste0(obj$objName, ".qs"));
-      # CRITICAL: Prevent race condition - allow file system to sync before Java reads
-      Sys.sleep(0.15);
+      qs::qsave(obj, paste0(obj$objName, ".qs"));
+      Sys.sleep(0.05);
     #}else{
     #  if(set == ""){
     #    set <- obj$objName;
