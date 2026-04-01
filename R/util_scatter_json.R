@@ -265,33 +265,26 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
   inx = rownames(pos.xyz) %in% names;
   coords = as.matrix(pos.xyz[inx,c(1:3)])
 
-  if (nrow(coords) < 4) {
-    sink(filenm); cat(RJSONIO::toJSON(list())); sink()
-    return(filenm)
+  mesh = list()
+  if(type == "alpha"){
+    library(alphashape3d)
+    library(rgl)
+    sh=ashape3d(coords, 1.0, pert = FALSE, eps = 1e-09);
+    mesh[[1]] = as.mesh3d(sh, triangles=T);
+  }else if(type == "ellipse"){
+    library(rgl);
+    pos=cov(coords, y = NULL, use = "everything");
+    mesh[[1]] = ellipse3d(x=as.matrix(pos), level=level);
+  }else{
+    library(ks);
+    res=kde(coords);
+    r = plot(res, cont=level*100, display="rgl");
+    sc = scene3d();
+    mesh = sc$objects;
   }
-
-  tryCatch({
-    mesh <- rsclient_isolated_exec(
-      func_body = function(input_data) {
-        Sys.setenv(RGL_USE_NULL = TRUE)
-        pos <- cov(input_data$coords, y = NULL, use = "everything")
-        center <- colMeans(input_data$coords)
-        t_val <- sqrt(qchisq(input_data$level, 3))
-        mesh <- list()
-        mesh[[1]] <- rgl::ellipse3d(x = as.matrix(pos), centre = center, t = t_val)
-        mesh
-      },
-      input_data = list(coords = coords, level = level),
-      packages = c("rgl", "qs"),
-      timeout = 120,
-      output_type = "qs"
-    )
-    if (!is.list(mesh) || !isFALSE(mesh$success)) {
-      sink(filenm); cat(RJSONIO::toJSON(mesh)); sink()
-    }
-  }, error = function(e) {
-    message("[ComputeEncasing] ", e$message)
-    sink(filenm); cat("{}"); sink()
-  })
+  library(RJSONIO);
+  sink(filenm);
+  cat(RJSONIO::toJSON(mesh));
+  sink();
   return(filenm)
 }

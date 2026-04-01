@@ -63,16 +63,16 @@ print(pval.type)
   # process metadata table (covariates)
    for(i in c(1:length(var.types))){ # ensure all columns are the right type
     if(var.types[i] == "disc"){
-      if(class(covariates[,i]) !="factor"){
-        covariates[,i] <- covariates[,i] %>% make.names() %>% factor()
+      if(!is.factor(covariates[,i])){
+        covariates[,i] <- factor(make.names(covariates[,i]))
       }
     } else {
-      if("NA" %in%covariates[,i] | any(is.na( covariates[,i])) ){
-        covariates[!is.na(covariates[,i]) & covariates[,i]!="NA" ,i] <- covariates[!is.na(covariates[,i]) & covariates[,i]!="NA",i] %>% as.character() %>% as.numeric()
-      }else{
-        covariates[,i] <- covariates[,i] %>% as.character() %>% as.numeric()
+      if("NA" %in% covariates[,i] | any(is.na(covariates[,i]))){
+        valid <- !is.na(covariates[,i]) & covariates[,i] != "NA"
+        covariates[valid, i] <- as.numeric(as.character(covariates[valid, i]))
+      } else {
+        covariates[,i] <- as.numeric(as.character(covariates[,i]))
       }
-
     }
   }
   #subset to samples contained in dataset

@@ -162,6 +162,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
         rsclient_isolated_exec(
           func_body = function(input_data) {
             library(mixOmics)
+            library(BiocParallel)
+            register(SerialParam())
             data.list <- input_data$data.list
             meta <- input_data$meta
             diabloMeta <- input_data$diabloMeta
@@ -176,7 +178,11 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
               design <- matrix(diabloPar, ncol = length(data.list), nrow = length(data.list),
                               dimnames = list(names(data.list), names(data.list)))
               diag(design) <- 0
-              data.list <- lapply(data.list, t)
+              data.list <- lapply(data.list, function(x) {
+                xt <- t(x)
+                feat.var <- apply(xt, 2, var, na.rm = TRUE)
+                xt[, !is.na(feat.var) & feat.var > 0, drop = FALSE]
+              })
               model <- mixOmics::block.splsda(X = data.list, Y = Y, ncomp = ncomps, design = design)
             } else {
               meta.var <- meta[, diabloMeta]
@@ -185,7 +191,11 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
               design <- matrix(diabloPar, ncol = length(data.list), nrow = length(data.list),
                               dimnames = list(names(data.list), names(data.list)))
               diag(design) <- 0
-              data.list <- lapply(data.list, t)
+              data.list <- lapply(data.list, function(x) {
+                xt <- t(x)
+                feat.var <- apply(xt, 2, var, na.rm = TRUE)
+                xt[, !is.na(feat.var) & feat.var > 0, drop = FALSE]
+              })
               model <- mixOmics::block.spls(X = data.list, Y = Y, ncomp = ncomps, design = design, mode = "regression")
             }
 
@@ -241,7 +251,17 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
             ber_table <- NULL
             tryCatch({
               if (diablo.meta.type == "disc") {
-                perf.res <- mixOmics::perf(model, validation = 'Mfold', folds = 10, nrepeat = 1, dist = 'max.dist')
+                # Limit ncomp for perf to avoid zero-variance in folds (same as MicrobiomeAnalyst)
+                ncomp_perf <- min(model$ncomp[1], 8)
+                res_perf <- model
+                res_perf$ncomp <- rep(ncomp_perf, length(model$ncomp))
+                if (!is.null(res_perf$keepX)) {
+                  res_perf$keepX <- lapply(res_perf$keepX, function(k) k[seq_len(min(length(k), ncomp_perf))])
+                }
+                if (!is.null(res_perf$keepA)) {
+                  res_perf$keepA <- lapply(res_perf$keepA, function(k) k[seq_len(min(length(k), ncomp_perf))])
+                }
+                perf.res <- mixOmics:::perf(res_perf, validation = 'Mfold', folds = 5, nrepeat = 1, dist = 'max.dist', near.zero.var = TRUE)
                 tmp_ber <- "diablo_berdpi150.png"
                 if (!is.null(perf.res$choice.ncomp)) {
                   opt.comp <- median(perf.res$choice.ncomp$WeightedVote)
@@ -315,7 +335,10 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
                 }
               }
             }, error = function(e) {
-              message("BER diagnostic failed (non-fatal): ", e$message)
+              message("BER diagnostic failed (non-fatal): ", e$message,
+                      "\nNote: Cross-validation performance (BER) may fail due to small sample size ",
+                      "or features with zero variance within individual folds. ",
+                      "This does not affect the DIABLO model results.")
               tryCatch(dev.off(), error = function(e2) {})
             })
 
@@ -348,27 +371,37 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
               tryCatch(dev.off(), error = function(e2) {})
             })
 
-            # Generate circos JSON for interactive chord diagram
+            # Generate circos JSON for interactive chord diagram (same logic as GenerateDiabloCircosJson)
             tryCatch({
               block_names <- names(model$X)
               X_proj <- lapply(model$X, function(x) x[, which(apply(x, 2, var) > 0), drop = FALSE])
-              cor_cross <- cor(X_proj[[1]], X_proj[[2]])
               cutoff <- 0.5
-              sig_idx <- which(abs(cor_cross) > cutoff, arr.ind = TRUE)
-              if (nrow(sig_idx) == 0) {
-                top_n <- min(50, length(cor_cross))
-                top_idx <- order(abs(cor_cross), decreasing = TRUE)[1:top_n]
-                sig_idx <- arrayInd(top_idx, dim(cor_cross))
+              maxEdges <- 100
+              all_edges <- list()
+              # Compute all pairwise cross-block correlations
+              for (bi in 1:(length(X_proj)-1)) {
+                for (bj in (bi+1):length(X_proj)) {
+                  cor_cross <- cor(X_proj[[bi]], X_proj[[bj]])
+                  sig_idx <- which(abs(cor_cross) > cutoff, arr.ind = TRUE)
+                  if (nrow(sig_idx) > 0) {
+                    for (k in 1:nrow(sig_idx)) {
+                      all_edges[[length(all_edges)+1]] <- list(
+                        source = rownames(cor_cross)[sig_idx[k,1]],
+                        target = colnames(cor_cross)[sig_idx[k,2]],
+                        corr = round(cor_cross[sig_idx[k,1], sig_idx[k,2]], 4),
+                        type1 = block_names[bi], type2 = block_names[bj],
+                        label1 = rownames(cor_cross)[sig_idx[k,1]],
+                        label2 = colnames(cor_cross)[sig_idx[k,2]])
+                    }
+                  }
+                }
               }
-              edges <- lapply(1:nrow(sig_idx), function(i) {
-                list(source = rownames(cor_cross)[sig_idx[i,1]],
-                     target = colnames(cor_cross)[sig_idx[i,2]],
-                     corr = round(cor_cross[sig_idx[i,1], sig_idx[i,2]], 4),
-                     type1 = block_names[1], type2 = block_names[2],
-                     label1 = rownames(cor_cross)[sig_idx[i,1]],
-                     label2 = colnames(cor_cross)[sig_idx[i,2]])
-              })
-              jsonlite::write_json(list(DIABLO = edges), "diablo_circos.json", auto_unbox = TRUE, pretty = FALSE)
+              # Cap at maxEdges by top absolute correlation
+              if (length(all_edges) > maxEdges) {
+                corrs <- sapply(all_edges, function(e) abs(e$corr))
+                all_edges <- all_edges[order(corrs, decreasing=TRUE)[1:maxEdges]]
+              }
+              jsonlite::write_json(list(DIABLO = all_edges), "diablo_circos.json", auto_unbox = TRUE, pretty = FALSE)
             }, error = function(e) message("[DIABLO circosJSON] ", e$message))
 
             gc(verbose = FALSE, full = TRUE)
@@ -426,10 +459,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
   #loading.pos.xyz$filenm <-   filenms
-   print(head(loading.pos.xyz))
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))
-      print("s9")
   # Initialize the list element before assigning properties
   reductionSet[[reductionOpt]] <- list()
   reductionSet[[reductionOpt]]$pos.xyz <- pos.xyz;
@@ -465,7 +496,6 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet[[reductionOpt]]$loading.enrich <- loadingSymbols
   reductionSet[[reductionOpt]]$loading.names <- featureNms
   reductionSet$omicstype <- names(data.list)
-      print("s10")
   reductionSet$reductionOpt <- reductionOpt;
   saveSet(infoSet);
   .set.rdt.set(reductionSet);
@@ -813,22 +843,29 @@ GenerateDiabloCircosJson <- function(cutoff=0.5, maxEdges=100) {
         model <- qs::qread("diablo_model.qs")
         block_names <- names(model$X)
         X_proj <- lapply(model$X, function(x) x[, which(apply(x, 2, var) > 0), drop = FALSE])
-        cor_cross <- cor(X_proj[[1]], X_proj[[2]])
-        sig_idx <- which(abs(cor_cross) > input_data$cutoff, arr.ind = TRUE)
-        if (nrow(sig_idx) == 0 || nrow(sig_idx) > input_data$maxEdges) {
-          top_n <- min(input_data$maxEdges, length(cor_cross))
-          top_idx <- order(abs(cor_cross), decreasing = TRUE)[1:top_n]
-          sig_idx <- arrayInd(top_idx, dim(cor_cross))
+        all_edges <- list()
+        for (bi in 1:(length(X_proj)-1)) {
+          for (bj in (bi+1):length(X_proj)) {
+            cor_cross <- cor(X_proj[[bi]], X_proj[[bj]])
+            sig_idx <- which(abs(cor_cross) > input_data$cutoff, arr.ind = TRUE)
+            if (nrow(sig_idx) > 0) {
+              for (k in 1:nrow(sig_idx)) {
+                all_edges[[length(all_edges)+1]] <- list(
+                  source = rownames(cor_cross)[sig_idx[k,1]],
+                  target = colnames(cor_cross)[sig_idx[k,2]],
+                  corr = round(cor_cross[sig_idx[k,1], sig_idx[k,2]], 4),
+                  type1 = block_names[bi], type2 = block_names[bj],
+                  label1 = rownames(cor_cross)[sig_idx[k,1]],
+                  label2 = colnames(cor_cross)[sig_idx[k,2]])
+              }
+            }
+          }
         }
-        edges <- lapply(1:nrow(sig_idx), function(i) {
-          list(source = rownames(cor_cross)[sig_idx[i,1]],
-               target = colnames(cor_cross)[sig_idx[i,2]],
-               corr = round(cor_cross[sig_idx[i,1], sig_idx[i,2]], 4),
-               type1 = block_names[1], type2 = block_names[2],
-               label1 = rownames(cor_cross)[sig_idx[i,1]],
-               label2 = colnames(cor_cross)[sig_idx[i,2]])
-        })
-        jsonlite::write_json(list(DIABLO = edges), "diablo_circos.json", auto_unbox = TRUE, pretty = FALSE)
+        if (length(all_edges) > input_data$maxEdges) {
+          corrs <- sapply(all_edges, function(e) abs(e$corr))
+          all_edges <- all_edges[order(corrs, decreasing=TRUE)[1:input_data$maxEdges]]
+        }
+        jsonlite::write_json(list(DIABLO = all_edges), "diablo_circos.json", auto_unbox = TRUE, pretty = FALSE)
         TRUE
       },
       input_data = list(cutoff = cutoff, maxEdges = maxEdges),
@@ -836,7 +873,7 @@ GenerateDiabloCircosJson <- function(cutoff=0.5, maxEdges=100) {
       timeout = 120,
       output_type = "qs"
     ),
-  error = function(e) message("[GenerateDiabloCircosJson] ", e$message))
+  error = function(e) AddErrMsg(paste("[GenerateDiabloCircosJson]", e$message)))
   return(1)
 }
 
@@ -846,121 +883,14 @@ PlotDiabloBER <- function(imgNm, dpi=150, format="png") {
   dpi <- as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
-  # Check if pre-generated in reduce.dimension subprocess
-  reductionSet <- .get.rdt.set()
-  if (isTRUE(reductionSet[["diablo"]]$ber_done)) {
-      pregenerated <- paste0("diablo_ber", "dpi", dpi, ".", format)
-      if (file.exists(pregenerated) && pregenerated != imgNm) {
-        file.rename(pregenerated, imgNm)
-      }
-      infoSet$imgSet[["diablo_ber"]] <- imgNm
-      saveSet(infoSet)
-      return(1)
-    }
-    # Fallback: run in subprocess (perf + plot)
-    ber_result <- tryCatch({
-      model_path <- normalizePath("diablo_model.qs", mustWork = TRUE)
-      rsclient_isolated_exec(
-        func_body = function(input_data) {
-          library(mixOmics)
-          library(ggplot2)
-          library(see)
-          library(Cairo)
-          library(data.table)
+  # Use pre-generated BER from reduce.dimension subprocess
+  pregenerated <- paste0("diablo_ber", "dpi", dpi, ".", format)
+  if (file.exists(pregenerated) && pregenerated != imgNm) {
+    file.rename(pregenerated, imgNm)
+  }
 
-          model <- qs::qread(input_data$model_path)
-          imgNm <- input_data$imgNm
-          dpi <- input_data$dpi
-          format <- input_data$format
-
-          perf.res <- mixOmics::perf(model, validation = 'Mfold', folds = 10, nrepeat = 1, dist = 'max.dist')
-          opt.comp <- NULL
-          if (!is.null(perf.res$choice.ncomp)) {
-            opt.comp <- median(perf.res$choice.ncomp$WeightedVote)
-          }
-          # Extract BER table
-          ber_table <- NULL
-          tryCatch({
-            wv <- perf.res$WeightedVote.error.rate
-            if (!is.null(wv) && is.list(wv)) {
-              first_mat <- wv[[1]]
-              if (is.matrix(first_mat)) {
-                ber_table <- data.frame(Component = colnames(first_mat), stringsAsFactors = FALSE)
-                n_dist <- length(wv)
-                for (nm in names(wv)) {
-                  mat <- wv[[nm]]
-                  for (rn in rownames(mat)) {
-                    col_name <- if (n_dist == 1) rn else paste0(nm, ".", rn)
-                    ber_table[[col_name]] <- round(as.numeric(mat[rn, ]), 4)
-                  }
-                }
-              }
-            }
-            if (is.null(ber_table) && !is.null(perf.res$error.rate)) {
-              er <- perf.res$error.rate
-              if (is.list(er)) {
-                first_el <- er[[1]]
-                if (is.numeric(first_el) && !is.matrix(first_el)) {
-                  comp_names <- names(first_el)
-                  if (is.null(comp_names)) comp_names <- paste0("comp", seq_along(first_el))
-                  ber_table <- data.frame(Component = comp_names, stringsAsFactors = FALSE)
-                  for (nm in names(er)) ber_table[[nm]] <- round(as.numeric(er[[nm]]), 4)
-                } else if (is.matrix(first_el)) {
-                  ber_table <- data.frame(Component = colnames(first_el), stringsAsFactors = FALSE)
-                  n_dist <- length(er)
-                  for (nm in names(er)) {
-                    mat <- er[[nm]]
-                    for (rn in rownames(mat)) {
-                      col_name <- if (n_dist == 1) rn else paste0(nm, ".", rn)
-                      ber_table[[col_name]] <- round(as.numeric(mat[rn, ]), 4)
-                    }
-                  }
-                }
-              }
-            }
-          }, error = function(e) {})
-
-          if (!is.null(ber_table)) {
-            dt <- data.table::as.data.table(ber_table)
-            dt_long <- data.table::melt(dt, id.vars = "Component", variable.name = "Metric", value.name = "Error.Rate")
-            dt_long <- as.data.frame(dt_long)
-            p1 <- ggplot2::ggplot(dt_long, ggplot2::aes(x = Component, y = Error.Rate, group = Metric)) +
-              ggplot2::geom_line(ggplot2::aes(color = Metric), linewidth = 2) +
-              see::scale_fill_okabeito() + see::scale_color_okabeito() +
-              ggplot2::labs(x = "Component #", y = "Error Rate", title = "") +
-              ggplot2::theme_minimal(base_size = 15) +
-              ggplot2::theme(legend.text = ggplot2::element_text(size = 16),
-                             legend.position = c(0.9, 0.95),
-                             legend.title = ggplot2::element_text(size = 0))
-            Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
-            print(p1)
-            dev.off()
-          } else {
-            Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
-            plot(perf.res)
-            dev.off()
-          }
-          gc(verbose = FALSE, full = TRUE)
-          return(list(opt.comp = opt.comp, ber_table = ber_table))
-        },
-        input_data = list(model_path = model_path, imgNm = imgNm, dpi = dpi, format = format),
-        packages = c("mixOmics", "qs", "Cairo", "ggplot2", "see", "data.table"),
-        timeout = 300,
-        output_type = "qs"
-      )
-    }, error = function(e) {
-      AddErrMsg(paste("PlotDiabloBER failed:", e$message))
-      NULL
-    })
-    if (is.list(ber_result) && isFALSE(ber_result$success)) { AddErrMsg(ber_result$message); return(0) }
-    if (is.null(ber_result)) return(0)
-    reductionSet <- .get.rdt.set()
-    if (!is.null(ber_result$opt.comp)) reductionSet[["diablo"]]$opt.ncomp <- ber_result$opt.comp
-    reductionSet[["diablo"]]$ber_table <- ber_result$ber_table
-    .set.rdt.set(reductionSet)
-
-  infoSet$imgSet[["diablo_ber"]] <- imgNm;
-  saveSet(infoSet);
+  infoSet$imgSet[["diablo_ber"]] <- imgNm
+  saveSet(infoSet)
   return(1)
 }
 
@@ -1001,66 +931,14 @@ PlotDiabloLoading <- function(imgNm, dpi=150, format="png") {
   dpi <- as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
-  # Check if pre-generated in reduce.dimension subprocess
-  reductionSet <- .get.rdt.set()
-  if (isTRUE(reductionSet[["diablo"]]$loading_done)) {
-      pregenerated <- paste0("diablo_loading", "dpi", dpi, ".", format)
-      if (file.exists(pregenerated) && pregenerated != imgNm) {
-        file.rename(pregenerated, imgNm)
-      }
-      infoSet$imgSet[["diablo_loading"]] <- imgNm
-      saveSet(infoSet)
-      return(1)
-    }
-    # Fallback: run in subprocess
-    loading_result <- tryCatch({
-      model_path <- normalizePath("diablo_model.qs", mustWork = TRUE)
-      rsclient_isolated_exec(
-        func_body = function(input_data) {
-          library(mixOmics)
-          library(Cairo)
-          library(grid)
-          library(gridExtra)
-          library(cowplot)
+  # Use pre-generated loading from reduce.dimension subprocess
+  pregenerated <- paste0("diablo_loading", "dpi", dpi, ".", format)
+  if (file.exists(pregenerated) && pregenerated != imgNm) {
+    file.rename(pregenerated, imgNm)
+  }
 
-          model <- qs::qread(input_data$model_path)
-          imgNm <- input_data$imgNm
-          dpi <- input_data$dpi
-          format <- input_data$format
-
-          ncomp_plot <- min(model$ncomp[1], 3)
-          fig.list <- list()
-          for (cc in 1:ncomp_plot) {
-            local({
-              comp_idx <- cc
-              fig.list[[comp_idx]] <<- cowplot::as_grob(function() {
-                par(mar = c(4, 12, 2, 2))
-                mixOmics::plotLoadings(model, ndisplay = 10, comp = comp_idx, contrib = "max",
-                                       method = "median", size.name = 1.1, legend = TRUE)
-              })
-            })
-          }
-          h <- 8 * length(fig.list)
-          Cairo::Cairo(file = imgNm, width = 13, height = h, type = format, bg = "white", unit = "in", dpi = dpi)
-          gridExtra::grid.arrange(grobs = fig.list, nrow = length(fig.list))
-          dev.off()
-          gc(verbose = FALSE, full = TRUE)
-          return(1)
-        },
-        input_data = list(model_path = model_path, imgNm = imgNm, dpi = dpi, format = format),
-        packages = c("mixOmics", "qs", "Cairo", "grid", "gridExtra", "cowplot"),
-        timeout = 300,
-        output_type = "qs"
-      )
-    }, error = function(e) {
-      AddErrMsg(paste("PlotDiabloLoading failed:", e$message))
-      NULL
-    })
-    if (is.list(loading_result) && isFALSE(loading_result$success)) { AddErrMsg(loading_result$message); return(0) }
-    if (is.null(loading_result)) return(0)
-
-  infoSet$imgSet[["diablo_loading"]] <- imgNm;
-  saveSet(infoSet);
+  infoSet$imgSet[["diablo_loading"]] <- imgNm
+  saveSet(infoSet)
   return(1)
 }
 
@@ -1070,24 +948,27 @@ PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
   cutoff <- as.numeric(cutoff)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
 
-  # Use the same cross-block correlation data as the web circos
+  # Read from diablo_circos.json (same data as web chord diagram)
   json_path <- "diablo_circos.json"
   if (!file.exists(json_path)) {
     GenerateDiabloCircosJson(cutoff)
   }
+  edges <- tryCatch(
+    jsonlite::read_json(json_path, simplifyVector = TRUE)$DIABLO,
+    error = function(e) { AddErrMsg(paste("[PlotDiabloCircos] JSON read failed:", e$message)); NULL }
+  )
 
   tryCatch({
     require(circlize)
-    edges <- jsonlite::read_json(json_path, simplifyVector = TRUE)$DIABLO
     if (is.null(edges) || length(edges) == 0) {
-      message("[PlotDiabloCircos] No edges in circos JSON")
+      AddErrMsg("[PlotDiabloCircos] No edges in circos JSON")
     } else {
       sources <- data.frame(name = edges$source, type = edges$type1, stringsAsFactors = FALSE)
       targets <- data.frame(name = edges$target, type = edges$type2, stringsAsFactors = FALSE)
       nodes <- unique(rbind(sources, targets))
       nodes <- nodes[order(nodes$type, nodes$name), ]
 
-      type_colors <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3")
+      type_colors <- c("#ED7D31", "#70AD47", "#FFC000", "#9B59B6")
       type_names <- unique(nodes$type)
       sector_colors <- setNames(
         type_colors[match(nodes$type, type_names)],
@@ -1095,22 +976,31 @@ PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
       )
 
       link_colors <- ifelse(as.numeric(edges$corr) > 0,
-                            adjustcolor("#B2182B", alpha.f = 0.5),
-                            adjustcolor("#2166AC", alpha.f = 0.5))
+                            rgb(255, 80, 80, alpha = 153, maxColorValue = 255),
+                            rgb(80, 80, 255, alpha = 153, maxColorValue = 255))
 
       Cairo::Cairo(file = imgNm, width = 10, height = 10,
                    type = format, bg = "white", unit = "in", dpi = dpi)
 
       circos.clear()
-      circos.par(gap.after = c(rep(1, nrow(nodes) - 1), 8), start.degree = 90)
+      n_nodes <- nrow(nodes)
+      gap_size <- if (n_nodes > 80) 0.2 else if (n_nodes > 40) 0.5 else 1
+      type_gap <- if (n_nodes > 80) 2 else if (n_nodes > 40) 4 else 8
+      # Add larger gap between data types
+      type_boundaries <- which(diff(match(nodes$type, type_names)) != 0)
+      gap_vec <- rep(gap_size, n_nodes)
+      if (length(type_boundaries) > 0) gap_vec[type_boundaries] <- type_gap
+      gap_vec[n_nodes] <- type_gap
+      circos.par(gap.after = gap_vec, start.degree = 90, cell.padding = c(0, 0, 0, 0))
       circos.initialize(factors = factor(nodes$name, levels = nodes$name),
                         xlim = c(0, 1))
 
+      label_cex <- if (n_nodes > 80) 0.35 else if (n_nodes > 40) 0.45 else 0.6
       circos.track(ylim = c(0, 1), panel.fun = function(x, y) {
         sector.name <- CELL_META$sector.index
         circos.text(CELL_META$xcenter, CELL_META$ycenter,
                     sector.name, facing = "clockwise", niceFacing = TRUE,
-                    adj = c(0, 0.5), cex = 0.6)
+                    adj = c(0, 0.5), cex = label_cex)
       }, bg.col = sector_colors, bg.border = "grey50",
       track.height = 0.05)
 
@@ -1123,13 +1013,14 @@ PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
       legend("bottomleft", legend = type_names, fill = type_colors[1:length(type_names)],
              title = "Data Type", bty = "n", cex = 0.9)
       legend("bottomright", legend = c("Positive", "Negative"),
-             fill = c(adjustcolor("#B2182B", 0.5), adjustcolor("#2166AC", 0.5)),
+             fill = c(rgb(255, 80, 80, alpha = 153, maxColorValue = 255),
+                      rgb(80, 80, 255, alpha = 153, maxColorValue = 255)),
              title = "Correlation", bty = "n", cex = 0.9)
 
       circos.clear()
       dev.off()
     }
-  }, error = function(e) { message("[PlotDiabloCircos] ", e$message) })
+  }, error = function(e) { AddErrMsg(paste("[PlotDiabloCircos]", e$message)) })
 
   infoSet$imgSet[["diablo_circos"]] <- imgNm
   saveSet(infoSet)

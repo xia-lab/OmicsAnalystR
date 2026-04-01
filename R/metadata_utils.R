@@ -35,7 +35,7 @@ GetUniqueMetaNames <-function(metadata){
   rdtSet <- .get.rdt.set();
   data.type <- rdtSet$dataSet[["meta.types"]][metadata];
 
-  if(is.null(data.type)){
+  if(is.null(data.type) || is.na(data.type)){
     data.type <- "disc";
   }
 

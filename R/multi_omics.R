@@ -160,7 +160,14 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
 
 FilterDataByVariance <- function(data, filterPercent){
   featVar <- apply(data, 1, var);
-  if(var(featVar) < 0.001){
+  # Always remove zero-variance features (essential for downstream methods like DIABLO)
+  nonzero <- featVar > 0
+  if (sum(nonzero) < nrow(data)) {
+    message(paste0("Removed ", sum(!nonzero), " zero-variance features"))
+    data <- data[nonzero, , drop = FALSE]
+    featVar <- featVar[nonzero]
+  }
+  if(length(featVar) == 0 || var(featVar) < 0.001){
     return("Already autoscaled");
   }
   varThresh <- quantile(featVar, (filterPercent/100));
