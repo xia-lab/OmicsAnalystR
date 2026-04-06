@@ -287,6 +287,9 @@ GetNetsNameString <- function(){
 
 # support walktrap, infomap and lab propagation
 FindCommunities <- function(method="walktrap", use.weight=FALSE){
+  seed_expr_local <- if (exists("seed.expr", envir = .GlobalEnv)) get("seed.expr", envir = .GlobalEnv) else numeric(0)
+  seed_proteins_local <- if (exists("seed.proteins", envir = .GlobalEnv)) get("seed.proteins", envir = .GlobalEnv) else character(0)
+
   .local_find_communities <- function(g, node_data, seed_expr, seed_proteins, method, use_weight){
     if(!igraph::is_connected(g)){
       g <- decompose.graph(g, min.vertices=2)[[1]];
@@ -413,8 +416,8 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
     input_data <- list(
       g = ppi.comps[[current.net.nm]],
       node_data = ppi.net$node.data,
-      seed_expr = seed.expr,
-      seed_proteins = seed.proteins,
+      seed_expr = seed_expr_local,
+      seed_proteins = seed_proteins_local,
       method = method,
       use_weight = use.weight
     )
@@ -569,8 +572,8 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
   res <- .local_find_communities(
     g = ppi.comps[[current.net.nm]],
     node_data = ppi.net$node.data,
-    seed_expr = seed.expr,
-    seed_proteins = seed.proteins,
+    seed_expr = seed_expr_local,
+    seed_proteins = seed_proteins_local,
     method = method,
     use_weight = use.weight
   )
