@@ -9,20 +9,20 @@
 
 my.json.scatter <- function(filenm){
   #save.image("scatter.RData");
-  infoSet <- readSet(infoSet, "infoSet");  
+  infoSet <- readSet(infoSet, "infoSet");
   reductionSet <- .get.rdt.set();
-  
+
   omicstype.vec <- list();
   sig.mats <- list();
   seeds <- vector()
   sel.nms <- names(mdata.all)[mdata.all==1];
-  
+
   for(i in 1:length(sel.nms)){
     dataSet = readDataset(sel.nms[i])
     sig.mats[[dataSet$type]] <- dataSet$sig.mat
     omicstype.vec <- c(omicstype.vec, dataSet$type)
     if(i == 1){
-      seeds <- rownames(dataSet$sig.mat) 
+      seeds <- rownames(dataSet$sig.mat)
       idTypes <- dataSet$idType;
     }else{
       seeds <- c(seeds, rownames(dataSet$sig.mat))
@@ -31,10 +31,8 @@ my.json.scatter <- function(filenm){
     meta <- dataSet$meta;
     sel.meta <-dataSet$sel.meta;
   }
-  
+
   reductionOpt <- reductionSet$reductionOpt;
-  Sys.setenv(RGL_USE_NULL = TRUE)
-  library(rgl)
   load_igraph();
   pos.xyz = reductionSet[[reductionOpt]]$pos.xyz;
   pos.xyz <- unitAutoScale(pos.xyz);
@@ -223,7 +221,13 @@ my.json.scatter <- function(filenm){
   fast.write.csv(loading.data.orig,file=fileName);
   
   .set.rdt.set(reductionSet);
-  
+
+  # Purge rgl from Master session after use
+  if ("rgl" %in% loadedNamespaces()) {
+    try(unloadNamespace("rgl"), silent = TRUE)
+  }
+  gc(verbose = FALSE)
+
   return(1);
 }
 
@@ -253,13 +257,14 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
         pos.xyz = reductionSet[[reductionOpt]]$pos.xyz2
       }
     }
-    
+
   }else{
     pos.xyz = reductionSet[[reductionOpt]]$pos.xyz
   }
-  
+
   inx = rownames(pos.xyz) %in% names;
   coords = as.matrix(pos.xyz[inx,c(1:3)])
+
   mesh = list()
   if(type == "alpha"){
     library(alphashape3d)
@@ -277,10 +282,9 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
     sc = scene3d();
     mesh = sc$objects;
   }
-  #unnamed list not supported in rjson
   library(RJSONIO);
   sink(filenm);
   cat(RJSONIO::toJSON(mesh));
   sink();
-  return(filenm);
+  return(filenm)
 }

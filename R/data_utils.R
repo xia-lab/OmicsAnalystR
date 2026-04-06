@@ -326,7 +326,7 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
 
 DoDimensionReductionIntegrative <- function(reductionOpt, diabloMeta, diabloPar){
 
-    if(!exists("reduce.dimension")){ # public web on same user dir
+    if(!exists("reduce.dimension")){
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_dimreduction.Rc");    
     }
     dr.res <- reduce.dimension(reductionOpt, diabloMeta, diabloPar);
@@ -372,7 +372,7 @@ PerformClustering <- function(init, nclust, type){
 }
 
 doScatterJson <- function(filenm){
-    if(!exists("my.json.scatter")){ # public web on same user dir
+    if(!exists("my.json.scatter")){
         compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_scatter_json.Rc");    
     }
     return(my.json.scatter(filenm));
@@ -394,7 +394,7 @@ PlotDataProfile<-function(dataName,type, boxplotName, pcaName){
 qc.boxplot2 <- function(dat, imgNm){
   require('lattice');
   load_cairo();
-  imgNm = paste(imgNm, "dpi", "72", ".png", sep="");
+  imgNm = paste(imgNm, "dpi", "150", ".png", sep="");
   subgene=10000;
   if (nrow(dat)>subgene) {
     set.seed(28051968);
@@ -439,7 +439,7 @@ qc.boxplot2 <- function(dat, imgNm){
 }
 
 qc.pcaplot2 <- function(x, imgNm){
-  imgNm = paste(imgNm, "dpi", "72", ".png", sep="");
+  imgNm = paste(imgNm, "dpi", "150", ".png", sep="");
   require('lattice');
   pca <- prcomp(t(na.omit(x)));
   names <- colnames(x);
@@ -765,14 +765,22 @@ FilteringData <- function(dataName, countOpt="pct",count="2", var="15"){
   count.thresh = as.numeric(count);
   var.thresh = as.numeric(var);
   if((count.thresh + var.thresh) >0){
-    sum.counts <- apply(data, 1, sum, na.rm=TRUE);
-    if(countOpt == "pct"){
+    if(countOpt == "cpm"){
+    lib.sizes <- colSums(data, na.rm = TRUE)
+    cpm <- t(t(data) / lib.sizes) * 1e6
+    signal <- rowMeans(cpm, na.rm = TRUE)
+    rm.inx <- signal < count.thresh
+    data <- data[!rm.inx,];
+    rmSum <- sum(rm.inx)
+  }else if(countOpt == "pct"){
+    sum.counts <- rowSums(data, na.rm=TRUE);
     inx <- order(sum.counts)
     data <- data[inx,]
     rm.inx <- round(count.thresh/100 * nrow(data))
     data <- data[-c(1:rm.inx),];
     rmSum <- rm.inx
   }else{
+    sum.counts <- rowSums(data, na.rm=TRUE);
     rm.inx <- sum.counts < count.thresh;
     data <- data[!rm.inx,];
     rmSum <- sum(rm.inx)

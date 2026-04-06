@@ -50,19 +50,29 @@ print(predictor)
   
   # Perform the ordination + significance tests
   if (method == "RDA") {
-    # RDA
-    library(vegan)
-    rda_result <- vegan::rda(feature_table ~ ., data = meta)
-    anova_res  <- anova.cca(rda_result, step = 10000, by = "term")
-    
-    if (is.na(anova_res$F[1])) {
-      stats_msg <- "The model is overfitted with no unconstrained (residual) component."
-    } else {
-      stats_msg <- paste0("[Constrained Permutational ANOVA] F-value: ",
-                          round(anova_res$F[1], 3),
-                          "; p-value: ", anova_res$`Pr(>F)`[1])
-    }
-    
+    # RDA — vegan::rda + anova.cca isolated
+    rda_result_list <- rsclient_isolated_exec(
+      func_body = function(input_data) {
+        library(vegan)
+        rda_result <- vegan::rda(input_data$feature_table ~ ., data = input_data$meta)
+        anova_res  <- vegan::anova.cca(rda_result, step = 10000, by = "term")
+        if (is.na(anova_res$F[1])) {
+          stats_msg <- "The model is overfitted with no unconstrained (residual) component."
+        } else {
+          stats_msg <- paste0("[Constrained Permutational ANOVA] F-value: ",
+                              round(anova_res$F[1], 3),
+                              "; p-value: ", anova_res$`Pr(>F)`[1])
+        }
+        list(rda_result = rda_result, stats_msg = stats_msg)
+      },
+      input_data = list(feature_table = feature_table, meta = meta),
+      packages = c("vegan"),
+      timeout = 300
+    )
+    if (is.list(rda_result_list) && isFALSE(rda_result_list$success)) { AddErrMsg(rda_result_list$message); return(0) }
+    rda_result <- rda_result_list$rda_result
+    stats_msg  <- rda_result_list$stats_msg
+
     # Store results
     rdtSet$analSet$RDA_res <- list(
       method     = "RDA",
@@ -71,24 +81,33 @@ print(predictor)
       featureTbl = feature_table,
       stats      = stats_msg
     )
-    
+
   } else {
-    # PCA
-    library(factoextra)
-    library(vegan)
+    # PCA — vegan::adonis2 isolated
     print("here")
     pca_result <- prcomp(feature_table, scale = FALSE)
     data_dist  <- dist(feature_table, method = "euclidean")
-    adonis_res <- adonis2(data_dist ~ ., data = meta, permutations = 999)
-  
-    if (is.na(adonis_res$F[1])) {
-      stats_msg <- "The model is overfitted with no unconstrained (residual) component."
-    } else {
-      stats_msg <- paste0("[PERMANOVA] F-value: ",
-                          round(adonis_res$F[1], 5),
-                          "; R-squared: ", signif(adonis_res$R2[1], 5),
-                          "; p-value: ", adonis_res$`Pr(>F)`[1])
-    }
+
+    adonis_result <- rsclient_isolated_exec(
+      func_body = function(input_data) {
+        library(vegan)
+        adonis_res <- vegan::adonis2(input_data$data_dist ~ ., data = input_data$meta, permutations = 999)
+        if (is.na(adonis_res$F[1])) {
+          stats_msg <- "The model is overfitted with no unconstrained (residual) component."
+        } else {
+          stats_msg <- paste0("[PERMANOVA] F-value: ",
+                              round(adonis_res$F[1], 5),
+                              "; R-squared: ", signif(adonis_res$R2[1], 5),
+                              "; p-value: ", adonis_res$`Pr(>F)`[1])
+        }
+        list(stats_msg = stats_msg)
+      },
+      input_data = list(data_dist = data_dist, meta = meta),
+      packages = c("vegan"),
+      timeout = 300
+    )
+    if (is.list(adonis_result) && isFALSE(adonis_result$success)) { AddErrMsg(adonis_result$message); return(0) }
+    stats_msg <- adonis_result$stats_msg
 
     # Store results
     rdtSet$analSet$PCA_res <- dataSet$PCA_res <- list(

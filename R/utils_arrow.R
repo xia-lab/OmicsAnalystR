@@ -1,5 +1,5 @@
 ##################################################
-## R script for OmicsAnalyst Pro
+## R script for OmicsAnalyst
 ## Description: Arrow utilities for zero-copy data exchange with Java
 ## Author: OmicsAnalyst Team
 ## Part of the Rserve/qs to Apache Arrow migration

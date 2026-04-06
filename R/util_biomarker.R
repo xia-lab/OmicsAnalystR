@@ -359,7 +359,7 @@ GetFeatureRankingMat <- function(){
 
 Perform.UnivROC <- function(feat.nm, 
                             version, format="png", 
-                            dpi=72, isAUC, isOpt, 
+                            dpi=150, isAUC, isOpt, 
                             optMethod, isPartial, measure, cutoff){
   
   #save.image("univroc.RData");
@@ -504,7 +504,7 @@ Perform.UnivROC <- function(feat.nm,
   }
 }
 
-PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=72, isOpt, isQuery){
+PlotRocUnivBoxPlot <- function(feat.nm, version, format="png", dpi=150, isOpt, isQuery){
   
   rdtSet <- .get.rdt.set();
   
@@ -675,7 +675,7 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
 
 
 
-PlotDetailROC <- function(rdtSet,imgName, thresh, sp, se, dpi=72, format="png"){
+PlotDetailROC <- function(rdtSet,imgName, thresh, sp, se, dpi=150, format="png"){
 
   rdtSet <- .get.rdt.set();
 
@@ -899,7 +899,7 @@ other_group <- levels(cls)[2]
   return(.set.rdt.set(rdtSet))
 }
 
-PlotImpBiomarkers <- function(imgName, format = "png", dpi = 72, mdl.inx, measure = "freq", feat.num = 15) {
+PlotImpBiomarkers <- function(imgName, format = "png", dpi = 150, mdl.inx, measure = "freq", feat.num = 15) {
   rdtSet <- .get.rdt.set()
   imgName <- paste(imgName, "dpi", dpi, ".", format, sep = "")
   w <- 8; h <- 8
@@ -1022,7 +1022,7 @@ PlotImpBiomarkers <- function(imgName, format = "png", dpi = 72, mdl.inx, measur
   return(.set.rdt.set(rdtSet))
 }
 
-PlotAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=72){
+PlotAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=150){
   
 rdtSet <- .get.rdt.set();;
   anal.mode <- rdtSet$analSet$mode;
@@ -1532,7 +1532,7 @@ Get.Fisher <- function(x, fac, var.equal=TRUE) {
   -log10(p.value);
 }
 
-PlotProbView <- function(imgName, format = "png", dpi = 72, mdl.inx, show, showPred) {
+PlotProbView <- function(imgName, format = "png", dpi = 150, mdl.inx, show, showPred) {
 #save.image("probview.RData");
   rdtSet <- .get.rdt.set()
   smpl.nms <- rownames(t(rdtSet$dataSet$roc.norm))
@@ -1621,7 +1621,7 @@ PlotProbView <- function(imgName, format = "png", dpi = 72, mdl.inx, show, showP
 }
 
 
- PlotROC <- function(imgName, format="png", dpi=72, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
+ PlotROC <- function(imgName, format="png", dpi=150, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
   
   rdtSet <- .get.rdt.set();
   anal.mode <- rdtSet$analSet$mode;
@@ -1958,7 +1958,7 @@ PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, n
 #'@description Plot the ROC curve of the biomarker model created using a user-selected subset of features.
 #'Pred and auroc are lists containing predictions and labels from different cross-validations. 
 #'@usage PlotROCTest(mSetObj=NA, imgName, format="png", 
-#'dpi=72, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0)
+#'dpi=150, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0)
 #'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
 #'@param imgName Input a name for the plot
 #'@param format Select the image format, "png", of "pdf". 
@@ -1978,7 +1978,7 @@ PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, n
 #'License: GNU GPL (>= 2)
 #'@export 
 
-PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
+PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=150, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
   
     rdtSet <-  .get.rdt.set();
   anal.mode <- rdtSet$analSet$mode;
@@ -2148,7 +2148,7 @@ PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, avg.met
 #'This plot can be created for multivariate ROC curve analysis using SVM, PLS, and RandomForest.
 #'Please note that sometimes, not all samples will be tested, instead they will be plotted
 #'at the 0.5 neutral line. 
-#'@usage PlotProbViewTest(mSetObj=NA, imgName, format="png", dpi=72, mdl.inx, show, showPred) 
+#'@usage PlotProbViewTest(mSetObj=NA, imgName, format="png", dpi=150, mdl.inx, show, showPred) 
 #'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
 #'@param imgName Input a name for the plot
 #'@param format Select the image format, "png", of "pdf". 
@@ -2162,7 +2162,7 @@ PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, avg.met
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, show, showPred) {
+PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=150, mdl.inx, show, showPred) {
   
    rdtSet <-  .get.rdt.set(); 
   anal.mode <- rdtSet$analSet$mode;
@@ -2270,7 +2270,7 @@ PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, 
 
 #'Plot classification performance using different features for Biomarker Tester
 #'@description Plot of the accuracy of classification with an increasing number of features.
-#'@usage PlotTestAccuracy(mSetObj=NA, imgName, format="png", dpi=72)
+#'@usage PlotTestAccuracy(mSetObj=NA, imgName, format="png", dpi=150)
 #'@param mSetObj Input the name of the created mSetObj (see InitDataObjects)
 #'@param imgName Input a name for the plot
 #'@param format Select the image format, "png", of "pdf". 
@@ -2281,7 +2281,7 @@ PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=72, mdl.inx, 
 #'License: GNU GPL (>= 2)
 #'@export
 
-PlotTestAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=72){
+PlotTestAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=150){
   
   rdtSet <-  .get.rdt.set();
   anal.mode <- rdtSet$analSet$mode;
@@ -2560,7 +2560,7 @@ doLogisticRegMdl <- function(x.train, y.train, x.test, y.test){
 
 
 
-PlotROC.LRmodel <- function(rdtSet=NA, imgName, format="png", dpi=72, show.conf=FALSE, sp.bin=0.01) {
+PlotROC.LRmodel <- function(rdtSet=NA, imgName, format="png", dpi=150, show.conf=FALSE, sp.bin=0.01) {
 
   rdtSet <- .get.rdt.set();
   
@@ -2625,7 +2625,7 @@ Get.pred <- function(x.train, y.train, x.test, y.test, clsMethod="pls"){
 }
 
 
-Plot.Permutation<-function(rdtSet=NA, imgName, format="png", dpi=72){
+Plot.Permutation<-function(rdtSet=NA, imgName, format="png", dpi=150){
   
   rdtSet <- .get.rdt.set();
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");

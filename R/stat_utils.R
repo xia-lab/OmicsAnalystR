@@ -97,45 +97,57 @@ gm_mean <- function(x, na.rm=TRUE){
 }
 
 performLimma <- function(trimmed.data, trimmed.meta){
-  
+
   load_limma();
-  
+
   # process class labels
-  cls <- as.factor(trimmed.meta); 
+  cls <- as.factor(trimmed.meta);
   inx = 0;
   myargs <- list();
   grp.nms <- levels(cls);
-  
+
   for(m in 1:(length(grp.nms)-1)){
     for(n in (m+1):length(grp.nms)){
       inx <- inx + 1;
       myargs[[inx]] <- paste(grp.nms[m], "-", grp.nms[n], sep="")
     }
   }
-  
+
   # create design matrix
   design <- model.matrix(~ 0 + cls) # no intercept
   colnames(design) <- levels(cls);
   myargs[["levels"]] <- design
   contrast.matrix <- do.call(makeContrasts, myargs)
-  dataSet$design <- design;
-  
-  # perform differential analysis
-  fit <- lmFit(trimmed.data, design)
-  fit2 <- contrasts.fit(fit, contrast.matrix)
-  fit2 <- eBayes(fit2)
-  topFeatures <- topTable(fit2, number = Inf, adjust.method = "fdr");
-  
-  # process results
-  if(length(unique(cls)) == 2){
-    res = data.frame(stat=topFeatures[,"t"], P.Value=topFeatures[,"P.Value"], adj.P.Value=topFeatures[,"adj.P.Val"])
-  }else{
-    res = data.frame(stat=topFeatures[,"F"], P.Value=topFeatures[,"P.Value"], adj.P.Value=topFeatures[,"adj.P.Val"])
-  }
-  
-  rownames(res) <- rownames(topFeatures)
-  
-  return(res)
+
+  # perform differential analysis — isolate limma in subprocess
+  response <- rsclient_isolated_exec(
+    func_body = function(input_data) {
+      require(limma)
+      td <- input_data$trimmed.data
+      des <- input_data$design
+      cm <- input_data$contrast.matrix
+      cls <- input_data$cls
+      fit <- limma::lmFit(td, des)
+      fit2 <- limma::contrasts.fit(fit, cm)
+      fit2 <- limma::eBayes(fit2)
+      topFeatures <- limma::topTable(fit2, number = Inf, adjust.method = "fdr")
+      if (length(unique(cls)) == 2) {
+        res <- data.frame(stat = topFeatures[, "t"], P.Value = topFeatures[, "P.Value"], adj.P.Value = topFeatures[, "adj.P.Val"])
+      } else {
+        res <- data.frame(stat = topFeatures[, "F"], P.Value = topFeatures[, "P.Value"], adj.P.Value = topFeatures[, "adj.P.Val"])
+      }
+      rownames(res) <- rownames(topFeatures)
+      list(res = res, design = des)
+    },
+    input_data = list(trimmed.data = trimmed.data, design = design, contrast.matrix = contrast.matrix, cls = cls),
+    packages = c("limma", "qs"),
+    timeout = 300,
+    output_type = "qs"
+  )
+  if (is.list(response) && isFALSE(response$success)) { AddErrMsg(response$message); return(0) }
+  result <- response
+  dataSet$design <- result$design
+  return(result$res)
 }
 
 PerformClusteringScatter <- function(filenm, type, nclust){
@@ -171,6 +183,13 @@ PerformClusteringScatter <- function(filenm, type, nclust){
   sink(filenm);
   cat(toJSON(netData));
   sink();
+
+  # purge rgl from Master session after use
+  if ("rgl" %in% loadedNamespaces()) {
+    try(unloadNamespace("rgl"), silent = TRUE)
+    gc(verbose = FALSE)
+  }
+
   return(filenm)
 }
 
@@ -252,6 +271,13 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
   sink(filenm);
   cat(toJSON(netData));
   sink();
+
+  # purge rgl from Master session after use
+  if ("rgl" %in% loadedNamespaces()) {
+    try(unloadNamespace("rgl"), silent = TRUE)
+    gc(verbose = FALSE)
+  }
+
   return(filenm);
 }
 
@@ -298,5 +324,12 @@ PerformCustomClustering <- function(filenm, type, ids){
   sink(filenm);
   cat(toJSON(netData));
   sink();
+
+  # purge rgl from Master session after use
+  if ("rgl" %in% loadedNamespaces()) {
+    try(unloadNamespace("rgl"), silent = TRUE)
+    gc(verbose = FALSE)
+  }
+
   return(filenm)
 }

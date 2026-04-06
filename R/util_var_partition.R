@@ -1,4 +1,4 @@
-PlotPercentBars <- function(dataNm,top_n=10, fileName="", dpi=72, format="png"){
+PlotPercentBars <- function(dataNm,top_n=10, fileName="", dpi=150, format="png"){
   rdtSet <- .get.rdt.set() 
   varPart <- rdtSet$analSet$varPart.df[,-c(1:2)];
   vp <- varPart[order(varPart[, 1], decreasing = TRUE),,drop=F ]#sortCols(varPart);
@@ -361,7 +361,7 @@ GetVarFileName <- function() {
 }
 
 # Function to plot variance partitioning for an individual feature
-PlotVarPartFeature <- function(feature_name, symbol, fileName = "varpart_feature_plot",  format = "png", dpi=72) {
+PlotVarPartFeature <- function(feature_name, symbol, fileName = "varpart_feature_plot",  format = "png", dpi=150) {
   rdtSet <- .get.rdt.set()
   
   # Ensure that varPart is available
