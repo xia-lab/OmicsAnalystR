@@ -25,7 +25,8 @@ PrepareUpsetData <- function(fileNm, metaCol) {
   groups <- meta_data[, metaCol]
   
   if (is.null(groups)) {
-    stop(paste("The provided metadata column", metaCol, "does not exist in the dataset."))
+    AddErrMsg(paste("The provided metadata column", metaCol, "does not exist in the dataset."));
+    return(0);
   }
 
   # Ensure it's a factor for pairwise comparison
@@ -63,7 +64,8 @@ PrepareUpsetData <- function(fileNm, metaCol) {
 
   # If no significant genes found, stop
   if (length(sel.dats) == 0) {
-    stop("No significant features for any dataset!")
+    AddErrMsg("No significant features for any dataset!");
+    return(0);
   }
 
   # Prepare data for upset plot

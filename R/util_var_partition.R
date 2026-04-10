@@ -103,7 +103,8 @@ dataSet <- readDataset(selectedData);
   
   # Check if they are correctly aligned
   if (!all(colnames(gene_expr) == rownames(meta_data))) {
-    stop("Sample names between gene expression data and metadata do not match.")
+    AddErrMsg("Sample names between gene expression data and metadata do not match.");
+    return(0);
   }
   
 
@@ -117,7 +118,8 @@ dataSet <- readDataset(selectedData);
   }
   
   if (length(fixed_effects) == 0) {
-    stop("At least one fixed effect must be specified.")
+    AddErrMsg("At least one fixed effect must be specified.");
+    return(0);
   }
   
   # Create formula for variance partitioning
@@ -134,7 +136,7 @@ dataSet <- readDataset(selectedData);
   } else if (formula_random != "") {
     formula <- as.formula(paste("~", formula_random))
   } else {
-    stop("No valid covariates found in metadata.")
+    AddErrMsg("No valid covariates found in metadata."); return(0);
   }
   # Ensure factors are treated as factors and numeric covariates are numeric
   for (col in colnames(meta_data)) {
@@ -281,7 +283,7 @@ GetVarMat <- function() {
  
   # Assuming varPart is stored in rdtSet$analSet$varPart.df
   if (is.null(rdtSet$analSet$varPart.df)) {
-    stop("Variance partition matrix not found.")
+    AddErrMsg("Variance partition matrix not found."); return(0);
   }
   
   # Extract the variance partitioning matrix without the symbol column
@@ -296,7 +298,7 @@ GetVarIds <- function() {
   
   # Assuming varPart is stored in rdtSet$analSet$varPart.df
   if (is.null(rdtSet$analSet$varPart.df)) {
-    stop("Variance partition matrix not found.")
+    AddErrMsg("Variance partition matrix not found."); return(0);
   }
  
   # Return the row names (gene IDs)
@@ -311,7 +313,7 @@ GetVarSymbols <- function() {
   
   # Assuming varPart is stored in rdtSet$analSet$varPart.df
   if (is.null(rdtSet$analSet$varPart.df)) {
-    stop("Variance partition matrix not found.")
+    AddErrMsg("Variance partition matrix not found."); return(0);
   }
   
   # Extract the symbols column
@@ -324,7 +326,7 @@ GetVarLables <- function() {
   
   # Assuming varPart is stored in rdtSet$analSet$varPart.df
   if (is.null(rdtSet$analSet$varPart.df)) {
-    stop("Variance partition matrix not found.")
+    AddErrMsg("Variance partition matrix not found."); return(0);
   }
   
   # Extract the symbols column
@@ -339,7 +341,7 @@ GetVarColNames <- function() {
   
   # Assuming varPart is stored in rdtSet$analSet$varPart.df
   if (is.null(rdtSet$analSet$varPart.df)) {
-    stop("Variance partition matrix not found.")
+    AddErrMsg("Variance partition matrix not found."); return(0);
   }
   
   # Extract the column names (excluding the symbol column)
@@ -354,7 +356,7 @@ GetVarFileName <- function() {
   
   # Assuming the file name is stored in rdtSet$analSet$varPart.fileName
   if (is.null(rdtSet$analSet$varPart.fileName)) {
-    stop("Variance partition results file name not found.")
+    AddErrMsg("Variance partition results file name not found."); return(0);
   }
   
   return(rdtSet$analSet$varPart.fileName)
@@ -366,14 +368,14 @@ PlotVarPartFeature <- function(feature_name, symbol, fileName = "varpart_feature
   
   # Ensure that varPart is available
   if (is.null(rdtSet$analSet$varPart.df)) {
-    stop("Variance partition matrix not found.")
+    AddErrMsg("Variance partition matrix not found."); return(0);
   }
   
   varPart <- rdtSet$analSet$varPart.df
   
   # Check if the feature exists in varPart
   if (!(feature_name %in% rownames(varPart))) {
-    stop(paste("Feature", feature_name, "not found in the variance partition matrix."))
+    AddErrMsg(paste("Feature", feature_name, "not found in the variance partition matrix.")); return(0);
   }
   
   # Extract the row corresponding to the selected feature

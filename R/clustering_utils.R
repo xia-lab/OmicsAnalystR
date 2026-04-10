@@ -229,7 +229,7 @@ saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.inf
   }
   heatmap_file <- paste0("heatmap_top50_", safeName, ".png");
 
-  data_for_callr <- list(
+  data_for_rsclient <- list(
     dat = dat,
     lbls = lbls,
     topN = topN,
@@ -329,7 +329,7 @@ saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.inf
   result <- tryCatch({
     rsclient_isolated_exec(
       func_body = isolated_func,
-      input_data = data_for_callr,
+      input_data = data_for_rsclient,
       packages = c("pheatmap", "Cairo", "RColorBrewer"),
       timeout = 120
     )
@@ -1072,7 +1072,7 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
   met <- sapply(metaData, function(x) as.integer(x))
   rownames(met) <- smp.nms;
 
-  data_for_callr <- list(
+  data_for_rsclient <- list(
     metaData = metaData,
     met = met,
     viewOpt = viewOpt,
@@ -1148,7 +1148,7 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
   tryCatch({
     rsclient_isolated_exec(
       func_body = isolated_func,
-      input_data = data_for_callr,
+      input_data = data_for_rsclient,
       packages = c("pheatmap", "Cairo", "RColorBrewer"),
       timeout = 120
     )

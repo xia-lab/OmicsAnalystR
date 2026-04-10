@@ -110,12 +110,14 @@ SetDimMethod <- function(method){
 
 GetLoadingFileName <-function(dataName){
   reductionSet<-.get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return("");
   dataSet <- readDataset(dataName);
   reductionSet[[reductionSet$reductionOpt]]$loading.file.nm;
 }
 
 GetLoadingMat<-function(dataName){
   reductionSet<-.get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(matrix(0));
   dataSet <- readDataset(dataName);
   omicstype <- dataSet$type
   loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
@@ -126,6 +128,7 @@ GetLoadingMat<-function(dataName){
 
 GetLoadingIds<-function(dataName){
   reductionSet<-.get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(character(0));
   dataSet <- readDataset(dataName);
   omicstype <- dataSet$type;
   loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
@@ -135,6 +138,7 @@ GetLoadingIds<-function(dataName){
 
 GetLoadingSymbols<-function(dataName){
   reductionSet<-.get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(character(0));
   dataSet <- readDataset(dataName);
   omicstype <- dataSet$type
   loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
@@ -144,6 +148,7 @@ GetLoadingSymbols<-function(dataName){
 
 GetLoadingColNames<-function(dataName){
   reductionSet<-.get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(character(0));
   dataSet <- readDataset(dataName);
   drops <- c("ids","label", "type")
   loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
@@ -152,7 +157,8 @@ GetLoadingColNames<-function(dataName){
 
 GetVarianceArr<-function(dataName){
   reductionSet <- .get.rdt.set();
-  dataSet <- readDataset(dataName); 
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(c(0, 0, 0));
+  dataSet <- readDataset(dataName);
   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
   varArr <- df[,dataSet$type];
   varArr <- signif(varArr,4)*100;
@@ -278,6 +284,14 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
   result <- run_func_via_rsclient(
     func = function(input_path, output_path, func_body, pkgs) {
       tryCatch({
+        # Suppress quartz/X11 popups from rgl
+        Sys.setenv(RGL_USE_NULL = TRUE)
+        # HDF5Array .onLoad calls init_global_counter() which fails if counter
+        # files already exist in tempdir(). Remove stale counters before loading.
+        if ("MOFA2" %in% pkgs || "HDF5Array" %in% pkgs) {
+          stale <- list.files(tempdir(), pattern = "^HDF5Array_", full.names = TRUE)
+          if (length(stale) > 0) unlink(stale)
+        }
         for (pkg in pkgs) suppressPackageStartupMessages(library(pkg, character.only = TRUE))
         input_data <- qs::qread(input_path)
         res <- func_body(input_data)
@@ -301,5 +315,5 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
 }
 
 # Null-coalescing operator
-if (!exists("%||%")) `%||%` <- function(a, b) if (is.null(a)) b else a
+`%||%` <- function(a, b) if (is.null(a)) b else a
 

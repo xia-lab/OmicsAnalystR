@@ -515,9 +515,6 @@ InitEnrichmentNetwork <- function(file.nm, fun.type,type){
 }
 
 .prepareEnrichNet<-function( netNm, type, overlapType){
-    if(!exists("my.enrich.net")){ 
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/utils_enrichnet.Rc");      
-    }
     return(my.enrich.net(netNm, type, overlapType));
 }
 
@@ -616,7 +613,8 @@ return(1)
 
 GetDREnrichList <- function(query,tupNum){
   rdtSet <- .get.rdt.set();
- tupNum <- as.numeric(tupNum)
+  if (is.null(rdtSet$reductionOpt) || is.null(rdtSet[[rdtSet$reductionOpt]])) return(list());
+  tupNum <- as.numeric(tupNum)
   loading <- rdtSet[[rdtSet$reductionOpt]]$loading.pos.xyz
   loading <- split(loading[,c(1:3,6)],loading$filenm)
  
@@ -683,7 +681,10 @@ PrepDashboardListDR <- function(mode,jsonnm,featNumPerComp,components){
   print("PrepDashboardListDR")
   dataSetList <- lapply(sel.nms, readDataset); 
   listnms = lapply(dataSetList,function(x) return(x[["readableType"]]))
-  loadings = rdtSet[[mode]][["loading.pos.xyz"]] 
+  if (is.null(mode) || is.null(rdtSet[[mode]])) {
+    AddErrMsg("Dimension reduction results not available."); return(list());
+  }
+  loadings = rdtSet[[mode]][["loading.pos.xyz"]]
   components <- as.numeric(unlist(strsplit(components,split = ",")))
   loadings <- loadings[,c(components,6:8)] 
   types <- unlist(lapply(dataSetList,function(x) x[["readableType"]]))

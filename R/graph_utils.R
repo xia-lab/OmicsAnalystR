@@ -242,9 +242,6 @@ ExtractModule<- function(nodeids){
 }
 
 PerformLayOut <- function(net.nm, algo, focus=""){
-    if(!exists("my.perform.layout")){
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_graph.Rc");    
-    }
     return(my.perform.layout(net.nm, algo, focus));
 }
 

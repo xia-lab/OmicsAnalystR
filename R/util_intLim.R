@@ -118,9 +118,9 @@ RunIntLim <- function(inputData,stype="", covar=c(),
                       save.covar.pvals=FALSE, suppressWarnings = FALSE){
   
   if(!continuous & length(unique(stats::na.omit(inputData$sampleMetaData[,stype]))) != 2) {
-    stop(paste("IntLim currently requires only two categories.  Make sure the column",
+    AddErrMsg(paste("IntLim currently requires only two categories.  Make sure the column",
                stype,"only has two unique values. Did you mean to set",
-               "continuous to TRUE?"))
+               "continuous to TRUE?")); return(0);
   }
 
   myres <- NULL
@@ -713,7 +713,7 @@ PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=150,format="png"){
 getQuantileForCoefficient <-function(tofilter, interactionCoeffPercentile){
   print(interactionCoeffPercentile)
   if(interactionCoeffPercentile > 1 || interactionCoeffPercentile < 0) {
-    stop("interactionCoeffPercentile parameter must be between 0 and 1")
+    AddErrMsg("interactionCoeffPercentile parameter must be between 0 and 1"); return(0);
   }
   
   #get top and bottom cutoffs (need highest positive and highest negative coeffs)
@@ -782,7 +782,7 @@ GetVolcMat <- function() {
   rdtSet <- .get.rdt.set()
  
   if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
  
   varPart_matrix <- as.matrix(subset(rdtSet$intLim_sigmat, select = -c(Analyte1,Analyte2,label1,label2,pLog))) # Removing the symbol column
@@ -795,7 +795,7 @@ GetVolcIds <- function() {
   rdtSet <- .get.rdt.set()
   
   if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
  
   varPart_ids <- rownames(rdtSet$intLim_sigmat)
@@ -808,7 +808,7 @@ GetVolcSymbols1 <- function() {
   rdtSet <- .get.rdt.set()
   
    if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
    
   varPart_symbols <- rdtSet$intLim_sigmat[,"Analyte1"]
@@ -820,7 +820,7 @@ GetVolcSymbols2 <- function() {
   rdtSet <- .get.rdt.set()
   
    if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
    
   varPart_symbols <- rdtSet$intLim_sigmat[,"Analyte2"]
@@ -833,7 +833,7 @@ GetVolcLabel1 <- function() {
   rdtSet <- .get.rdt.set()
   
    if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
    
   varPart_symbols <- rdtSet$intLim_sigmat[,"label1"]
@@ -845,7 +845,7 @@ GetVolcLabel2 <- function() {
   rdtSet <- .get.rdt.set()
   
    if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
    
   varPart_symbols <- rdtSet$intLim_sigmat[,"label2"]
@@ -856,7 +856,7 @@ GetVolcLabel2 <- function() {
 GetVolcColNames <- function() {
   rdtSet <- .get.rdt.set()
    if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
  
   varPart_colnames <- setdiff(colnames(rdtSet$intLim_sigmat),c("Analyte1","Analyte2","label1","label2","pLog")) # Exclude the symbol column
@@ -869,7 +869,7 @@ GetVolcFileName <- function() {
   rdtSet <- .get.rdt.set()
   
    if (is.null(rdtSet$intLim_sigmat)) {
-    stop("IntLIM reatult table not found.")
+    AddErrMsg("IntLIM reatult table not found."); return(0);
   }
   
   return("IntLim_sigmat.csv")

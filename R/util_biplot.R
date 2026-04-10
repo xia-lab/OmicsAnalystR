@@ -1,13 +1,7 @@
 
 
 PerformOrdination <- function(method,predictor,dataName) {
-
-if(!exists("mem.ordination")){
-    require("memoise");
-    mem.ordination <<- memoise(.perform.ordination);
-  }
   return(mem.ordination(method,predictor,dataName,includeMeta));
- 
 }
 
 
@@ -126,8 +120,8 @@ print(predictor)
   return(rdtSet$analSet$ordination_res$stats)
 }
 
-
-
+require("memoise");
+mem.ordination <<- memoise(.perform.ordination);
 
  
 PlotBiplot <- function( method,topN=10,fileName = "biplot", format = "png",dpi = 300,colorGradient="d3") {
@@ -136,7 +130,8 @@ PlotBiplot <- function( method,topN=10,fileName = "biplot", format = "png",dpi =
   resnm <- paste0(method,"_res")
 
   if (is.null(rdtSet$analSet[[resnm]])) {
-    stop("No ordination results found! Please run PerformOrdination() first.")
+    AddErrMsg("No ordination results found! Please run PerformOrdination() first.");
+    return(0);
   }
 
   ordRes  <- rdtSet$analSet[[resnm]]
