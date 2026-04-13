@@ -1185,12 +1185,7 @@ corr.mat$Var2 <- names(dataSetList[[2]]$enrich_ids)[match(corr.mat$Var2,dataSetL
 ###############Functions for generating differential chord diagram
 ###############
 DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",comp.meta="Diagnosis",selnm1,selnm2){
-if(!exists("mem.omicsDiffCorr")){
-    require("memoise");
-    mem.diffCorr <<- memoise(.do.omics.diffcorr);
-  }
   return(mem.diffCorr(cor.method,cor.stat,comp.meta, selnm1,selnm2));
- 
 }
 
 
@@ -1300,7 +1295,10 @@ if(!exists("mem.omicsDiffCorr")){
   .set.rdt.set(reductionSet);
   return(1);
 }
- 
+
+require("memoise");
+mem.diffCorr <<- memoise(.do.omics.diffcorr);
+
 GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", format = "png", dpi = 300,dt1,dt2,topN = 100,layout="kk"){
 
   plotjs <- paste0(imgName, ".json");
@@ -1484,7 +1482,7 @@ GetChordSymbols2 <- function() {
 GetChordColNames <- function() {
   rdtSet <- .get.rdt.set()
    if (is.null(rdtSet$chordGram)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
  
  chord_colnames <- setdiff(colnames(rdtSet$chordGram),c("Var1","Var2")) # Exclude the symbol column
@@ -1497,7 +1495,7 @@ GetChordFileName <- function() {
   rdtSet <- .get.rdt.set()
   
   if (is.null(rdtSet$chordGram)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
 
   return("chord_diagram.csv")
@@ -1507,7 +1505,7 @@ GetChordMat <- function() {
   rdtSet <- .get.rdt.set()
  
    if (is.null(rdtSet$chordGram)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
  
   chord_matrix <- as.matrix(subset(rdtSet$chordGram, select = -c(Var1,Var2))) # Removing the symbol column
@@ -1519,7 +1517,7 @@ GetchordIds <- function() {
   rdtSet <- .get.rdt.set()
   
   if (is.null(rdtSet$chordGram)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   ids <- rownames(rdtSet$chordGram)
   
@@ -1554,7 +1552,7 @@ GetCorrNetLabel2 <- function() {
 GetCorrNetColNames <- function() {
   rdtSet <- .get.rdt.set()
   if (is.null(rdtSet$corNet)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   
   corNet_colnames <- setdiff(colnames(rdtSet$corNet),c("source","target","label1","label2")) # Exclude the symbol column
@@ -1567,7 +1565,7 @@ GetCorrNetFileName <- function() {
   rdtSet <- .get.rdt.set()
   
   if (is.null(rdtSet$corNet)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   
   return("corNet.csv")
@@ -1577,7 +1575,7 @@ GetCorrNetMat <- function() {
   rdtSet <- .get.rdt.set()
   
   if (is.null(rdtSet$corNet)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   
   corNet_matrix <- as.matrix(subset(rdtSet$corNet, select = -c(source,target,label1,label2))) # Removing the symbol column
@@ -1589,7 +1587,7 @@ GetCorrNetIds <- function() {
   rdtSet <- .get.rdt.set()
   
   if (is.null(rdtSet$corNet)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   ids <- rownames(rdtSet$corNet)
   
@@ -1671,7 +1669,7 @@ GetDiffNetLabel2 <- function(group) {
 GetDiffNetColNames <- function(group) {
   rdtSet <- .get.rdt.set() 
   if (is.null(rdtSet$diffList[[group]])) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   diffNet_colnames <- c("corr" , "pval")# Exclude the symbol column
   return(diffNet_colnames)
@@ -1681,7 +1679,7 @@ GetDiffNetColNames <- function(group) {
 GetDiffNetFileName <- function(group) {
   rdtSet <- .get.rdt.set() 
   if (is.null(rdtSet$diffList[[group]])) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   write.csv(rdtSet$diffList[[group]][,c("source", "target","corr" , "pval")],"diffNet.csv",rownames=F)
   return("diffNet.csv")
@@ -1691,7 +1689,7 @@ GetDiffNetMat <- function(group) {
   rdtSet <- .get.rdt.set()
 diffNet <- rdtSet$diffList[[group]]
   if (is.null(diffNet)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   diffNet_matrix <- as.matrix(diffNet[,c("corr" , "pval")])  
   return(diffNet_matrix)
@@ -1701,7 +1699,7 @@ GetDiffNetIds <- function(group) {
   rdtSet <- .get.rdt.set()
   diffNet <- rdtSet$diffList[[group]]
   if (is.null(diffNet)) {
-    stop("correlation result table not found.")
+    AddErrMsg("correlation result table not found."); return(0);
   }
   ids <- 1:nrow(diffNet)
   

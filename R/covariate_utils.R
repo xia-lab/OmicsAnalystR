@@ -467,7 +467,7 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
   
   # Fix potential issues with empty or misaligned data
   if (length(sel.cls) == 0) {
-    stop("Meta information could not be found for the selected columns.")
+    AddErrMsg("Meta information could not be found for the selected columns."); return(0);
   }
 
   cls.type <- unname(rdtSet$dataSet$meta.types[meta])
@@ -482,7 +482,7 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
   inx <- which(rownames(dat) == id)
   
   if (length(inx) == 0) {
-    stop("ID not found in the dataset.")
+    AddErrMsg("ID not found in the dataset."); return(0);
   }
 
   sel.cls2 <- meta.info[which(rownames(meta.info) %in% colnames(dat)), meta2]

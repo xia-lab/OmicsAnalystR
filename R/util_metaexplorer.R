@@ -72,7 +72,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
   infoSet$imgSet$heatmap <- imgName;
   saveSet(infoSet);
 
-  data_for_callr <- list(
+  data_for_rsclient <- list(
     met = met,
     metaData = metaData,
     viewOpt = viewOpt,
@@ -132,7 +132,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
   tryCatch({
     rsclient_isolated_exec(
       func_body = isolated_func,
-      input_data = data_for_callr,
+      input_data = data_for_rsclient,
       packages = c("pheatmap", "Cairo", "RColorBrewer", "fastcluster"),
       timeout = 180
     )
@@ -211,7 +211,7 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
   infoSet$imgSet$metaHeatmap <- imgName;
   saveSet(infoSet);
 
-  data_for_callr <- list(
+  data_for_rsclient <- list(
     met = met,
     metaData = metaData,
     viewOpt = viewOpt,
@@ -271,7 +271,7 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
   tryCatch({
     rsclient_isolated_exec(
       func_body = isolated_func,
-      input_data = data_for_callr,
+      input_data = data_for_rsclient,
       packages = c("pheatmap", "Cairo", "RColorBrewer", "fastcluster"),
       timeout = 180
     )
@@ -285,7 +285,8 @@ PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="bo
 
 scale_mat = function(mat, scale){
   if(!(scale %in% c("none", "row", "column"))){
-    stop("scale argument shoud take values: 'none', 'row' or 'column'")
+    AddErrMsg("scale argument shoud take values: 'none', 'row' or 'column'");
+    return(0);
   }
   mat = switch(scale, none = mat, row = scale_rows(mat), column = t(scale_rows(t(mat))))
   return(mat)

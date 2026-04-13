@@ -20,7 +20,8 @@ UpdateDE <- function(dataName, fc.lvl, p.lvl = 0.05){
   } else {                                            # new layout
     ave.idx <- match("AveExpr", colnames(res))
     if (is.na(ave.idx) || ave.idx <= 1){
-      stop("Cannot locate comparison columns (before AveExpr).")
+      AddErrMsg("Cannot locate comparison columns (before AveExpr).");
+      return(0);
     }
     comp.mat <- as.matrix(res[ , 1:(ave.idx-1), drop = FALSE])
     mode(comp.mat) <- "numeric"
@@ -156,6 +157,9 @@ PerformClusteringScatter <- function(filenm, type, nclust){
   load_rgl()
   load_cluster()
   reductionSet <- .get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) {
+    AddErrMsg("Dimension reduction results not available."); return(0);
+  }
   pos.xyz = reductionSet[[reductionSet$reductionOpt ]]$pos.xyz;
   if(type == "density"){
     load_adpclust()
@@ -198,6 +202,9 @@ PerformClusteringMeta <-function(filenm, meta, type, opt){
   load_rgl()
   load_cluster()
   reductionSet <- .get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) {
+    AddErrMsg("Dimension reduction results not available."); return(0);
+  }
   pos.xyz = reductionSet[[reductionSet$reductionOpt ]]$pos.xyz;
     metadf = reductionSet$newmeta
 
@@ -291,6 +298,9 @@ PerformCustomClustering <- function(filenm, type, ids){
   
   idsvec <- strsplit(ids, "; ")[[1]];
   reductionSet <- .get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) {
+    AddErrMsg("Dimension reduction results not available."); return(0);
+  }
   pos.xyz = reductionSet[[reductionSet$reductionOpt]]$pos.xyz;
   metadf = reductionSet$newmeta
   

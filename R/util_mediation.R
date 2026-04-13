@@ -54,7 +54,7 @@ PerformCausalMediation <- function(input,outcome_type  ,  sims = 1000, boot = TR
   
   names(input) <-c( "X", "M","Y")
   if (outcome_type == "disc" && !all(input$Y %in% c(0, 1))) {
-    stop("For a binary outcome, Y must be coded 0/1.")
+    AddErrMsg("For a binary outcome, Y must be coded 0/1."); return(0);
   }
   
   ## ---- 1. Mediator model (always linear here) ----

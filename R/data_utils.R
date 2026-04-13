@@ -326,9 +326,6 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
 
 DoDimensionReductionIntegrative <- function(reductionOpt, diabloMeta, diabloPar){
 
-    if(!exists("reduce.dimension")){
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_dimreduction.Rc");    
-    }
     dr.res <- reduce.dimension(reductionOpt, diabloMeta, diabloPar);
     return(dr.res)
 }
@@ -372,9 +369,6 @@ PerformClustering <- function(init, nclust, type){
 }
 
 doScatterJson <- function(filenm){
-    if(!exists("my.json.scatter")){
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_scatter_json.Rc");    
-    }
     return(my.json.scatter(filenm));
 }
 

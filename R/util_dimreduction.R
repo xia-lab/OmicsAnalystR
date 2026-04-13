@@ -45,6 +45,28 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     }
   }
 
+  # Remove near-zero-variance features from each omics block.
+  # data.proc is features(rows) x samples(cols). Compute per-row variance.
+  # Features constant across samples cause failures in DIABLO BER CV folds
+  # and in MOFA/MCIA factor extraction.
+  for (nm in names(data.list)) {
+    mat <- data.list[[nm]]  # features x samples
+    feat.var <- apply(mat, 1, var, na.rm = TRUE)
+    keep <- !is.na(feat.var) & feat.var > 1e-10
+    if (sum(!keep) > 0) {
+      removed <- rownames(mat)[!keep]
+      data.list[[nm]] <- mat[keep, , drop = FALSE]
+      # Update feature tracking vectors
+      rm.inx <- featureNms %in% removed & omics.vec == nm
+      featureNms <- featureNms[!rm.inx]
+      omics.vec <- omics.vec[!rm.inx]
+      uniqFeats <- uniqFeats[!rm.inx]
+      comp.res1 <- comp.res1[!rm.inx, , drop = FALSE]
+      enrich.nms1 <- enrich.nms1[!rm.inx]
+      comp.res.inx1 <- comp.res.inx1[!rm.inx]
+    }
+  }
+
   reductionSet <- .get.rdt.set();
   reductionSet$comp.res <- comp.res1;
   reductionSet$enrich_ids <- enrich.nms1;
@@ -147,7 +169,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     reductionSet$diabloPar <- diabloPar;
 
     # Isolate mixOmics in subprocess
-    callr_input <- list(
+    rsclient_input <- list(
         data.list = data.list,
         meta = reductionSet$meta,
         diabloMeta = diabloMeta,
@@ -410,7 +432,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
               ber_img = ber_img, loading_img = loading_img, opt.comp = opt.comp, ber_table = ber_table
             ))
           },
-          input_data = callr_input,
+          input_data = rsclient_input,
           packages = c("mixOmics", "qs", "Cairo", "grid", "gridExtra", "cowplot", "ggplot2", "see", "data.table"),
           timeout = 300,
           output_type = "qs"
@@ -542,7 +564,7 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
           } else if (!is.null(input_data$mcia_script_path) && file.exists(input_data$mcia_script_path)) {
             source(input_data$mcia_script_path, local = FALSE)
           } else {
-            stop("Cannot find util_mcia.R or util_mcia.Rc script")
+            AddErrMsg("Cannot find util_mcia.R or util_mcia.Rc script"); return(0);
           }
           result <- perform_mcia(df.list, cia.nf = input_data$cia.nf,
                                  cia.scan = input_data$cia.scan,
@@ -584,8 +606,11 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
  
   reductionSet <- .get.rdt.set();
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) {
+    AddErrMsg("Dimension reduction results not available. Please run the analysis first.");
+    return(0);
+  }
   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-  print(head(df));
   # reshape deprecated, use data.table
   #df <- reshape2::melt(df) 
 
@@ -620,6 +645,57 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
   saveSet(infoSet);
 }
 
+# Cumulative R-squared plot for MOFA/MCIA — stacked bar chart with cumulative line
+PlotCumR2 <- function(imgNm, dpi=150, format="png") {
+  infoSet <- readSet(infoSet, "infoSet");
+  load_cairo(); load_ggplot();
+  library(data.table)
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
+
+  reductionSet <- .get.rdt.set()
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) {
+    AddErrMsg("Dimension reduction results not available."); return(0)
+  }
+  var.exp <- reductionSet[[reductionSet$reductionOpt]]$var.exp
+  if (is.null(var.exp)) { AddErrMsg("Variance data not available."); return(0) }
+
+  sel.nms <- names(mdata.all)[mdata.all == 1]
+  df <- as.data.frame(var.exp * 100)  # convert proportions to percentages
+  for (i in seq_along(sel.nms)) {
+    dataSet <- readDataset(sel.nms[i])
+    colnames(df) <- gsub(dataSet$type, dataSet$readableType, colnames(df))
+  }
+  view.cols <- colnames(df)
+  df$Total <- rowSums(df[, view.cols, drop=FALSE])
+  df$Factor <- if (!is.null(rownames(var.exp))) rownames(var.exp) else paste0("Factor", 1:nrow(df))
+  df$Factor <- gsub("Factor", "Factor ", df$Factor)
+  df$Cumulative <- cumsum(df$Total)
+
+  df_long <- melt(as.data.table(df[, c("Factor", view.cols), drop=FALSE]),
+                  id.vars="Factor", variable.name="View", value.name="Variance")
+  df_long$Factor <- factor(df_long$Factor, levels=df$Factor)
+
+  p <- ggplot(df_long, aes(x=Factor, y=Variance, fill=View)) +
+    geom_bar(stat="identity", width=0.6) +
+    geom_line(data=df, aes(x=Factor, y=Cumulative, group=1),
+              inherit.aes=FALSE, linewidth=1.2, color="black", linetype="dashed") +
+    geom_point(data=df, aes(x=Factor, y=Cumulative),
+               inherit.aes=FALSE, size=3, color="black") +
+    geom_text(data=df, aes(x=Factor, y=Cumulative, label=sprintf("%.1f%%", Cumulative)),
+              inherit.aes=FALSE, vjust=-0.8, size=3.5) +
+    labs(x="", y="Variance Explained (%)", title="Cumulative Variance Explained") +
+    theme_minimal(base_size=12) +
+    theme(plot.title=element_text(hjust=0.5, size=13), panel.grid.major.x=element_blank())
+
+  Cairo(file=imgNm, unit="in", dpi=dpi, width=8, height=6, type=format, bg="white")
+  print(p)
+  dev.off()
+  infoSet$imgSet[[paste0("cumr2_", reductionSet$reductionOpt)]] <- imgNm
+  saveSet(infoSet)
+  return(1)
+}
+
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=150, format="png"){
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
@@ -630,6 +706,11 @@ PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=150, format="png"){
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
   reductionSet <- .get.rdt.set();
+
+  if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) {
+    AddErrMsg("Dimension reduction results not available. Please run the analysis first.");
+    return(0);
+  }
 
   # For MOFA/MCIA/DIABLO: plot variance explained heatmap instead of GGally ggpairs
   if (reductionSet$reductionOpt %in% c("mofa", "mcia", "diablo")) {

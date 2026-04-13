@@ -130,8 +130,23 @@ all.numeric <- function (x, what = c("test", "vector"), extras = c(".", "NA")){
 
 # Adds an error message
 AddErrMsg <- function(msg){
+  current.msg <<- c(current.msg, msg);
   msg.vec <<- c(msg.vec, msg);
   message("[ERROR] ", msg);
+}
+
+GetErrMsg <- function(){
+  return(current.msg);
+}
+
+getCurrentMsg <- function(){
+  msg <- paste(current.msg, collapse="; ");
+  current.msg <<- "";
+  return(msg);
+}
+
+ClearErrMsg <- function(){
+  current.msg <<- "";
 }
 
 UnzipUploadedFile<-function(zip_file){
@@ -1129,18 +1144,10 @@ GetFactors <- function(selMeta="NA"){
   }
 }
 
-LoadSpecialFunctions <- function(type=""){
-if(type == "reduce.dimension" || type == "PlotDimredVarexp" || type == "PlotDimredFactors"){
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/util_dimreduction.Rc");    
-}else if(type == ""){
-
-}
-return(1)
-}
-
 replace_extension_with_qs <- function(data_name) {
   if (is.null(data_name) || data_name == "") {
-    stop("Data name must not be null or empty")
+    AddErrMsg("Data name must not be null or empty");
+    return(0);
   }
   
   # Use gsub to replace .csv or .txt with .qs

@@ -253,10 +253,6 @@ RequireFastUnivTests <- function(rdtSet){
 }
 
 PerformFastUnivTests <- function(data, cls, var.equal=TRUE){
-  if(!exists("mem.univ")){
-    require("memoise");
-    mem.univ <<- memoise(.perform.fast.univ.tests);
-  }
   return(mem.univ(data, cls, var.equal));
 }
 
@@ -284,6 +280,8 @@ PerformFastUnivTests <- function(data, cls, var.equal=TRUE){
   return(res);
 }
 
+require("memoise");
+mem.univ <<- memoise(.perform.fast.univ.tests);
 
 #'Get p-values for ROC
 #'@description ROC p-vaues, used in higher function
@@ -603,7 +601,7 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
   if (length(unique(rdtSet$dataSet$roc.cls)) > 2) {
     # Multiclass case
     if (is.null(classLabel) || is.na(classLabel)) {
-      stop("Please provide a class label to get ROC coordinates for a specific class.")
+      AddErrMsg("Please provide a class label to get ROC coordinates for a specific class."); return(0);
     }
     
     # Find the index of the class label
@@ -611,7 +609,7 @@ GetROC.coords <- function(fld.nm, val, plot=TRUE, imgNm, classLabel=NULL){
     class_index <- which(class_labels == classLabel)
 
     if (length(class_index) == 0) {
-      stop(paste("Class label", classLabel, "not found in the data."))
+      AddErrMsg(paste("Class label", classLabel, "not found in the data.")); return(0);
     }
 
     # Regenerate ROC object for the specified class (one-vs-rest)
@@ -831,7 +829,7 @@ other_group <- levels(cls)[2]
  
     # Check for missing values in y.train
     if (any(is.na(y.train))) {
-      stop("y.train contains missing values. Please ensure labels are correctly assigned before training.")
+      AddErrMsg("y.train contains missing values. Please ensure labels are correctly assigned before training."); return(0);
     }
     
     # Feature ranking
@@ -917,7 +915,7 @@ PlotImpBiomarkers <- function(imgName, format = "png", dpi = 150, mdl.inx, measu
   # Adjust for one-against-all if necessary
  
   if (nrow(data) != length(cls)) {
-    stop("Mismatch between number of samples in data and cls. Ensure they have the same length.")
+    AddErrMsg("Mismatch between number of samples in data and cls. Ensure they have the same length."); return(0);
   }
   
   if (mdl.inx == -1) {
@@ -931,7 +929,7 @@ PlotImpBiomarkers <- function(imgName, format = "png", dpi = 150, mdl.inx, measu
   
   # Check if `data` has columns after filtering
   if (ncol(data) == 0) {
-    stop("No matching features in data after filtering with importance matrix names. Check `imp.mat` and column names of `data`.")
+    AddErrMsg("No matching features in data after filtering with importance matrix names. Check `imp.mat` and column names of `data`."); return(0);
   }
   
   # Compute median for each group
