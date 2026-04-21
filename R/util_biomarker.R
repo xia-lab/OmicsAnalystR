@@ -233,7 +233,7 @@ CalculateFeatureRanking <- function(clust.num=5){
 
   # Format and return the result
   feat.rank.mat <- signif(feat.rank.mat, digits = 5);
-  qs::qsave(feat.rank.mat,"feat.rank.mat.qs")
+  ov_qs_save(feat.rank.mat,"feat.rank.mat.qs")
 
  
   if(rdtSet$analSet$mode == "univ"){
@@ -333,7 +333,7 @@ SetAnalysisMode <- function(rdtSet=NA, mode){
 }
 
 GetUnivRankedFeatureNames <- function(){
-  feat.rank.mat <- qs::qread("feat.rank.mat.qs")
+  feat.rank.mat <- ov_qs_read("feat.rank.mat.qs")
  
 return(rownames(feat.rank.mat))
 }
@@ -351,7 +351,7 @@ GetUnivRankedFeatureTypes <- function(){
 }
 
 GetFeatureRankingMat <- function(){
-  feat.rank.mat <- qs::qread("feat.rank.mat.qs")
+  feat.rank.mat <- ov_qs_read("feat.rank.mat.qs")
   return(feat.rank.mat)
 }
 

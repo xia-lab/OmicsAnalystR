@@ -116,7 +116,7 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
   
   for(i in 1:length(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
-    int.mat <- qs::qread(dataSet$data.annotated.path);
+    int.mat <- ov_qs_read(dataSet$data.annotated.path);
     int.mat <- int.mat[,colnames(int.mat) %in% colnames(dataSet$data.proc)];
 
     if(filterMethod == "variance"){
@@ -256,7 +256,7 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
   }
 
   pca.list$pct2 <- pct;
-  qs::qsave(pca.list, file="pca.scatter.qs");
+  ov_qs_save(pca.list, file="pca.scatter.qs");
   
   #h<-6*round(length(sel.nms)/2)
   h<-6

@@ -130,7 +130,7 @@ MetaboliteMappingExact <- function(dataSet, qvec, q.type){
   db.path.qs <- paste0(lib.path, "compound_db.qs");
   db.path.rds <- paste0(lib.path, "compound_db.rds");
   if (file.exists(db.path.qs)) {
-    cmpd.db <- qs::qread(db.path.qs);
+    cmpd.db <- ov_qs_read(db.path.qs);
   } else {
     cmpd.db <- readRDS(db.path.rds);
   }
@@ -172,7 +172,7 @@ MetaboliteMappingExact <- function(dataSet, qvec, q.type){
     syn.db.path.rds <- paste0(lib.path, "syn_nms.rds");
     syn.db <- NULL;
     if (file.exists(syn.db.path.qs)) {
-      syn.db <- qs::qread(syn.db.path.qs);
+      syn.db <- ov_qs_read(syn.db.path.qs);
     } else if (file.exists(syn.db.path.rds)) {
       syn.db <- readRDS(syn.db.path.rds);
     }
@@ -501,7 +501,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
   dataSet$data.annotated.path <- paste0(dataSet$folderName, "/data.annotated.qs")
   dataSet$data.raw.path <- paste0(dataSet$folderName, "/data.raw.qs")
 
-  qs::qsave(data_final, dataSet$data.raw.path)
+  ov_qs_save(data_final, dataSet$data.raw.path)
   # update current dataset
   RegisterData(dataSet)
   return(1)
@@ -549,6 +549,13 @@ intersect_rownames <- function(df_list) {
 
 NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="NA"){
   msg <- ""
+  # Force a numeric 2-D matrix. apply(data, 1/2, ...) below requires 2-D, and
+  # downstream AutoNorm / MeanCenter / etc. compute x - mean(x) which errors
+  # on character/factor columns. data.matrix() integer-encodes non-numeric
+  # columns, whereas as.matrix() on mixed data.frames yields a character matrix.
+  if (!is.matrix(data) || !is.numeric(data)) {
+    data <- data.matrix(data)
+  }
   rnms <- rownames(data)
   cnms <- colnames(data)
 

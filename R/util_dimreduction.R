@@ -265,7 +265,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
             loading.pos.xyz$type <- omics.vec
 
             # Save model for fallback PlotDiabloBER/Circos/Loading
-            qs::qsave(model, "diablo_model.qs", preset = "fast")
+            ov_qs_save(model, "diablo_model.qs", preset = "fast")
 
             # Generate BER diagnostic plot
             ber_img <- NULL
@@ -528,7 +528,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
 #used to get MOFA results
 GetRdtQs <- function(){
-    res <- qs::qread("rdt.set.qs");    
+    res <- ov_qs_read("rdt.set.qs");    
 #    rdt.set <<- res;
     return(1);
 }
@@ -921,7 +921,7 @@ GenerateDiabloCircosJson <- function(cutoff=0.5, maxEdges=100) {
     rsclient_isolated_exec(
       func_body = function(input_data) {
         suppressPackageStartupMessages(library(mixOmics))
-        model <- qs::qread("diablo_model.qs")
+        model <- ov_qs_read("diablo_model.qs")
         block_names <- names(model$X)
         X_proj <- lapply(model$X, function(x) x[, which(apply(x, 2, var) > 0), drop = FALSE])
         all_edges <- list()

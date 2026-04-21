@@ -19,7 +19,7 @@
 AnnotateMicrobiomeData <- function(dataName,org,feattype){
   library("tidyverse")
   dataSet <- readDataset(dataName);
-  data <- qs::qread(dataSet$data.raw.path);
+  data <- ov_qs_read(dataSet$data.raw.path);
   #  mic.vec <- rownames(data);
   
   data.org <<- org
@@ -74,7 +74,7 @@ AnnotateMicrobiomeData <- function(dataName,org,feattype){
    }
   }
 
-  qs::qsave(data, dataSet$data.annotated.path);
+  ov_qs_save(data, dataSet$data.annotated.path);
   fast.write.csv(data,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   dataSet$enrich_ids <- rownames(data);
   names(dataSet$enrich_ids) = rownames(data);
@@ -102,7 +102,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }
   
   dataSet <- readDataset(dataName);
-  data.raw <- qs::qread(dataSet$data.raw.path);
+  data.raw <- ov_qs_read(dataSet$data.raw.path);
   gene.vec <- rownames(data.raw);
  
   #print(idtype)
@@ -198,7 +198,7 @@ AnnotateGeneData <- function(dataName, org, idtype){
   }
  
   msg.vec <<- msg;
-  qs::qsave(data.annotated, dataSet$data.annotated.path);
+  ov_qs_save(data.annotated, dataSet$data.annotated.path);
   fast.write.csv(data.annotated,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   RegisterData(dataSet);
   return(1)
@@ -220,7 +220,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   dataSet <- readDataset(dataName);
   dataSet$name <- dataName
   dataSet$idType <- idtype;
-  data <- qs::qread(dataSet$data.raw.path);
+  data <- ov_qs_read(dataSet$data.raw.path);
   qvec <- rownames(data);
   
   # record all the data
@@ -253,7 +253,7 @@ AnnotateMetaboliteData <- function(dataName, idtype){
   rownames(data) <- unname(dataSet$enrich_ids);
   data <- RemoveDuplicates(data, "mean", quiet=T); # remove duplicates
   data <- as.data.frame(data)
-  qs::qsave(data, dataSet$data.annotated.path);
+  ov_qs_save(data, dataSet$data.annotated.path);
   fast.write.csv(data,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   RegisterData(dataSet);
   msg.vec <<- msg
@@ -273,13 +273,13 @@ SkippingAnnotation <- function(dataName, idtype){
   
   dataSet <- readDataset(dataName);
   
-  data <- qs::qread(dataSet$data.raw.path);
+  data <- ov_qs_read(dataSet$data.raw.path);
   qvec <- rownames(data);
   
   dataSet$enrich_ids <- rownames(data)
   names(dataSet$enrich_ids) <- rownames(data)
   dataSet$idType <- idtype
-  qs::qsave(data, dataSet$data.annotated.path);
+  ov_qs_save(data, dataSet$data.annotated.path);
   fast.write.csv(data,file=paste0(dataSet$folderName, "/data.annotated.csv"));
   RegisterData(dataSet);
   

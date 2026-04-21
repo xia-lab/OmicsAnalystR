@@ -673,7 +673,7 @@ convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
     if (!is.null(result$infoSet)) saveSet(result$infoSet)
     if (!is.null(result$reductionSet)) .set.rdt.set(result$reductionSet)
     if (!is.null(result$ppi.comps)) {
-      qs::qsave(result$ppi.comps, "ppi.comps.qs", preset = "fast")
+      ov_qs_save(result$ppi.comps, "ppi.comps.qs", preset = "fast")
     }
     return(1)
 }

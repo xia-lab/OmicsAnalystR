@@ -7,17 +7,17 @@
 .get.rdt.set <- function(){
   # return(result.set);
   if(.on.public.web){
-    return(qs::qread("rdt.set.qs"));
+    return(ov_qs_read("rdt.set.qs"));
   }else{
-    return(qs::qread("rdt.set.qs"));
+    return(ov_qs_read("rdt.set.qs"));
   }
 }
 
 .set.rdt.set <- function(my.set){
   if(.on.public.web){ 
-  qs::qsave(my.set, file="rdt.set.qs");
+  ov_qs_save(my.set, file="rdt.set.qs");
 }else{
-  qs::qsave(my.set, file="rdt.set.qs");
+  ov_qs_save(my.set, file="rdt.set.qs");
 }
   return(1);
 }
@@ -224,11 +224,11 @@ RegisterData <- function(dataSet, output=1){
   if(.on.public.web){
     #dataSets[[dataName]] <- dataSet;
     #dataSets <<- dataSets;
-    qs::qsave(dataSet, file=replace_extension_with_qs(dataName));
+    ov_qs_save(dataSet, file=replace_extension_with_qs(dataName));
     return(output);
   }else{
     if(paramSet$api.bool){
-        qs::qsave(dataSet, file=replace_extension_with_qs(dataName));
+        ov_qs_save(dataSet, file=replace_extension_with_qs(dataName));
         return(output);
     }else{
         dataSets[[dataName]] <- dataSet;
@@ -378,7 +378,7 @@ PlotDataProfile<-function(dataName,type, boxplotName, pcaName){
     qc.boxplot2(as.matrix(dataSet$data.proc), boxplotName);
     qc.pcaplot2(as.matrix(dataSet$data.proc), pcaName);
   }else{
-    data.raw <- qs::qread(dataSet$data.raw.path);
+    data.raw <- ov_qs_read(dataSet$data.raw.path);
     qc.boxplot2(as.matrix(data.raw), boxplotName);
     qc.pcaplot2(as.matrix(data.raw), pcaName);
   }
@@ -582,7 +582,7 @@ ReadMetaData <- function(metafilename){
 CheckDataType <- function(dataName, type){
   dataSet <- readDataset(dataName);
   isOk <- T;
-  data <- qs::qread(dataSet$data.raw.path);
+  data <- ov_qs_read(dataSet$data.raw.path);
   containsNeg <- "TRUE" %in% names(table(data < 0)) 
   msg.vec <- ""
   negativeBool <- F
@@ -644,7 +644,7 @@ SetParamsNormalizedData <- function(dataName){
             return(0);
         }
     }
-    int.mat <- qs::qread(annotated.path);
+    int.mat <- ov_qs_read(annotated.path);
     msg.vec <- "";
 
     if(sum(is.na(int.mat)) == 0){ # check if any missing values
@@ -664,7 +664,7 @@ RemoveMissingPercent <- function(dataName="", percent=0.5){
 
   dataSet <- readDataset(dataName);
   
-  int.mat <-  qs::qread(dataSet$data.annotated.path);
+  int.mat <-  ov_qs_read(dataSet$data.annotated.path);
   good.inx1 <- apply(is.na(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% NA for each feature
   good.inx2 <- apply(R.utils:::isZero(int.mat), 1, sum)/ncol(int.mat) < percent; # check less than 50% 0 for each feature
   
@@ -686,7 +686,7 @@ ImputeMissingVar <- function(dataName="", method="min"){
 
   # get parameters
   dataSet <- readDataset(dataName);
-  int.mat <- qs::qread(dataSet$data.annotated.path);
+  int.mat <- ov_qs_read(dataSet$data.annotated.path);
   new.mat <- NULL;
   msg.vec <- "";
   
