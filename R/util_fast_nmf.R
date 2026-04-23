@@ -1,0 +1,643 @@
+##################################################
+## Fast Non-negative Matrix Factorization (NMF)
+## Ultra-fast multi-omics integration using RcppML
+## C++ backend for 100x speedup vs standard NMF
+## Reference: RcppML - Rcpp Machine Learning Library
+## Created: 2025-01-04
+##################################################
+
+#' Perform Fast NMF for Multi-Omics Integration
+#'
+#' Ultra-fast multi-omics integration using non-negative matrix factorization
+#' with C++ backend (RcppML). Ideal for web platform (10-30 seconds).
+#' NMF learns parts-based representations which are biologically interpretable.
+#'
+#' @param omics_list Named list of omics matrices (samples x features)
+#'                   All matrices must have same number of rows (samples)
+#' @param k Number of factors/components to extract (default: 10)
+#' @param method Integration strategy: "concatenate" (combine features) or
+#'               "joint" (joint factorization with omics-specific weights)
+#' @param normalize Whether to normalize features (default: TRUE)
+#' @param scale_to_nonnegative Whether to shift data to non-negative (default: TRUE)
+#' @param max_iter Maximum iterations (default: 100)
+#' @param tol Convergence tolerance (default: 1e-4)
+#' @param seed Random seed for reproducibility (default: 123)
+#' @param progress_callback Optional progress callback function(percent, message)
+#'
+#' @return List containing:
+#'   \item{H}{Sample factor matrix (samples x k)}
+#'   \item{W}{Feature weight matrices (list per omics)}
+#'   \item{omics_contributions}{Contribution of each omics to factors}
+#'   \item{feature_importance}{Top contributing features per factor}
+#'   \item{reconstruction_error}{Final reconstruction error}
+#'   \item{variance_explained}{Variance explained per factor}
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Example: Integrate multiple omics
+#' omics_list <- list(
+#'   transcriptomics = matrix(rnorm(100*1000), 100, 1000),
+#'   proteomics = matrix(rnorm(100*500), 100, 500),
+#'   metabolomics = matrix(rnorm(100*200), 100, 200)
+#' )
+#'
+#' # Run Fast NMF
+#' result <- PerformFastNMF(omics_list, k = 10)
+#'
+#' # Plot factor scores
+#' PlotNMFFactors(result, factors = c(1,2), groups = your_groups)
+#' }
+PerformFastNMF <- function(omics_list,
+                          k = 10,
+                          method = c("concatenate", "joint"),
+                          normalize = TRUE,
+                          scale_to_nonnegative = TRUE,
+                          max_iter = 100,
+                          tol = 1e-4,
+                          seed = 123,
+                          progress_callback = NULL) {
+
+  method <- match.arg(method)
+
+  # Progress helper
+  update_progress <- if (!is.null(progress_callback)) {
+    progress_callback
+  } else {
+    function(pct, msg) NULL
+  }
+
+  update_progress(5, "Validating input data")
+
+  # Input validation
+  if (!is.list(omics_list) || length(omics_list) < 1) {
+    stop("omics_list must be a list with at least 1 omics layer")
+  }
+
+  n_samples <- unique(sapply(omics_list, nrow))
+  if (length(n_samples) > 1) {
+    stop("All omics must have the same number of samples (rows)")
+  }
+  n_samples <- n_samples[1]
+
+  # Set omics names if not provided
+  if (is.null(names(omics_list))) {
+    names(omics_list) <- paste0("Omics", seq_along(omics_list))
+  }
+  omics_names <- names(omics_list)
+
+  # Check if RcppML is available
+  if (!requireNamespace("RcppML", quietly = TRUE)) {
+    stop("Package 'RcppML' is required. Install with: install.packages('RcppML')")
+  }
+
+  update_progress(10, "Preprocessing omics data")
+
+  # Preprocess each omics
+  processed_omics <- list()
+  omics_offsets <- list()  # Store offset values for back-transformation
+  omics_scales <- list()
+
+  for (i in seq_along(omics_list)) {
+    omics_name <- omics_names[i]
+    omics_data <- as.matrix(omics_list[[i]])
+
+    # Remove zero-variance features
+    feature_vars <- apply(omics_data, 2, var, na.rm = TRUE)
+    valid_features <- !is.na(feature_vars) & feature_vars > 0
+    omics_data <- omics_data[, valid_features, drop = FALSE]
+
+    # Handle missing values (replace with column mean)
+    if (any(is.na(omics_data))) {
+      col_means <- colMeans(omics_data, na.rm = TRUE)
+      for (j in 1:ncol(omics_data)) {
+        omics_data[is.na(omics_data[, j]), j] <- col_means[j]
+      }
+      warning(sprintf("%s had missing values - replaced with column means", omics_name))
+    }
+
+    # Normalize features
+    if (normalize) {
+      omics_data <- scale(omics_data, center = TRUE, scale = TRUE)
+      omics_scales[[omics_name]] <- attr(omics_data, "scaled:scale")
+    }
+
+    # Make non-negative (NMF requirement)
+    if (scale_to_nonnegative) {
+      omics_min <- min(omics_data, na.rm = TRUE)
+      if (omics_min < 0) {
+        omics_data <- omics_data - omics_min + 1e-10  # Shift to positive
+        omics_offsets[[omics_name]] <- omics_min
+      }
+    }
+
+    # Ensure all values are non-negative
+    if (any(omics_data < 0, na.rm = TRUE)) {
+      stop(sprintf("%s contains negative values. Set scale_to_nonnegative=TRUE", omics_name))
+    }
+
+    processed_omics[[omics_name]] <- omics_data
+
+    update_progress(10 + (i / length(omics_list)) * 20,
+                   sprintf("Preprocessed %s", omics_name))
+  }
+
+  update_progress(35, sprintf("Running Fast NMF (%s method)", method))
+
+  # Set seed for reproducibility
+  set.seed(seed)
+
+  if (method == "concatenate") {
+    # Concatenate all omics features
+    result <- PerformConcatenatedNMF(
+      processed_omics = processed_omics,
+      k = k,
+      max_iter = max_iter,
+      tol = tol,
+      update_progress = update_progress
+    )
+  } else {
+    # Joint factorization (shared H, omics-specific W)
+    result <- PerformJointNMF(
+      processed_omics = processed_omics,
+      k = k,
+      max_iter = max_iter,
+      tol = tol,
+      update_progress = update_progress
+    )
+  }
+
+  update_progress(90, "Computing feature importance")
+
+  # Compute feature importance for each factor
+  feature_importance <- ComputeFeatureImportance(
+    W_list = result$W,
+    top_n = 20
+  )
+
+  update_progress(95, "Computing omics contributions")
+
+  # Compute omics contribution to each factor
+  omics_contributions <- ComputeOmicsContributions(
+    W_list = result$W,
+    processed_omics = processed_omics
+  )
+
+  update_progress(98, "Finalizing results")
+
+  # Package results
+  final_result <- list(
+    H = result$H,  # Sample factor matrix
+    W = result$W,  # List of feature weight matrices
+    omics_contributions = omics_contributions,
+    feature_importance = feature_importance,
+    reconstruction_error = result$error,
+    variance_explained = result$variance_explained,
+    method = paste0("Fast NMF (", method, ")"),
+    k = k,
+    omics_names = omics_names,
+    preprocessing = list(
+      normalized = normalize,
+      scaled_nonnegative = scale_to_nonnegative,
+      offsets = omics_offsets,
+      scales = omics_scales
+    )
+  )
+
+  class(final_result) <- c("FastNMF", "list")
+
+  update_progress(100, "Fast NMF complete")
+
+  return(final_result)
+}
+
+
+#' Perform Concatenated NMF
+#'
+#' @param processed_omics List of preprocessed omics matrices
+#' @param k Number of factors
+#' @param max_iter Maximum iterations
+#' @param tol Convergence tolerance
+#' @param update_progress Progress callback function
+#' @return List with H, W, error, variance_explained
+#' @keywords internal
+PerformConcatenatedNMF <- function(processed_omics, k, max_iter, tol, update_progress) {
+
+  # Concatenate all omics
+  concat_matrix <- do.call(cbind, processed_omics)
+
+  # Keep track of feature boundaries
+  feature_boundaries <- cumsum(c(0, sapply(processed_omics, ncol)))
+  names(feature_boundaries) <- c(names(processed_omics), "end")
+
+  update_progress(40, "Running RcppML factorization")
+
+  # Run RcppML NMF
+  nmf_result <- RcppML::nmf(
+    A = t(concat_matrix),  # RcppML expects features x samples
+    k = k,
+    tol = tol,
+    maxit = max_iter,
+    verbose = FALSE,
+    seed = NULL  # Already set globally
+  )
+
+  update_progress(75, "Extracting factor matrices")
+
+  # Extract results
+  W_concat <- nmf_result$w  # features x k
+  H <- t(nmf_result$h)      # samples x k
+
+  # Split W back into omics-specific matrices
+  W_list <- list()
+  for (i in seq_along(processed_omics)) {
+    omics_name <- names(processed_omics)[i]
+    start_idx <- feature_boundaries[i] + 1
+    end_idx <- feature_boundaries[i + 1]
+
+    W_omics <- W_concat[start_idx:end_idx, , drop = FALSE]
+    rownames(W_omics) <- colnames(processed_omics[[i]])
+    colnames(W_omics) <- paste0("Factor", 1:k)
+
+    W_list[[omics_name]] <- W_omics
+  }
+
+  # Set names for H
+  rownames(H) <- rownames(processed_omics[[1]])
+  colnames(H) <- paste0("Factor", 1:k)
+
+  # Compute reconstruction error
+  # NMF approximation: X ≈ H %*% t(W) where X is samples x features, H is samples x factors, W is features x factors
+  reconstruction <- H %*% t(W_concat)
+  error <- sqrt(mean((concat_matrix - reconstruction)^2))
+
+  # Compute variance explained by each factor
+  H_vars <- apply(H, 2, var)
+  variance_explained <- (H_vars / sum(H_vars)) * 100
+
+  return(list(
+    H = H,
+    W = W_list,
+    error = error,
+    variance_explained = variance_explained
+  ))
+}
+
+
+#' Perform Joint NMF (Shared H, Omics-specific W)
+#'
+#' @param processed_omics List of preprocessed omics matrices
+#' @param k Number of factors
+#' @param max_iter Maximum iterations
+#' @param tol Convergence tolerance
+#' @param update_progress Progress callback function
+#' @return List with H, W, error, variance_explained
+#' @keywords internal
+PerformJointNMF <- function(processed_omics, k, max_iter, tol, update_progress) {
+
+  n_samples <- nrow(processed_omics[[1]])
+  n_omics <- length(processed_omics)
+
+  # Initialize H randomly (shared across omics)
+  H <- matrix(runif(n_samples * k), nrow = n_samples, ncol = k)
+
+  # Initialize W for each omics
+  W_list <- list()
+  for (omics_name in names(processed_omics)) {
+    n_features <- ncol(processed_omics[[omics_name]])
+    W_list[[omics_name]] <- matrix(runif(n_features * k), nrow = n_features, ncol = k)
+  }
+
+  # Iterative optimization
+  prev_error <- Inf
+
+  for (iter in 1:max_iter) {
+    # Update each W given H
+    for (i in seq_along(processed_omics)) {
+      omics_name <- names(processed_omics)[i]
+      X <- processed_omics[[omics_name]]
+
+      # Update W: W = X^T * H * (H^T * H)^-1
+      HtH <- t(H) %*% H + 1e-10 * diag(k)  # Regularization
+      W_list[[omics_name]] <- t(X) %*% H %*% solve(HtH)
+
+      # Ensure non-negativity
+      W_list[[omics_name]][W_list[[omics_name]] < 0] <- 0
+    }
+
+    # Update H given all W (weighted average)
+    H_new <- matrix(0, nrow = n_samples, ncol = k)
+
+    for (i in seq_along(processed_omics)) {
+      omics_name <- names(processed_omics)[i]
+      X <- processed_omics[[omics_name]]
+      W <- W_list[[omics_name]]
+
+      # H = X * W * (W^T * W)^-1
+      WtW <- t(W) %*% W + 1e-10 * diag(k)
+      H_update <- X %*% W %*% solve(WtW)
+
+      H_new <- H_new + H_update
+    }
+
+    H <- H_new / n_omics
+
+    # Ensure non-negativity
+    H[H < 0] <- 0
+
+    # Compute reconstruction error
+    total_error <- 0
+    for (i in seq_along(processed_omics)) {
+      omics_name <- names(processed_omics)[i]
+      X <- processed_omics[[omics_name]]
+      W <- W_list[[omics_name]]
+
+      reconstruction <- H %*% t(W)
+      total_error <- total_error + sum((X - reconstruction)^2)
+    }
+
+    error <- sqrt(total_error / sum(sapply(processed_omics, length)))
+
+    # Check convergence
+    if (abs(prev_error - error) < tol) {
+      message(sprintf("Joint NMF converged at iteration %d", iter))
+      break
+    }
+
+    prev_error <- error
+
+    # Progress update every 10 iterations
+    if (iter %% 10 == 0) {
+      progress_pct <- 40 + (iter / max_iter) * 30
+      update_progress(progress_pct, sprintf("Joint NMF iteration %d/%d", iter, max_iter))
+    }
+  }
+
+  update_progress(75, "Joint NMF optimization complete")
+
+  # Set names
+  rownames(H) <- rownames(processed_omics[[1]])
+  colnames(H) <- paste0("Factor", 1:k)
+
+  for (omics_name in names(W_list)) {
+    rownames(W_list[[omics_name]]) <- colnames(processed_omics[[omics_name]])
+    colnames(W_list[[omics_name]]) <- paste0("Factor", 1:k)
+  }
+
+  # Compute variance explained
+  H_vars <- apply(H, 2, var)
+  variance_explained <- (H_vars / sum(H_vars)) * 100
+
+  return(list(
+    H = H,
+    W = W_list,
+    error = error,
+    variance_explained = variance_explained
+  ))
+}
+
+
+#' Compute Feature Importance
+#'
+#' @param W_list List of feature weight matrices
+#' @param top_n Number of top features per factor
+#' @return List of top features per factor per omics
+#' @keywords internal
+ComputeFeatureImportance <- function(W_list, top_n = 20) {
+
+  feature_importance <- list()
+
+  for (omics_name in names(W_list)) {
+    W <- W_list[[omics_name]]
+    k <- ncol(W)
+
+    omics_importance <- list()
+
+    for (j in 1:k) {
+      weights <- W[, j]
+      top_idx <- head(order(weights, decreasing = TRUE), top_n)
+
+      top_features <- data.frame(
+        feature = rownames(W)[top_idx],
+        weight = weights[top_idx],
+        stringsAsFactors = FALSE
+      )
+
+      omics_importance[[paste0("Factor", j)]] <- top_features
+    }
+
+    feature_importance[[omics_name]] <- omics_importance
+  }
+
+  return(feature_importance)
+}
+
+
+#' Compute Omics Contributions to Factors
+#'
+#' @param W_list List of feature weight matrices
+#' @param processed_omics List of preprocessed omics
+#' @return Matrix of omics contributions (omics x factors)
+#' @keywords internal
+ComputeOmicsContributions <- function(W_list, processed_omics) {
+
+  k <- ncol(W_list[[1]])
+  n_omics <- length(W_list)
+
+  contributions <- matrix(0, nrow = n_omics, ncol = k)
+  rownames(contributions) <- names(W_list)
+  colnames(contributions) <- paste0("Factor", 1:k)
+
+  # Contribution = sum of weights per factor
+  for (i in seq_along(W_list)) {
+    W <- W_list[[i]]
+    contributions[i, ] <- colSums(W)
+  }
+
+  # Normalize to percentages per factor
+  contributions <- sweep(contributions, 2, colSums(contributions), "/") * 100
+
+  return(contributions)
+}
+
+
+#' Plot NMF Factor Scores
+#'
+#' @param nmf_result Result from PerformFastNMF
+#' @param factors Which factors to plot (default: c(1,2))
+#' @param groups Optional grouping variable for coloring
+#' @param main Plot title
+#' @export
+PlotNMFFactors <- function(nmf_result,
+                          factors = c(1, 2),
+                          groups = NULL,
+                          main = "Fast NMF Factors") {
+
+  if (!inherits(nmf_result, "FastNMF")) {
+    stop("Input must be a FastNMF object")
+  }
+
+  H <- nmf_result$H[, factors]
+  var_exp <- nmf_result$variance_explained[factors]
+
+  # Set colors
+  if (is.null(groups)) {
+    colors <- rep("black", nrow(H))
+  } else {
+    groups <- as.factor(groups)
+    colors <- rainbow(nlevels(groups))[as.numeric(groups)]
+  }
+
+  # Create plot
+  plot(H,
+       col = colors,
+       pch = 19,
+       cex = 1.5,
+       xlab = sprintf("Factor%d (%.1f%%)", factors[1], var_exp[1]),
+       ylab = sprintf("Factor%d (%.1f%%)", factors[2], var_exp[2]),
+       main = main)
+
+  # Add legend if groups provided
+  if (!is.null(groups)) {
+    legend("topright",
+           legend = levels(groups),
+           col = rainbow(nlevels(groups)),
+           pch = 19,
+           cex = 0.8)
+  }
+
+  grid()
+}
+
+
+#' Plot Feature Weights Heatmap
+#'
+#' @param nmf_result Result from PerformFastNMF
+#' @param omics_name Which omics to plot
+#' @param top_n Number of top features per factor (default: 15)
+#' @param factors Which factors to show (default: all)
+#' @export
+PlotNMFFeatureWeights <- function(nmf_result,
+                                 omics_name,
+                                 top_n = 15,
+                                 factors = NULL) {
+
+  if (!inherits(nmf_result, "FastNMF")) {
+    stop("Input must be a FastNMF object")
+  }
+
+  if (!omics_name %in% names(nmf_result$W)) {
+    stop(sprintf("Omics '%s' not found. Available: %s",
+                omics_name, paste(names(nmf_result$W), collapse = ", ")))
+  }
+
+  W <- nmf_result$W[[omics_name]]
+
+  if (is.null(factors)) {
+    factors <- 1:ncol(W)
+  }
+
+  W_subset <- W[, factors, drop = FALSE]
+
+  # Get top features per factor
+  top_features <- unique(unlist(lapply(factors, function(j) {
+    idx <- head(order(W_subset[, j], decreasing = TRUE), top_n)
+    rownames(W_subset)[idx]
+  })))
+
+  # Subset to top features
+  W_plot <- W_subset[top_features, , drop = FALSE]
+
+  # Create heatmap
+  if (requireNamespace("pheatmap", quietly = TRUE)) {
+    pheatmap::pheatmap(
+      W_plot,
+      main = sprintf("Feature Weights - %s", omics_name),
+      cluster_cols = FALSE,
+      color = colorRampPalette(c("white", "red"))(100),
+      fontsize_row = 8
+    )
+  } else {
+    # Fallback to base heatmap
+    heatmap(W_plot,
+            Colv = NA,
+            scale = "none",
+            col = colorRampPalette(c("white", "red"))(100),
+            main = sprintf("Feature Weights - %s", omics_name))
+  }
+}
+
+
+#' Plot Omics Contributions Barplot
+#'
+#' @param nmf_result Result from PerformFastNMF
+#' @param factors Which factors to show (default: all)
+#' @export
+PlotNMFOmicsContributions <- function(nmf_result, factors = NULL) {
+
+  if (!inherits(nmf_result, "FastNMF")) {
+    stop("Input must be a FastNMF object")
+  }
+
+  contrib <- nmf_result$omics_contributions
+
+  if (is.null(factors)) {
+    factors <- 1:ncol(contrib)
+  }
+
+  contrib_subset <- contrib[, factors, drop = FALSE]
+
+  # Create barplot
+  barplot(contrib_subset,
+          beside = TRUE,
+          col = rainbow(nrow(contrib)),
+          legend.text = rownames(contrib),
+          args.legend = list(x = "topright", cex = 0.8),
+          xlab = "Factor",
+          ylab = "Contribution (%)",
+          main = "Omics Layer Contributions to NMF Factors",
+          ylim = c(0, 100))
+
+  grid()
+}
+
+
+#' Print Fast NMF Summary
+#'
+#' @param x FastNMF object
+#' @param ... Additional arguments (not used)
+#' @export
+print.FastNMF <- function(x, ...) {
+  cat("=== Fast Non-negative Matrix Factorization ===\n\n")
+  cat("Method:", x$method, "\n")
+  cat("Number of factors:", x$k, "\n")
+  cat("Number of omics layers:", length(x$W), "\n")
+  cat("Omics names:", paste(x$omics_names, collapse = ", "), "\n")
+  cat("Number of samples:", nrow(x$H), "\n\n")
+
+  cat("Reconstruction error:", sprintf("%.4f", x$reconstruction_error), "\n\n")
+
+  cat("Variance explained by factors:\n")
+  var_df <- data.frame(
+    Factor = paste0("Factor", 1:length(x$variance_explained)),
+    Variance = round(x$variance_explained, 2)
+  )
+  print(var_df, row.names = FALSE)
+
+  cat("\nCumulative variance:", round(sum(x$variance_explained), 2), "%\n\n")
+
+  cat("Omics contributions to Factor1:\n")
+  contrib_factor1 <- round(x$omics_contributions[, 1], 1)
+  print(contrib_factor1)
+
+  cat("\nTop features in Factor1:\n")
+  for (omics_name in names(x$feature_importance)) {
+    cat(sprintf("  %s: %s\n",
+                omics_name,
+                paste(head(x$feature_importance[[omics_name]]$Factor1$feature, 3),
+                      collapse = ", ")))
+  }
+
+  invisible(x)
+}

@@ -17,8 +17,8 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     # Create a lookup table
     type_lookup <- setNames(type_df$type, type_df$name)
    
-    corr.mat <- qs::qread(reductionSet$corr.mat.path);
-    corr.p.mat<- qs::qread("corr.p.mat.qs");
+    corr.mat <- ov_qs_read(reductionSet$corr.mat.path);
+    corr.p.mat<- ov_qs_read("corr.p.mat.qs");
     corr.p.mat <- reshape2::melt(corr.p.mat) 
     sel.dats <- reductionSet$selDatsCorr;
     rowlen <- nrow(corr.mat);
@@ -43,7 +43,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
    
     # for histogram only
     reductionSet$corr.graph.path <- "corr.graph.qs";
-    qs::qsave(list(corr.graph.inter=inter_g, corr.graph.intra=intra_g), "corr.graph.qs")
+    ov_qs_save(list(corr.graph.inter=inter_g, corr.graph.intra=intra_g), "corr.graph.qs")
     
     cor.list <- list(all = NULL, inter = NULL, intra = NULL)
     
@@ -72,7 +72,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
     cor.list$all  <- rbind(cor.list$inter, cor.list$intra)
 
     reductionSet$cor.list.path <- "cor.list.qs";
-    qs::qsave(cor.list, file="cor.list.qs");
+    ov_qs_save(cor.list, file="cor.list.qs");
     if (crossOmicsOnly == "true") {
       cor_edge_list <- cor.list$inter
     } else {
@@ -187,7 +187,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
       cor.list[["all"]] <- rbind(cor_edge_list_inter, cor_edge_list_intra)
       cor.list[["inter"]] <- cor_edge_list_inter
       cor.list[["intra"]] <- cor_edge_list_intra
-      qs::qsave(cor.list, file= paste0("cor.list",taxlvl,".qs"));
+      ov_qs_save(cor.list, file= paste0("cor.list",taxlvl,".qs"));
       
       if(!(exists("corr.mat.inter.taxa",reductionSet))){
         reductionSet$corr.mat.inter.taxa <- list()
@@ -260,7 +260,7 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
 
     # Save graph objects for histogram visualization
     reductionSet$corr.graph.path <- "corr.graph.qs"
-    qs::qsave(list(corr.graph.inter = cor_g_inter_combined, corr.graph.intra = cor_g_intra_combined), "corr.graph.qs")
+    ov_qs_save(list(corr.graph.inter = cor_g_inter_combined, corr.graph.intra = cor_g_intra_combined), "corr.graph.qs")
 
     qvec <- unique(rownames(reductionSet$selDatsCorr.taxa[["Genus"]]))
     mvec <- unique(rownames(reductionSet[["selDatsCorr"]][[residx]]))

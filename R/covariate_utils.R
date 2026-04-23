@@ -756,7 +756,7 @@ CombineFacScatter.Anal <- function(dataName="",
   my.ord.inx <- order(p.value, decreasing = FALSE);
   rest <-  rest[my.ord.inx,,drop=F];
  
-  qs::qsave(rest, file = "combine_factors_result.qs");
+  ov_qs_save(rest, file = "combine_factors_result.qs");
   
   # note the plot is always on raw scale for visualization purpose
   if(pval.type=="fdr"){

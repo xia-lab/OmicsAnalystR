@@ -291,7 +291,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   res <- list();
   if(fun.type=="integ"){
    current.geneset <- my.lib
-  qs::qsave(current.geneset, "current_geneset.qs");
+  ov_qs_save(current.geneset, "current_geneset.qs");
  res$current.setlink <- "";
     res$current.setids <- names(current.geneset);
     res$current.geneset <- current.geneset;
@@ -307,7 +307,7 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   set.ids<- names(current.geneset); 
   names(set.ids) <- names(current.geneset) <- my.lib$term;
   
-  qs::qsave(current.geneset, "current_geneset.qs");
+  ov_qs_save(current.geneset, "current_geneset.qs");
 
   
   if(fun.type == "keggm"){
@@ -597,7 +597,7 @@ netFile <- RJSONIO::fromJSON(netNm)
   df = data.frame("#id" = unlist(lapply(nodes,function(x) x$featureId)), btw =  unlist(lapply(nodes,function(x) x$size)),check.names = FALSE)
 
   }else if(queryFrom=="dr"){
-loading = qs::qread("loading.qs")[[dataName]]
+loading = ov_qs_read("loading.qs")[[dataName]]
     print(head(loading))
 df = data.frame("#id" = loading$ids, loading=round(loading$Loading,4),check.names = FALSE)
 
@@ -642,7 +642,7 @@ GetDREnrichList <- function(query,tupNum){
     })
   }
 
- qs::qsave(loading,"loading.qs") 
+ ov_qs_save(loading,"loading.qs") 
 
 }
 

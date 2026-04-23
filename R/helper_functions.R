@@ -179,7 +179,7 @@ GetMultiSummary <- function(){
   dat.nms <- "";
   for(i in 1:length(sel.nms)){
     dataSet = readDataset(sel.nms[i]);
-    datAnn <- qs::qread(dataSet$data.annotated.path);
+    datAnn <- ov_qs_read(dataSet$data.annotated.path);
     datProc <- dataSet$data.proc;
     if(i == 1){
       cls.lbls <- dataSet$meta[,1]
@@ -252,6 +252,38 @@ CheckDetailsTablePerformed <-function(type, dataName){
 run_func_via_rsclient <- function(func, args = list(), timeout_sec = 60) {
   conn <- RSclient::RS.connect(host = "localhost", port = 6311)
   on.exit(try(RSclient::RS.close(conn), silent = TRUE))
+  # Inject qs wrapper helpers so subprocess func bodies calling
+  # ov_qs_read / ov_qs_save work even though the child session has no
+  # inherited helpers.
+  RSclient::RS.eval(conn, quote({
+    ov_qs_read <- function(file, ...) {
+      if (file.exists(file)) {
+        r <- try(qs2::qs_read(file, ...), silent = TRUE)
+        if (!inherits(r, "try-error")) return(r)
+        return(qs::qread(file, ...))
+      }
+      if (endsWith(tolower(file), ".qs")) {
+        v2 <- paste0(substr(file, 1, nchar(file) - 3L), ".qs2")
+        if (file.exists(v2)) { r <- try(qs2::qs_read(v2, ...), silent = TRUE); if (!inherits(r, "try-error")) return(r); return(qs::qread(v2, ...)) }
+      } else if (endsWith(tolower(file), ".qs2")) {
+        v1 <- paste0(substr(file, 1, nchar(file) - 4L), ".qs")
+        if (file.exists(v1)) { r <- try(qs2::qs_read(v1, ...), silent = TRUE); if (!inherits(r, "try-error")) return(r); return(qs::qread(v1, ...)) }
+      }
+      stop("ov_qs_read: neither .qs2 nor .qs found for: ", file, call. = FALSE)
+    }
+    ov_qs_save <- function(obj, file, ...) {
+      .args <- list(...)
+      for (.k in c("preset", "nthreads", "check_hash")) .args[[.k]] <- NULL
+      do.call(qs2::qs_save, c(list(object = obj, file = file), .args))
+      invisible(file)
+    }
+    ov_qs_exists <- function(file) {
+      if (file.exists(file)) return(TRUE)
+      if (endsWith(tolower(file), ".qs"))  return(file.exists(paste0(substr(file, 1, nchar(file) - 3L), ".qs2")))
+      if (endsWith(tolower(file), ".qs2")) return(file.exists(paste0(substr(file, 1, nchar(file) - 4L), ".qs")))
+      FALSE
+    }
+  }))
   RSclient::RS.assign(conn, ".exec_wd", getwd())
   RSclient::RS.assign(conn, ".exec_func", func)
   RSclient::RS.assign(conn, ".exec_args", args)
@@ -278,7 +310,7 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
   uid <- paste0(sample(letters, 6), collapse = "")
   input_path <- file.path(bridge_tmp, paste0(uid, "_in.qs"))
   output_path <- file.path(bridge_tmp, paste0(uid, "_out.qs"))
-  qs::qsave(input_data, input_path, preset = "fast")
+  ov_qs_save(input_data, input_path, preset = "fast")
   Sys.sleep(0.02)
   on.exit({ for (p in c(input_path, output_path)) if (file.exists(p)) unlink(p) }, add = TRUE)
   result <- run_func_via_rsclient(
@@ -293,9 +325,9 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
           if (length(stale) > 0) unlink(stale)
         }
         for (pkg in pkgs) suppressPackageStartupMessages(library(pkg, character.only = TRUE))
-        input_data <- qs::qread(input_path)
+        input_data <- ov_qs_read(input_path)
         res <- func_body(input_data)
-        qs::qsave(res, output_path, preset = "fast")
+        ov_qs_save(res, output_path, preset = "fast")
         Sys.sleep(0.02)
         list(success = TRUE)
       }, error = function(e) {
@@ -307,7 +339,7 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
     timeout_sec = timeout
   )
   if (isTRUE(result$success) && file.exists(output_path)) {
-    return(qs::qread(output_path))
+    return(ov_qs_read(output_path))
   }
   msg <- if (!is.null(result$message)) result$message else "RSclient subprocess failed"
   message("[rsclient_isolated_exec] ", msg)

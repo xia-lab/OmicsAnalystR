@@ -227,8 +227,8 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
               type_df <- data.frame(name = labels_vec, type = types)
               type_lookup <- setNames(type_df$type, type_df$name)
 
-              corr.mat <- qs::qread(data_obj$corr.mat.path)
-              corr.p.mat <- qs::qread("corr.p.mat.qs")
+              corr.mat <- ov_qs_read(data_obj$corr.mat.path)
+              corr.p.mat <- ov_qs_read("corr.p.mat.qs")
               corr.p.mat <- reshape2::melt(corr.p.mat)
 
               g <- igraph::graph_from_adjacency_matrix(corr.mat, mode = "undirected",
@@ -249,7 +249,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
               inter_g <- igraph::delete_edges(g, igraph::E(g)[intra_inx])
               intra_g <- igraph::delete_edges(g, igraph::E(g)[inter_inx])
 
-              qs::qsave(list(corr.graph.inter = inter_g, corr.graph.intra = intra_g), "corr.graph.qs")
+              ov_qs_save(list(corr.graph.inter = inter_g, corr.graph.intra = intra_g), "corr.graph.qs")
 
               cor.list <- list(all = NULL, inter = NULL, intra = NULL)
 
@@ -276,7 +276,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
               colnames(cor.list$intra) <- c("source", "target", "correlation")
               cor.list$all <- rbind(cor.list$inter, cor.list$intra)
 
-              qs::qsave(cor.list, file = "cor.list.qs")
+              ov_qs_save(cor.list, file = "cor.list.qs")
 
               if (params$crossOmicsOnly == "true") {
                 cor_edge_list <- cor.list$inter
@@ -374,11 +374,11 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
                   net.stats[j, ] <- c(nd.res, igraph::ecount(g), 0)
                 }
 
-                qs::qsave(overall.graph, "overall.graph.qs")
-                qs::qsave(comps, "ppi.comps.qs")
-                qs::qsave(node.data, "node.data.qs")
-                qs::qsave(edge.data, "edge.data.qs")
-                qs::qsave(net.stats, "net.stats.qs")
+                ov_qs_save(overall.graph, "overall.graph.qs")
+                ov_qs_save(comps, "ppi.comps.qs")
+                ov_qs_save(node.data, "node.data.qs")
+                ov_qs_save(edge.data, "edge.data.qs")
+                ov_qs_save(net.stats, "net.stats.qs")
 
                 gc(verbose = FALSE, full = TRUE)
 
@@ -450,7 +450,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
                 inter = cor_edge_list_inter,
                 intra = cor_edge_list_intra
               )
-              qs::qsave(cor.list, file = paste0("cor.list", taxlvl, ".qs"))
+              ov_qs_save(cor.list, file = paste0("cor.list", taxlvl, ".qs"))
 
               if (params$corSign == "both") {
                 cor.inx.inter <- abs(cor_edge_list_inter$correlation) > params$threshold.inter
@@ -491,7 +491,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
 
               cor_g_inter_all <- igraph::graph_from_data_frame(cor_edge_list_inter, directed = FALSE)
               cor_g_intra_all <- igraph::graph_from_data_frame(cor_edge_list_intra, directed = FALSE)
-              qs::qsave(list(corr.graph.inter = cor_g_inter_all, corr.graph.intra = cor_g_intra_all), "corr.graph.qs")
+              ov_qs_save(list(corr.graph.inter = cor_g_inter_all, corr.graph.intra = cor_g_intra_all), "corr.graph.qs")
 
               # ProcessGraphFile logic
               overall.graph <- new_g
@@ -542,11 +542,11 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
                 net.stats[j, ] <- c(nd.res, igraph::ecount(g), 0)
               }
 
-              qs::qsave(overall.graph, "overall.graph.qs")
-              qs::qsave(comps, "ppi.comps.qs")
-              qs::qsave(node.data, "node.data.qs")
-              qs::qsave(edge.data, "edge.data.qs")
-              qs::qsave(net.stats, "net.stats.qs")
+              ov_qs_save(overall.graph, "overall.graph.qs")
+              ov_qs_save(comps, "ppi.comps.qs")
+              ov_qs_save(node.data, "node.data.qs")
+              ov_qs_save(edge.data, "edge.data.qs")
+              ov_qs_save(net.stats, "net.stats.qs")
 
               gc(verbose = FALSE, full = TRUE)
 
@@ -612,9 +612,9 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
       .set.rdt.set(reductionSet)
 
       # Restore globals from qs files
-      overall.graph <<- qs::qread("overall.graph.qs")
-      ppi.comps <<- qs::qread("ppi.comps.qs")
-      net.stats <<- qs::qread("net.stats.qs")
+      overall.graph <<- ov_qs_read("overall.graph.qs")
+      ppi.comps <<- ov_qs_read("ppi.comps.qs")
+      net.stats <<- ov_qs_read("net.stats.qs")
       seed.proteins <<- filter_result$seed.proteins
       seed.genes <<- filter_result$seed.proteins
       seed.expr <<- rep(0, nrow(filter_result$ppi.net$node.data))
@@ -643,7 +643,7 @@ GenerateNetworkJson <- function(fileName="omicsanalyst_net_0.json"){
 
 ExportOmicsPairs <- function(fileName, type){
   
-  cor.list <- qs::qread("cor.list.qs");
+  cor.list <- ov_qs_read("cor.list.qs");
   cor.obj <- cor.list[[type]];
   colnames(cor.obj) = c("Id1", "Id2", "Correlation");
   write.table(cor.obj,row.name=F, file=fileName);
@@ -811,9 +811,9 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
     if (is.null(corr_result)) return(0)
 
     # Save results to disk
-    qs::qsave(corr_result$corr.mat, "corr.mat.qs")
+    ov_qs_save(corr_result$corr.mat, "corr.mat.qs")
     if (!is.null(corr_result$corr.p.mat)) {
-      qs::qsave(corr_result$corr.p.mat, "corr.p.mat.qs")
+      ov_qs_save(corr_result$corr.p.mat, "corr.p.mat.qs")
     }
     if (!is.null(corr_result$corr.mat.taxa)) {
       reductionSet$corr.mat.taxa <- corr_result$corr.mat.taxa
@@ -849,7 +849,7 @@ PlotCorrViolin <- function(imgNm, dpi=150, format="png", corNetOpt="default"){
       intLim_sigmat <- NULL
       intLim_pvalcutoff <- NULL
       if (!is.null(reductionSet$corr.graph.path) && file.exists(reductionSet$corr.graph.path)) {
-        graphs <- qs::qread(reductionSet$corr.graph.path)
+        graphs <- ov_qs_read(reductionSet$corr.graph.path)
       } else {
         msg.vec <<- "No correlation graph available for violin plot"
         return(0)
@@ -1130,8 +1130,8 @@ GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format
   reductionSet <- .get.rdt.set();
 
   # Load correlation matrices from disk
-  corr.mat <- qs::qread("corr.mat.qs");
-  corr.p.mat<- qs::qread("corr.p.mat.qs");
+  corr.mat <- ov_qs_read("corr.mat.qs");
+  corr.p.mat<- ov_qs_read("corr.p.mat.qs");
 
   # Convert to long format for filtering
   corr.mat.melted <- reshape2::melt(corr.mat)
@@ -1286,7 +1286,7 @@ DoOmicsDiffCorrelation <- function(cor.method="univariate",cor.stat="pearson",co
   reductionSet$diffnet.mat.path <- "diffnet.mat.qs"
 
   # Save differential network matrices to disk
-  qs::qsave(corr.mat.ls, "diffnet.mat.qs");
+  ov_qs_save(corr.mat.ls, "diffnet.mat.qs");
 
   # CRITICAL: Free correlation list from memory after saving
   rm(corr.mat.ls)
@@ -1307,7 +1307,7 @@ GenerateDiffNet <- function(corr_thresh=0.7,p_thresh=0.05,imgName = "diffnet", f
   dataSetList <- lapply(c(dt1,dt2), readDataset);
   type1 <- dataSetList[[1]][["type"]]
   type2 <- dataSetList[[2]][["type"]]
-  corr.mat.ls <- qs::qread("diffnet.mat.qs");
+  corr.mat.ls <- ov_qs_read("diffnet.mat.qs");
   corr.mat.ls <- lapply(corr.mat.ls, function(x){
     corr.mat<-reshape2::melt(x$r)
     p.mat<-reshape2::melt(x$P)

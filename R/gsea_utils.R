@@ -28,7 +28,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
     db.path.rds <- paste0(lib.path, "compound_db.rds");
     cmpd.db <- NULL;
     if (file.exists(db.path.qs)) {
-      cmpd.db <- qs::qread(db.path.qs);
+      cmpd.db <- ov_qs_read(db.path.qs);
     } else if (file.exists(db.path.rds)) {
       cmpd.db <- readRDS(db.path.rds);
     } else {
@@ -56,7 +56,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
     # Fuzzy name mapping (OmicsNet approach) using synonyms
     syn.db.path <- paste0(lib.path, "syn_nms.qs");
     if (exists("MatchCompoundNames", mode = "function") && file.exists(syn.db.path)) {
-      syn.db <- qs::qread(syn.db.path);
+      syn.db <- ov_qs_read(syn.db.path);
       todo <- is.na(out) & !is.na(qvec) & qvec != "";
       if (any(todo)) {
         match.res <- MatchCompoundNames(qvec[todo], cmpd.db, syn.db);
@@ -317,7 +317,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
   names(hits.query) <- names(current.mset);
   hit.num<-unlist(lapply(hits.query, function(x){length(x)}), use.names=TRUE);
   
-  qs::qsave(hits.query, "hits_query.qs");
+  ov_qs_save(hits.query, "hits_query.qs");
   if (nrow(fgseaRes) > 0) {
     hit.idx <- match(fgseaRes$pathway, names(hit.num));
     total.idx <- match(fgseaRes$pathway, names(set.num));

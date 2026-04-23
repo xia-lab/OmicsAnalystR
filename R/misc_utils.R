@@ -836,7 +836,7 @@ fast.write.csv <- function(dat, file, row.names=TRUE){
 saveSet <- function(obj=NA, set="", output=1){
 
     #if(globalConfig$anal.mode == "api"){
-      qs::qsave(obj, paste0(obj$objName, ".qs"));
+      ov_qs_save(obj, paste0(obj$objName, ".qs"));
       Sys.sleep(0.05);
     #}else{
     #  if(set == ""){
@@ -876,7 +876,7 @@ readSet <- function(obj=NA, set=""){
 
         if(file.exists(paste0(set, ".qs"))){
             tryCatch({
-                  obj <- qs::qread(paste0(set, ".qs"));
+                  obj <- ov_qs_read(paste0(set, ".qs"));
                 # If this line is reached, the file is likely a valid qs file
             }, error = function(e) {
               message("Error readSet QS file: ", e$message)
@@ -1011,7 +1011,7 @@ readDataset <- function(dataName = "", quiet = FALSE) {
 
       } else {                                              # fall back to .qs
         qsfile <- replace_extension_with_qs(dataName)
-        obj <- qs::qread(qsfile)
+        obj <- ov_qs_read(qsfile)
       }
     
 
@@ -1028,11 +1028,11 @@ readDataset <- function(dataName = "", quiet = FALSE) {
 
 
 saveDataQs <-function(data, name, dataName){
-    qs::qsave(data, file=paste0(dataName, "_data/", name));
+    ov_qs_save(data, file=paste0(dataName, "_data/", name));
 }
 
 readDataQs <-function(name, dataName){
-    dat <- qs::qread(file=paste0(dataName, "_data/", name));
+    dat <- ov_qs_read(file=paste0(dataName, "_data/", name));
 }
 
 

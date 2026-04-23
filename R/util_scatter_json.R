@@ -165,7 +165,7 @@ my.json.scatter <- function(filenm){
   # user can compare dimred results to single-omics PCA
   # do not include PCA
   if( 1 == 2){
-    pca.scatter <- qs::qread("pca.scatter.qs");
+    pca.scatter <- ov_qs_read("pca.scatter.qs");
     for(i in 1:length(omicstype.vec)){
       pos<-pca.scatter[[paste0("pca_", omicstype.vec[i])]]$score
       
@@ -243,7 +243,7 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
   reductionOpt <- reductionSet$reductionOpt;
   if(reductionSet$reductionOpt %in% c("diablo") || omics != "NA"){
     if(grepl("pca_", omics, fixed=TRUE)){
-      pca.scatter <- qs::qread("pca.scatter.qs");
+      pca.scatter <- ov_qs_read("pca.scatter.qs");
       pos.xyz<-pca.scatter[[ omics ]]$score/1000
     }else{
       omics.inx = 1;
@@ -305,7 +305,7 @@ ComputeEncasingBatch <- function(filenm, type, groups_json, level = 0.95, omics 
     }
     if (reductionOpt %in% c("diablo") || omics != "NA") {
       if (grepl("pca_", omics, fixed = TRUE)) {
-        pca.scatter <- qs::qread("pca.scatter.qs")
+        pca.scatter <- ov_qs_read("pca.scatter.qs")
         pos.xyz <- pca.scatter[[omics]]$score / 1000
       } else {
         omics.inx <- 1
