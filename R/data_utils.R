@@ -520,6 +520,23 @@ SetGroupContrast <- function(dataName, grps, meta="NA"){
 }
 
 
+# Returns two strings for the OmicsModel.setClsLabel UI:
+#   [1] newline-joined group labels (factor levels of the chosen meta column)
+#   [2] newline-joined "<sample>\t<class>" rows for the chosen meta column
+# Mirrors Express/Microbiome GetSampleInfo, adapted for omicsanalyst dataSet
+# layout (dataSet$meta is a data.frame indexed by column name; samples live
+# in columns of dataSet$data.proc).
+GetSampleInfo <- function(dataName, clsLbl){
+    dataSet <- readDataset(dataName);
+    grpInfo <- dataSet$meta[[clsLbl]];
+    if (is.null(grpInfo)) return(c("", ""));
+    if (!is.factor(grpInfo)) grpInfo <- as.factor(grpInfo);
+    grpLbls <- paste(levels(grpInfo), collapse = "\n");
+    smplInfo <- paste(colnames(dataSet$data.proc), "\t", as.character(grpInfo), collapse = "\n");
+    return(c(grpLbls, smplInfo));
+}
+
+
 # here should first try to load the original data
 # the data in the memory could be changed
 GetGroupNames <- function(dataName, meta="NA"){
