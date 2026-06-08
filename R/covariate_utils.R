@@ -716,7 +716,12 @@ CombineFacScatter.Anal <- function(dataName="",
   fit2 <- contrasts.fit(fit, contrast.matrix);
   fit2 <- eBayes(fit2, trend=F, robust=F);
   rest <- topTable(fit2, number = Inf, adjust.method = "fdr");
-  
+  # Strip the "ID" column newer limma topTable prepends when rownames(fit)
+  # is non-null — otherwise the col-name massaging below treats the ID
+  # column as if it were a logFC column and downstream math crashes with
+  # "non-numeric-alike variable(s) in data frame: ID".
+  if (!is.null(rest$ID)) { rownames(rest) <- rest$ID; rest$ID <- NULL; }
+
   colnames(rest)= gsub("\\X.","",colnames(rest))
   colnames(rest) <- gsub("\\.\\.\\.", "-", colnames(rest))
   colnames(rest) <- gsub("\\.$", "-", colnames(rest))
