@@ -399,6 +399,12 @@ my.perform.layout <- function(net.nm, algo, focus=""){
   library(igraph);
   g <- ppi.comps[[net.nm]];
   vc <- vcount(g);
+  type_val   <- igraph::vertex_attr(g, "type")
+  layers_val <- igraph::vertex_attr(g, "layers")
+  message("[DEBUG my.perform.layout] algo=", algo, " net=", net.nm,
+          " | vcount=", vc,
+          " | unique(type)=", paste(unique(type_val), collapse=","),
+          " | unique(layers)=", paste(unique(layers_val), collapse=","))
   if(algo == "Default"){
     if(vc > 5000) {
       pos.xy <- layout_with_lgl(g);
@@ -408,7 +414,7 @@ my.perform.layout <- function(net.nm, algo, focus=""){
       pos.xy <- layout_with_fr(g);
     }
   }else if(algo == "FrR"){
-    pos.xy <- layout_with_fr(g, area=34*vc^2);
+    pos.xy <- layout_with_fr(g);
   }else if(algo == "random"){
     pos.xy <- layout_randomly (g);
   }else if(algo == "lgl"){
@@ -424,9 +430,11 @@ my.perform.layout <- function(net.nm, algo, focus=""){
     pos.xy <- -l$layout
   }else if(algo == "circular_tripartite"){
     library(ggforce)
-    l <- layout_with_sugiyama(g, layers = as.numeric(V(g)$layers)*(vc/3) +30)
+    type_layers <- as.integer(as.factor(igraph::vertex_attr(g, "type")))
+    message("[DEBUG circular_tripartite] unique(type_layers)=", paste(unique(type_layers), collapse=","))
+    l <- layout_with_sugiyama(g, layers = type_layers)
     layout <- l$layout
-    
+
     radial <- radial_trans(
       r.range = rev(range(layout[,2])),
       a.range = range(layout[,1]),
@@ -437,8 +445,10 @@ my.perform.layout <- function(net.nm, algo, focus=""){
     layout[,2] <- coords$y
     pos.xy <-layout
   }else if(algo == "tripartite"){
-    l <- layout_with_sugiyama(g, layers = as.numeric(V(g)$layers)*(vc/4))
-    pos.xy <- -l$layout[,2:1] 
+    type_layers <- as.integer(as.factor(igraph::vertex_attr(g, "type")))
+    message("[DEBUG tripartite] unique(type_layers)=", paste(unique(type_layers), collapse=","))
+    l <- layout_with_sugiyama(g, layers = type_layers, vgap = max(2, vc / length(unique(type_layers))))
+    pos.xy <- -l$layout[,2:1]
   }else if(algo == "concentric"){
     library(graphlayouts)
     # the fist element in the list for concentric is the central node.

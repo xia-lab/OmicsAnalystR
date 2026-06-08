@@ -676,7 +676,15 @@ convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
     if (!is.null(result$infoSet)) saveSet(result$infoSet)
     if (!is.null(result$reductionSet)) .set.rdt.set(result$reductionSet)
     if (!is.null(result$ppi.comps)) {
+      ppi.comps <<- result$ppi.comps
       ov_qs_save(result$ppi.comps, "ppi.comps.qs", preset = "fast")
+      g_check <- ppi.comps[[result$current.net.nm]]
+      message("[DEBUG convertIgraph2JSON] ppi.comps restored for net: ", result$current.net.nm)
+      message("[DEBUG convertIgraph2JSON] vcount=", igraph::vcount(g_check),
+              " | length(V(g)$layers)=", length(igraph::vertex_attr(g_check, "layers")),
+              " | head(layers)=", paste(head(igraph::vertex_attr(g_check, "layers"), 6), collapse=","))
+    } else {
+      message("[DEBUG convertIgraph2JSON] result$ppi.comps is NULL — layers NOT restored")
     }
     return(1)
 }
