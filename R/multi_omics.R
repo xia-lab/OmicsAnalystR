@@ -106,6 +106,59 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   return(1);
 }
 
+# Per-dataset normalization for multi-omics harmonization. Reads data.proc (the
+# harmonization-FILTERED matrix) and writes data.proc, so it composes with the
+# variance filter — unlike NormalizeDataWrapper, which reads data.filtered and would
+# undo the harmonization filter. `opt`: "auto" detects raw-vs-normalized per layer
+# (raw sequencing counts -> log2-CPM via limma::voom; raw intensity/concentration ->
+# log2; already-normalized layers left unchanged), or an explicit NormalizingDataOmics
+# norm.opt ("logcount","log","NA",...). Records dataSet$normInfo for transparency.
+NormalizeDataMultiOmics <- function(nm, opt = "auto"){
+  if(nm == "NA"){
+    sel.nms <- names(Filter(function(x) isTRUE(x == 1L), mdata.all))
+  }else{
+    sel.nms <- c(nm);
+  }
+  if(length(sel.nms) == 0L) return(0);
+  for(i in 1:length(sel.nms)){
+    dataSet <- readDataset(sel.nms[i])
+    mat <- dataSet$data.proc
+    if(is.null(mat)) next
+    use.opt <- opt
+    if(identical(opt, "auto")){
+      use.opt <- .OmicsDetectNormOpt(mat, tryCatch(dataSet$type, error = function(e) ""))
+    }
+    if(!identical(use.opt, "NA")){
+      dataSet$data.proc <- NormalizingDataOmics(mat, use.opt, "NA", "NA")
+    }
+    dataSet$normInfo <- use.opt
+    message("[NormalizeDataMultiOmics] ", sel.nms[i], " -> ", use.opt)
+    RegisterData(dataSet)
+  }
+  return(1);
+}
+
+# Heuristic raw-vs-normalized detection + per-type method. Non-negative matrix with a
+# large dynamic range (max > 50) or mostly-integer values => raw; negatives or a small
+# range => already normalized (skip). Raw sequencing counts -> "logcount" (voom log2-CPM);
+# raw intensity/concentration -> "log".
+.OmicsDetectNormOpt <- function(mat, omicsType = ""){
+  m <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
+  if(all(is.na(m))) return("NA")
+  if(any(m < 0, na.rm = TRUE)) return("NA")
+  mx <- suppressWarnings(max(m, na.rm = TRUE))
+  if(!is.finite(mx) || mx < 20) return("NA")
+  is.raw <- TRUE
+  if(mx <= 50){
+    nz <- m[m > 0 & !is.na(m)]
+    if(length(nz) > 2000L) nz <- nz[seq_len(2000L)]
+    is.raw <- length(nz) > 0L && mean(nz == round(nz)) > 0.95
+  }
+  if(!is.raw) return("NA")
+  t <- tolower(as.character(omicsType))
+  if(grepl("rna|mirna|seq|count|gene", t)) "logcount" else "log"
+}
+
 FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
   filterPercent <- suppressWarnings(as.numeric(filterPercent));
   if (length(filterPercent) == 0L || is.na(filterPercent)) filterPercent <- 0;
