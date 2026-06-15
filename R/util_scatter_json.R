@@ -104,27 +104,43 @@ my.json.scatter <- function(filenm){
   names = reductionSet[[reductionOpt]]$loading.pos.xyz$label
   ids = reductionSet[[reductionOpt]]$loading.pos.xyz$ids
   rownames(loading.data) = names
-  de = reductionSet$comp.res[which(reductionSet$comp.res[,"ids"] %in% ids),]
-  de[de == "NaN"] = 1
-  pv = as.numeric(de[,"P.Value"])
-  pv_no_zero = pv[pv != 0]
-  minval = min(pv_no_zero)
-  pv[pv == 0] = minval/2
-  pvals <<- -log10(pv);
-  type.vec <- pvals;
-  reductionSet$comp.res.inx <- reductionSet$comp.res.inx[which(reductionSet$comp.res[,"ids"] %in% ids)]
-  if(reductionSet$comp.res.inx[1] != "NA"){
+  # Colour / size the loading features by their differential-abundance significance
+  # (comp.res P.Value) — but ONLY when comp.res lines up 1:1 with the loadings. That
+  # holds for DIABLO / MOFA / MCIA (their loadings ARE the compared features). The
+  # Variance-Partitioning ordination's loadings are the combined-omics PCA features (a
+  # different, larger set), and a reduction can also be opened before Sig. Features has
+  # run; in those cases comp.res doesn't align, so the old code matched zero rows and
+  # then did `if (comp.res.inx[1] != "NA")` on an NA -> "missing value where TRUE/FALSE
+  # needed". Fall back to colouring by the loading's own omics type with a uniform size.
+  n.load <- nrow(loading.data.orig)
+  match.inx <- which(reductionSet$comp.res[,"ids"] %in% ids)
+  de <- reductionSet$comp.res[match.inx, ]
+  comp.inx <- reductionSet$comp.res.inx[match.inx]
+  de.aligned <- !is.null(de) && NROW(de) == n.load && length(comp.inx) == n.load && !is.na(comp.inx[1])
+  if (de.aligned) {
+    de[de == "NaN"] = 1
+    pv = as.numeric(de[,"P.Value"])
+    pv_no_zero = pv[pv != 0]
+    minval = if (length(pv_no_zero) > 0) min(pv_no_zero) else 1
+    pv[pv == 0] = minval/2
+    pvals <<- -log10(pv);
+    type.vec <- pvals;
+    reductionSet$comp.res.inx <- comp.inx
     for(i in 1:length(unique(reductionSet$comp.res.inx))){
       inx = reductionSet$comp.res.inx == i
       type.vec[inx] <- omicstype.vec[[i]]
     }
+    colors <- ComputeColorGradient(pvals, "black", F, F);
+    sizes  <- as.numeric(rescale2NewRange(-log10(pv), 15, 25));
+  } else {
+    pv <- rep(1, n.load)
+    pvals <<- rep(0, n.load)
+    type.vec <- as.character(reductionSet[[reductionOpt]]$loading.pos.xyz$type)
+    colors <- rep("#3366CC", n.load)
+    sizes  <- rep(18, n.load)
   }
   ids_and_omicstype = paste0(reductionSet[[reductionOpt]]$loading.pos.xyz$ids, "_", type.vec);
- 
-
-  colors<- ComputeColorGradient(pvals, "black", F, F);
   colorb <- colors;
-  sizes <- as.numeric(rescale2NewRange(-log10(pv), 15, 25));
   loading.nodes <- vector(mode="list"); #is node2 loading?
    
   seed.inx <- names %in% unique(seeds);
