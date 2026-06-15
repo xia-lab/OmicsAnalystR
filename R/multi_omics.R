@@ -107,25 +107,38 @@ ScaleDataWrapper <-function (nm, scaleNorm){
 }
 
 FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
-  filterPercent <- as.numeric(filterPercent);
-  if(dataName == "NA"){
-    sel.nms <- names(mdata.all)
+  filterPercent <- suppressWarnings(as.numeric(filterPercent));
+  if (length(filterPercent) == 0L || is.na(filterPercent)) filterPercent <- 0;
+  # "all datasets" = the ACTIVE datasets (mdata.all==1), NOT every entry — a
+  # deselected / stale dataset (e.g. manual->AI contamination) must not be
+  # re-filtered, and iterating one with mismatched samples drops int.mat to a vector.
+  if (length(dataName) == 0L || is.na(dataName) || tolower(as.character(dataName)) %in% c("na","all")) {
+    sel.nms <- names(mdata.all)[vapply(mdata.all, function(x) isTRUE(x == 1), logical(1))]
   } else {
-    sel.nms <- c(dataName);
+    sel.nms <- as.character(dataName);
   }
-  
+  if (length(sel.nms) == 0L) { AddErrMsg("No active dataset available to filter."); return(0); }
+
   for(i in 1:length(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
-    int.mat <- ov_qs_read(dataSet$data.annotated.path);
-    int.mat <- int.mat[,colnames(int.mat) %in% colnames(dataSet$data.proc)];
+    # STRUCTURAL FIX: filtering and scaling are sequential and share the SAME source —
+    # the in-memory data.proc set by the preceding step. The previous code read the
+    # on-disk annotated matrix (ov_qs_read(data.annotated.path)), which the AI
+    # multi-omics load does not reliably write, so EVERY filter method/dataset failed
+    # while scaling (which uses data.proc) worked. Use data.proc, exactly like scaling.
+    int.mat <- dataSet$data.proc
+    if (is.null(int.mat)) { AddErrMsg(paste0("No data matrix (data.proc) for ", dataSet$name, " — cannot filter.")); return(0); }
+    int.mat <- as.matrix(int.mat);
+    suppressWarnings(storage.mode(int.mat) <- "numeric");
 
     if(filterMethod == "variance"){
       data <- FilterDataByVariance(int.mat, filterPercent);
     }else{
-      # OPTIMIZED: Use matrixStats::rowVars() for 3-5x speedup (requires matrixStats package)
-      # For now using apply() - consider adding matrixStats dependency
-      featVar <- apply(data, 1, var);
-      if(var(featVar) < 0.001){
+      # NOTE: compute variance on int.mat (NOT `data`, which isn't assigned until
+      # below — referencing it here resolved to base::data and threw
+      # "dim(X) must have a positive length"). This is the iqr / non-variance path.
+      featVar <- apply(int.mat, 1, var, na.rm = TRUE);
+      if(var(featVar, na.rm = TRUE) < 0.001){
         print("Detected autoscale");
         msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
         return(2);
@@ -159,7 +172,10 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
 }
 
 FilterDataByVariance <- function(data, filterPercent){
-  featVar <- apply(data, 1, var);
+  data <- as.matrix(data);
+  if (is.null(dim(data)) || nrow(data) < 2L || ncol(data) < 2L) return(data);  # nothing meaningful to filter
+  suppressWarnings(storage.mode(data) <- "numeric");
+  featVar <- apply(data, 1, var, na.rm = TRUE);
   # Always remove zero-variance features (essential for downstream methods like DIABLO)
   nonzero <- featVar > 0
   if (sum(nonzero) < nrow(data)) {
@@ -170,9 +186,9 @@ FilterDataByVariance <- function(data, filterPercent){
   if(length(featVar) == 0 || var(featVar) < 0.001){
     return("Already autoscaled");
   }
-  varThresh <- quantile(featVar, (filterPercent/100));
+  varThresh <- quantile(featVar, (filterPercent/100), na.rm = TRUE);
   featKeep <- which(featVar > varThresh);
-  data <- data[featKeep, ];
+  data <- data[featKeep, , drop = FALSE];
   return(data);
 }
 
@@ -360,21 +376,27 @@ CheckMetaIntegrity <- function(){
   }
   
   if(length(metas) == 0){
-    msg.vec <<- paste0('Please make sure row(s) corresponding to meta-data start with "#CLASS" or to include a metadata file.' );
+    AddErrMsg('No metadata found. Provide a metadata file, or rows starting with "#CLASS".');
     return(0)
   }
-  
+
   for(i in 1:length(sel.nms)){
     for(j in 1:length(sel.nms)){
       bool <- SameElements(cnms[[i]], cnms[[j]])
       if(!bool){
-        msg.vec <<- paste0("Please make sure the sample names are consistent and reupload the data sets. ", sel.nms[i], ": ", unique(cnms[[i]]),"; ", sel.nms[j], ": ", unique(cnms[[j]]));
+        ov <- length(intersect(cnms[[i]], cnms[[j]]))
+        AddErrMsg(paste0(
+          "Sample IDs are not consistent across the omics tables — every table must use the SAME ",
+          "sample IDs as its column headers, matching the metadata row names. '", sel.nms[i], "' has ",
+          length(cnms[[i]]), " samples and '", sel.nms[j], "' has ", length(cnms[[j]]),
+          "; they share only ", ov, ". '", sel.nms[i], "' e.g.: ",
+          paste(utils::head(cnms[[i]], 4), collapse=", "), " | '", sel.nms[j], "' e.g.: ",
+          paste(utils::head(cnms[[j]], 4), collapse=", "), "."));
         return(0)
       }
       boolMeta <- identical(metas[[i]],metas[[j]])
-      #print(boolMeta);
       if(!boolMeta){
-        msg.vec <<- "Please make sure the meta data is consistent across all uploaded data sets.";
+        AddErrMsg("The metadata is not consistent across the uploaded omics tables (the same samples must map to the same metadata in every table).");
         return(0)
       }
     }
