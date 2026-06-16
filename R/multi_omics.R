@@ -185,23 +185,26 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     suppressWarnings(storage.mode(int.mat) <- "numeric");
 
     if(filterMethod == "variance"){
-      data <- FilterDataByVariance(int.mat, filterPercent);
-    }else{
-      # iqr / non-variance path. NOTE: compute variance on int.mat (NOT `data`, which isn't
-      # assigned until below — referencing it resolved to base::data). Near-uniform feature
-      # variance (already z-scored / normalized) can't be ranked, so pass the layer through
-      # unchanged instead of failing — the filter must still produce a matrix for scaling.
+      # Variance can't rank already-scaled data: z-scoring sets every feature's variance to
+      # ~1, so var-of-variances ~ 0. IQR, by contrast, reflects each feature's distribution
+      # SHAPE and still varies after scaling — so fall back to IQR ranking there. Non-scaled
+      # data is ranked by variance as requested.
       featVar <- apply(int.mat, 1, var, na.rm = TRUE);
       vfv <- suppressWarnings(var(featVar, na.rm = TRUE));
       if(is.na(vfv) || vfv < 0.001){
-        data <- int.mat;
+        message("[filter] near-uniform feature variance (already scaled) -> ranking by IQR instead of variance");
+        res  <- tryCatch(PerformFeatureFilter(t(int.mat), "iqr", filterPercent, "", T), error = function(e) NULL);
+        data <- if(is.null(res)) int.mat else t(res$data);
       } else {
-        res <- PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T);
-        data <- t(res$data);
+        data <- FilterDataByVariance(int.mat, filterPercent);
       }
+    }else{
+      # iqr / other robust ranking — works on already-scaled data too.
+      res  <- tryCatch(PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T), error = function(e) NULL);
+      data <- if(is.null(res)) int.mat else t(res$data);
     }
-    # Defensive: if a helper returned a status string instead of a matrix, keep the input
-    # (a layer that can't be variance-filtered is passed through, never aborts the filter).
+    # Defensive: a helper returning a status string instead of a matrix -> keep the input
+    # (a layer is passed through, never aborts the whole filter).
     if(any(class(data) == "character")){
       data <- int.mat;
     }
