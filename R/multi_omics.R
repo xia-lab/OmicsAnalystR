@@ -185,34 +185,25 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     suppressWarnings(storage.mode(int.mat) <- "numeric");
 
     if(filterMethod == "variance"){
-      # Guard (mirrors the iqr path below): variance filtering is meaningless on
-      # already-scaled data (every feature has ~unit variance), and proceeding can throw
-      # — give a clear message instead of an empty "Filtering failed".
-      featVar <- apply(int.mat, 1, var, na.rm = TRUE);
-      vfv <- suppressWarnings(var(featVar, na.rm = TRUE));
-      if(!is.na(vfv) && vfv < 0.001){
-        print("Detected autoscale");
-        msg.vec <<- paste0(dataSet$name, " appears to be already scaled (near-uniform feature variance) — variance filtering is not meaningful on scaled data. Skip filtering, or filter before scaling/normalization.");
-        return(2);
-      }
       data <- FilterDataByVariance(int.mat, filterPercent);
     }else{
-      # NOTE: compute variance on int.mat (NOT `data`, which isn't assigned until
-      # below — referencing it here resolved to base::data and threw
-      # "dim(X) must have a positive length"). This is the iqr / non-variance path.
+      # iqr / non-variance path. NOTE: compute variance on int.mat (NOT `data`, which isn't
+      # assigned until below — referencing it resolved to base::data). Near-uniform feature
+      # variance (already z-scored / normalized) can't be ranked, so pass the layer through
+      # unchanged instead of failing — the filter must still produce a matrix for scaling.
       featVar <- apply(int.mat, 1, var, na.rm = TRUE);
-      if(var(featVar, na.rm = TRUE) < 0.001){
-        print("Detected autoscale");
-        msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
-        return(2);
+      vfv <- suppressWarnings(var(featVar, na.rm = TRUE));
+      if(is.na(vfv) || vfv < 0.001){
+        data <- int.mat;
+      } else {
+        res <- PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T);
+        data <- t(res$data);
       }
-      res <- PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T);
-      data <- t(res$data);
     }
+    # Defensive: if a helper returned a status string instead of a matrix, keep the input
+    # (a layer that can't be variance-filtered is passed through, never aborts the filter).
     if(any(class(data) == "character")){
-      msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
-      print("Detected autoscale");
-      return(2)
+      data <- int.mat;
     }
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
@@ -246,8 +237,11 @@ FilterDataByVariance <- function(data, filterPercent){
     data <- data[nonzero, , drop = FALSE]
     featVar <- featVar[nonzero]
   }
-  if(length(featVar) == 0 || var(featVar) < 0.001){
-    return("Already autoscaled");
+  if(length(featVar) == 0 || suppressWarnings(var(featVar, na.rm = TRUE)) < 0.001 || is.na(suppressWarnings(var(featVar, na.rm = TRUE)))){
+    # Near-uniform feature variance (e.g. already z-scored / normalized): variance ranking is
+    # meaningless and the quantile cut would drop every feature — pass the data through
+    # unchanged so the filter still yields a matrix for the scaling step.
+    return(data);
   }
   varThresh <- quantile(featVar, (filterPercent/100), na.rm = TRUE);
   featKeep <- which(featVar > varThresh);
