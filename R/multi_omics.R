@@ -185,6 +185,16 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     suppressWarnings(storage.mode(int.mat) <- "numeric");
 
     if(filterMethod == "variance"){
+      # Guard (mirrors the iqr path below): variance filtering is meaningless on
+      # already-scaled data (every feature has ~unit variance), and proceeding can throw
+      # — give a clear message instead of an empty "Filtering failed".
+      featVar <- apply(int.mat, 1, var, na.rm = TRUE);
+      vfv <- suppressWarnings(var(featVar, na.rm = TRUE));
+      if(!is.na(vfv) && vfv < 0.001){
+        print("Detected autoscale");
+        msg.vec <<- paste0(dataSet$name, " appears to be already scaled (near-uniform feature variance) — variance filtering is not meaningful on scaled data. Skip filtering, or filter before scaling/normalization.");
+        return(2);
+      }
       data <- FilterDataByVariance(int.mat, filterPercent);
     }else{
       # NOTE: compute variance on int.mat (NOT `data`, which isn't assigned until
