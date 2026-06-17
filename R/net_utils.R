@@ -338,6 +338,7 @@ ExcludeNodesOverall <- function(nodeids, id.type, vismode){
 }
 
 PrepareSubnetDownloads <- function(nm){
+  library(igraph)
   g <- ppi.comps[[nm]];
   # need to update graph so that id is compound names rather than ID
   V(g)$name <- as.character(doID2LabelMapping(V(g)$name));

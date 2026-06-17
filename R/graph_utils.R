@@ -284,6 +284,9 @@ GetNetsNameString <- function(){
 
 # support walktrap, infomap and lab propagation
 FindCommunities <- function(method="walktrap", use.weight=FALSE){
+  seed_expr_local <- if (exists("seed.expr", envir = .GlobalEnv)) get("seed.expr", envir = .GlobalEnv) else numeric(0)
+  seed_proteins_local <- if (exists("seed.proteins", envir = .GlobalEnv)) get("seed.proteins", envir = .GlobalEnv) else character(0)
+
   .local_find_communities <- function(g, node_data, seed_expr, seed_proteins, method, use_weight){
     if(!igraph::is_connected(g)){
       g <- decompose.graph(g, min.vertices=2)[[1]];
@@ -409,8 +412,8 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
   input_data <- list(
       g = ppi.comps[[current.net.nm]],
       node_data = ppi.net$node.data,
-      seed_expr = seed.expr,
-      seed_proteins = seed.proteins,
+      seed_expr = seed_expr_local,
+      seed_proteins = seed_proteins_local,
       method = method,
       use_weight = use.weight
     )
@@ -673,7 +676,15 @@ convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
     if (!is.null(result$infoSet)) saveSet(result$infoSet)
     if (!is.null(result$reductionSet)) .set.rdt.set(result$reductionSet)
     if (!is.null(result$ppi.comps)) {
+      ppi.comps <<- result$ppi.comps
       ov_qs_save(result$ppi.comps, "ppi.comps.qs", preset = "fast")
+      g_check <- ppi.comps[[result$current.net.nm]]
+      message("[DEBUG convertIgraph2JSON] ppi.comps restored for net: ", result$current.net.nm)
+      message("[DEBUG convertIgraph2JSON] vcount=", igraph::vcount(g_check),
+              " | length(V(g)$layers)=", length(igraph::vertex_attr(g_check, "layers")),
+              " | head(layers)=", paste(head(igraph::vertex_attr(g_check, "layers"), 6), collapse=","))
+    } else {
+      message("[DEBUG convertIgraph2JSON] result$ppi.comps is NULL — layers NOT restored")
     }
     return(1)
 }

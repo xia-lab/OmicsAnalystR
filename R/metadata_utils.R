@@ -115,13 +115,28 @@ GetUniqueMetaNames <-function(metadata){
     meta.info <- list();
     # look for #CLASS, could have more than 1 class labels, store in a list
     cls.inx <- grep("^#CLASS", datOrig[,1]);
-    if(length(cls.inx) > 0){ 
+
+    # If #CLASS not found, try "Label" format (MetaboAnalyst compatibility)
+    if(length(cls.inx) == 0){
+      cls.inx <- grep("^Label$", datOrig[,1]);
+    }
+
+    if(length(cls.inx) > 0){
       for(i in 1:length(cls.inx)){
         inx <- cls.inx[i];
-        cls.nm <- substring(datOrig[inx, 1],2); # discard the first char #
-        if(nchar(cls.nm) > 6){
-          cls.nm <- substring(cls.nm, 7); # remove class
+        first.char <- substring(datOrig[inx, 1], 1, 1);
+
+        # Check if it starts with # (original #CLASS format)
+        if(first.char == "#"){
+          cls.nm <- substring(datOrig[inx, 1],2); # discard the first char #
+          if(nchar(cls.nm) > 6){
+            cls.nm <- substring(cls.nm, 7); # remove "CLASS" prefix
+          }
+        } else {
+          # It's "Label" format (MetaboAnalyst), use "CLASS" as default name
+          cls.nm <- "CLASS";
         }
+
         if(grepl("[[:blank:]]", cls.nm)){
           cls.nm<- gsub("\\s+","_", cls.nm);
           msg <- c(msg, " Blank spaces in group names are replaced with underscore '_'! ");
@@ -134,7 +149,7 @@ GetUniqueMetaNames <-function(metadata){
         meta.info[[cls.nm]] <- cls.lbls;
       }
     }else{
-      msg.vec <<-"No metadata labels #CLASS found in your data!";
+      msg.vec <<-"No metadata labels #CLASS or Label found in your data!";
       return(NULL);
     }
     
