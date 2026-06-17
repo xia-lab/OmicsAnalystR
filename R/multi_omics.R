@@ -106,37 +106,107 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   return(1);
 }
 
-FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
-  filterPercent <- as.numeric(filterPercent);
-  if(dataName == "NA"){
-    sel.nms <- names(mdata.all)
-  } else {
-    sel.nms <- c(dataName);
+# Per-dataset normalization for multi-omics harmonization. Reads data.proc (the
+# harmonization-FILTERED matrix) and writes data.proc, so it composes with the
+# variance filter — unlike NormalizeDataWrapper, which reads data.filtered and would
+# undo the harmonization filter. `opt`: "auto" detects raw-vs-normalized per layer
+# (raw sequencing counts -> log2-CPM via limma::voom; raw intensity/concentration ->
+# log2; already-normalized layers left unchanged), or an explicit NormalizingDataOmics
+# norm.opt ("logcount","log","NA",...). Records dataSet$normInfo for transparency.
+NormalizeDataMultiOmics <- function(nm, opt = "auto"){
+  if(nm == "NA"){
+    sel.nms <- names(Filter(function(x) isTRUE(x == 1L), mdata.all))
+  }else{
+    sel.nms <- c(nm);
   }
-  
+  if(length(sel.nms) == 0L) return(0);
   for(i in 1:length(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
-    int.mat <- ov_qs_read(dataSet$data.annotated.path);
-    int.mat <- int.mat[,colnames(int.mat) %in% colnames(dataSet$data.proc)];
+    mat <- dataSet$data.proc
+    if(is.null(mat)) next
+    use.opt <- opt
+    if(identical(opt, "auto")){
+      use.opt <- .OmicsDetectNormOpt(mat, tryCatch(dataSet$type, error = function(e) ""))
+    }
+    if(!identical(use.opt, "NA")){
+      dataSet$data.proc <- NormalizingDataOmics(mat, use.opt, "NA", "NA")
+    }
+    dataSet$normInfo <- use.opt
+    message("[NormalizeDataMultiOmics] ", sel.nms[i], " -> ", use.opt)
+    RegisterData(dataSet)
+  }
+  return(1);
+}
+
+# Heuristic raw-vs-normalized detection + per-type method. Non-negative matrix with a
+# large dynamic range (max > 50) or mostly-integer values => raw; negatives or a small
+# range => already normalized (skip). Raw sequencing counts -> "logcount" (voom log2-CPM);
+# raw intensity/concentration -> "log".
+.OmicsDetectNormOpt <- function(mat, omicsType = ""){
+  m <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
+  if(all(is.na(m))) return("NA")
+  if(any(m < 0, na.rm = TRUE)) return("NA")
+  mx <- suppressWarnings(max(m, na.rm = TRUE))
+  if(!is.finite(mx) || mx < 20) return("NA")
+  is.raw <- TRUE
+  if(mx <= 50){
+    nz <- m[m > 0 & !is.na(m)]
+    if(length(nz) > 2000L) nz <- nz[seq_len(2000L)]
+    is.raw <- length(nz) > 0L && mean(nz == round(nz)) > 0.95
+  }
+  if(!is.raw) return("NA")
+  t <- tolower(as.character(omicsType))
+  if(grepl("rna|mirna|seq|count|gene", t)) "logcount" else "log"
+}
+
+FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
+  filterPercent <- suppressWarnings(as.numeric(filterPercent));
+  if (length(filterPercent) == 0L || is.na(filterPercent)) filterPercent <- 0;
+  # "all datasets" = the ACTIVE datasets (mdata.all==1), NOT every entry — a
+  # deselected / stale dataset (e.g. manual->AI contamination) must not be
+  # re-filtered, and iterating one with mismatched samples drops int.mat to a vector.
+  if (length(dataName) == 0L || is.na(dataName) || tolower(as.character(dataName)) %in% c("na","all")) {
+    sel.nms <- names(mdata.all)[vapply(mdata.all, function(x) isTRUE(x == 1), logical(1))]
+  } else {
+    sel.nms <- as.character(dataName);
+  }
+  if (length(sel.nms) == 0L) { AddErrMsg("No active dataset available to filter."); return(0); }
+
+  for(i in 1:length(sel.nms)){
+    dataSet <- readDataset(sel.nms[i])
+    # STRUCTURAL FIX: filtering and scaling are sequential and share the SAME source —
+    # the in-memory data.proc set by the preceding step. The previous code read the
+    # on-disk annotated matrix (ov_qs_read(data.annotated.path)), which the AI
+    # multi-omics load does not reliably write, so EVERY filter method/dataset failed
+    # while scaling (which uses data.proc) worked. Use data.proc, exactly like scaling.
+    int.mat <- dataSet$data.proc
+    if (is.null(int.mat)) { AddErrMsg(paste0("No data matrix (data.proc) for ", dataSet$name, " — cannot filter.")); return(0); }
+    int.mat <- as.matrix(int.mat);
+    suppressWarnings(storage.mode(int.mat) <- "numeric");
 
     if(filterMethod == "variance"){
-      data <- FilterDataByVariance(int.mat, filterPercent);
-    }else{
-      # OPTIMIZED: Use matrixStats::rowVars() for 3-5x speedup (requires matrixStats package)
-      # For now using apply() - consider adding matrixStats dependency
-      featVar <- apply(data, 1, var);
-      if(var(featVar) < 0.001){
-        print("Detected autoscale");
-        msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
-        return(2);
+      # Variance can't rank already-scaled data: z-scoring sets every feature's variance to
+      # ~1, so var-of-variances ~ 0. IQR, by contrast, reflects each feature's distribution
+      # SHAPE and still varies after scaling — so fall back to IQR ranking there. Non-scaled
+      # data is ranked by variance as requested.
+      featVar <- apply(int.mat, 1, var, na.rm = TRUE);
+      vfv <- suppressWarnings(var(featVar, na.rm = TRUE));
+      if(is.na(vfv) || vfv < 0.001){
+        message("[filter] near-uniform feature variance (already scaled) -> ranking by IQR instead of variance");
+        res  <- tryCatch(PerformFeatureFilter(t(int.mat), "iqr", filterPercent, "", T), error = function(e) NULL);
+        data <- if(is.null(res)) int.mat else t(res$data);
+      } else {
+        data <- FilterDataByVariance(int.mat, filterPercent);
       }
-      res <- PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T);
-      data <- t(res$data);
+    }else{
+      # iqr / other robust ranking — works on already-scaled data too.
+      res  <- tryCatch(PerformFeatureFilter(t(int.mat), filterMethod, filterPercent, "", T), error = function(e) NULL);
+      data <- if(is.null(res)) int.mat else t(res$data);
     }
+    # Defensive: a helper returning a status string instead of a matrix -> keep the input
+    # (a layer is passed through, never aborts the whole filter).
     if(any(class(data) == "character")){
-      msg.vec <<- paste0(dataSet$name, " appears to be autoscaled. Filtering can not be performed on autoscaled dataset!");
-      print("Detected autoscale");
-      return(2)
+      data <- int.mat;
     }
     dataSet$data.proc <- data;
     if(exists("m2m",dataSet)){
@@ -159,7 +229,10 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
 }
 
 FilterDataByVariance <- function(data, filterPercent){
-  featVar <- apply(data, 1, var);
+  data <- as.matrix(data);
+  if (is.null(dim(data)) || nrow(data) < 2L || ncol(data) < 2L) return(data);  # nothing meaningful to filter
+  suppressWarnings(storage.mode(data) <- "numeric");
+  featVar <- apply(data, 1, var, na.rm = TRUE);
   # Always remove zero-variance features (essential for downstream methods like DIABLO)
   nonzero <- featVar > 0
   if (sum(nonzero) < nrow(data)) {
@@ -167,12 +240,15 @@ FilterDataByVariance <- function(data, filterPercent){
     data <- data[nonzero, , drop = FALSE]
     featVar <- featVar[nonzero]
   }
-  if(length(featVar) == 0 || var(featVar) < 0.001){
-    return("Already autoscaled");
+  if(length(featVar) == 0 || suppressWarnings(var(featVar, na.rm = TRUE)) < 0.001 || is.na(suppressWarnings(var(featVar, na.rm = TRUE)))){
+    # Near-uniform feature variance (e.g. already z-scored / normalized): variance ranking is
+    # meaningless and the quantile cut would drop every feature — pass the data through
+    # unchanged so the filter still yields a matrix for the scaling step.
+    return(data);
   }
-  varThresh <- quantile(featVar, (filterPercent/100));
+  varThresh <- quantile(featVar, (filterPercent/100), na.rm = TRUE);
   featKeep <- which(featVar > varThresh);
-  data <- data[featKeep, ];
+  data <- data[featKeep, , drop = FALSE];
   return(data);
 }
 
@@ -360,21 +436,27 @@ CheckMetaIntegrity <- function(){
   }
   
   if(length(metas) == 0){
-    msg.vec <<- paste0('Please make sure row(s) corresponding to meta-data start with "#CLASS" or to include a metadata file.' );
+    AddErrMsg('No metadata found. Provide a metadata file, or rows starting with "#CLASS".');
     return(0)
   }
-  
+
   for(i in 1:length(sel.nms)){
     for(j in 1:length(sel.nms)){
       bool <- SameElements(cnms[[i]], cnms[[j]])
       if(!bool){
-        msg.vec <<- paste0("Please make sure the sample names are consistent and reupload the data sets. ", sel.nms[i], ": ", unique(cnms[[i]]),"; ", sel.nms[j], ": ", unique(cnms[[j]]));
+        ov <- length(intersect(cnms[[i]], cnms[[j]]))
+        AddErrMsg(paste0(
+          "Sample IDs are not consistent across the omics tables — every table must use the SAME ",
+          "sample IDs as its column headers, matching the metadata row names. '", sel.nms[i], "' has ",
+          length(cnms[[i]]), " samples and '", sel.nms[j], "' has ", length(cnms[[j]]),
+          "; they share only ", ov, ". '", sel.nms[i], "' e.g.: ",
+          paste(utils::head(cnms[[i]], 4), collapse=", "), " | '", sel.nms[j], "' e.g.: ",
+          paste(utils::head(cnms[[j]], 4), collapse=", "), "."));
         return(0)
       }
       boolMeta <- identical(metas[[i]],metas[[j]])
-      #print(boolMeta);
       if(!boolMeta){
-        msg.vec <<- "Please make sure the meta data is consistent across all uploaded data sets.";
+        AddErrMsg("The metadata is not consistent across the uploaded omics tables (the same samples must map to the same metadata in every table).");
         return(0)
       }
     }

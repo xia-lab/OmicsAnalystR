@@ -1067,7 +1067,10 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
   saveSet(infoSet);
 
   # Isolate pheatmap in subprocess
-  metaData = metaData[order( metaData$Cluster),]
+  # Order rows by the first cluster column — named "Cluster" in the single-method
+  # case, or "Clusters (Kmeans)"/"Clusters (SNF)"/... when several methods are shown.
+  .ord.col <- if ("Cluster" %in% names(metaData)) "Cluster" else names(metaData)[1]
+  metaData = metaData[order( metaData[[.ord.col]] ),]
   smp.nms <- rownames(metaData);
   met <- sapply(metaData, function(x) as.integer(x))
   rownames(met) <- smp.nms;

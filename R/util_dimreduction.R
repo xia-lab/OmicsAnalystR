@@ -24,24 +24,51 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     rownames(dataSet$data.proc) <- sanitized_names;
     data.list[[dataSet$type]] <- dataSet$data.proc
  
-    if(i == 1){       
-      comp.res1 = dataSet$comp.res
-      enrich.nms1 = dataSet$enrich_ids
-      comp.res.inx1 = rep(1, nrow(comp.res1));
-      featureNms <- rownames(dataSet$data.proc);
-      omics.vec <- rep(dataSet$type, nrow(dataSet$data.proc));
-      uniqFeats <- paste0(rownames(dataSet$data.proc),"_", dataSet$type)
-      filenms <- sel.nms[i]
- 
+    # A layer can legitimately have NO comparison result (no covariate analysis run,
+    # or no significant features) — its dataSet$comp.res is then NULL. Build a
+    # per-feature coefficient frame aligned to ALL features of this layer (placeholder
+    # 0 when absent) so the integration never crashes on nrow(NULL) and comp.res stays
+    # aligned with featureNms downstream.
+    feats.i <- rownames(dataSet$data.proc)
+    cres.i  <- dataSet$comp.res
+    if (is.null(cres.i) || nrow(cres.i) == 0L) {
+      coef.i <- rep(0, length(feats.i))
+      pval.i <- rep(1, length(feats.i))
     } else {
-      comp.res1 = rbind(comp.res1, dataSet$comp.res)
+      coef.i <- if ("coefficient" %in% colnames(cres.i))
+                  suppressWarnings(as.numeric(cres.i[feats.i, "coefficient"])) else rep(0, length(feats.i))
+      coef.i[is.na(coef.i)] <- 0
+      # P-value column name varies by DE method (limma "P.Value"); match flexibly.
+      pcol <- intersect(c("P.Value","pval","p.value","PValue","P.value","pvalue"), colnames(cres.i))[1L]
+      pval.i <- if (!is.na(pcol)) suppressWarnings(as.numeric(cres.i[feats.i, pcol])) else rep(1, length(feats.i))
+      pval.i[is.na(pval.i)] <- 1
+    }
+    # Keep "ids" + "P.Value" alongside "coefficient". The integration's 3D scatter
+    # JSON (doScatterJson, util_scatter_json.R) indexes comp.res by an "ids" column
+    # and reads "P.Value", and the DIABLO loadings match on these ids (= the per-layer
+    # feature names, set as rownames of model$loadings). A coefficient-only frame
+    # broke them with "undefined columns selected".
+    cres.i <- data.frame(ids = feats.i, coefficient = coef.i, P.Value = pval.i,
+                         row.names = feats.i, stringsAsFactors = FALSE)
+
+    if(i == 1){
+      comp.res1 = cres.i
+      enrich.nms1 = dataSet$enrich_ids
+      comp.res.inx1 = rep(1, nrow(cres.i));
+      featureNms <- feats.i;
+      omics.vec <- rep(dataSet$type, length(feats.i));
+      uniqFeats <- paste0(feats.i,"_", dataSet$type)
+      filenms <- sel.nms[i]
+
+    } else {
+      comp.res1 = rbind(comp.res1, cres.i)
       enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
-      comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(dataSet$comp.res)));
-      featureNms <- c(featureNms, rownames(dataSet$data.proc));
-      omics.vec <- c(omics.vec,rep(dataSet$type, nrow(dataSet$data.proc)));
-      uniqFeats <- c(uniqFeats, paste0(rownames(dataSet$data.proc),"_", dataSet$type))
-      filenms <- c(filenms,sel.nms[i])
- 
+      comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(cres.i)));
+      featureNms <- c(featureNms, feats.i);
+      omics.vec <- c(omics.vec, rep(dataSet$type, length(feats.i)));
+      uniqFeats <- c(uniqFeats, paste0(feats.i,"_", dataSet$type))
+      filenms <- c(filenms, sel.nms[i])
+
     }
   }
 
@@ -164,7 +191,30 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       reductionSet[["mofa.complete"]] <- TRUE
 
   } else if (reductionOpt == "diablo"){ # pos pars to tune: value from 0-1 inside matrix, which metadata to predict
+    # `diabloMeta` = the metadata column DIABLO predicts. Two guards so the AI
+    # multi-omics flow (which does NOT run the manual SanityCheckMeta that fills
+    # reductionSet$dataSet$meta.types) doesn't abort the whole integration with
+    # "missing value where TRUE/FALSE needed":
+    #   (1) default an empty/invalid diabloMeta to the first metadata column;
+    #   (2) when meta.types has no entry for it (NA), infer disc/cont from the
+    #       column values — the same logic RunVpa uses.
+    # Manual mode is unaffected: there meta.types IS populated, so neither guard fires.
+    meta.df <- reductionSet$meta
+    if (is.null(diabloMeta) || !nzchar(diabloMeta) || !(diabloMeta %in% colnames(meta.df))) {
+      diabloMeta <- colnames(meta.df)[1];
+      cat(sprintf(">>> reduce.dimension: diabloMeta invalid -> defaulting to '%s'\n", diabloMeta));
+    }
     diablo.meta.type <- reductionSet$dataSet$meta.types[diabloMeta];
+    if (is.null(diablo.meta.type) || length(diablo.meta.type) == 0L || is.na(diablo.meta.type)) {
+      v    <- meta.df[, diabloMeta];
+      vc   <- as.character(v);
+      lvls <- unique(vc[!is.na(vc) & nzchar(trimws(vc))]);
+      vnum <- suppressWarnings(as.numeric(vc));
+      is_num <- is.numeric(v) || (length(lvls) > 0L && !any(is.na(vnum[!is.na(vc) & nzchar(trimws(vc))])));
+      diablo.meta.type <- if (is_num && length(lvls) > 12L) "cont" else "disc";
+      cat(sprintf(">>> reduce.dimension: meta.types missing for '%s' -> inferred '%s'\n", diabloMeta, diablo.meta.type));
+    }
+    diablo.meta.type <- unname(diablo.meta.type);
     reductionSet$diabloMeta <- diabloMeta;
     reductionSet$diabloPar <- diabloPar;
 
@@ -472,6 +522,30 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
           warning(paste("BER Arrow export failed:", e$message))
         })
       }
+
+  } else if (reductionOpt == "vpa") {
+    # ── Combined-omics PCA ordination ─────────────────────────────────────────
+    # VPA's "sample ordination" exposed through the SAME 3D scatter API as
+    # MCIA/MOFA/DIABLO (no viewer change). Concatenate the active omics blocks
+    # (features x samples) and PCA on the samples; the common tail below reorders
+    # and registers it into reductionSet[["vpa"]] exactly like every other method.
+    combined <- as.matrix(do.call(rbind, data.list));
+    suppressWarnings(storage.mode(combined) <- "numeric");
+    combined[is.na(combined)] <- 0;
+    pca <- stats::prcomp(t(combined), center = TRUE, scale. = FALSE);
+    k   <- min(ncomps, ncol(pca$x));
+    pos.xyz  <- as.data.frame(pca$x[, seq_len(k), drop = FALSE]);
+    load.mat <- as.data.frame(pca$rotation[, seq_len(k), drop = FALSE]);
+    if (k < ncomps) for (j in (k + 1):ncomps) { pos.xyz[[paste0("pad", j)]] <- 0; load.mat[[paste0("pad", j)]] <- 0; }
+    colnames(pos.xyz)  <- paste0("Factor", seq_len(ncomps));
+    colnames(load.mat) <- paste0("Factor", seq_len(ncomps));
+    rownames(pos.xyz)  <- colnames(combined);
+    load.mat$ids  <- rownames(combined);
+    load.mat$type <- omics.vec;
+    loading.pos.xyz <- load.mat;
+    ve <- pca$sdev^2 / sum(pca$sdev^2); ve <- c(ve, rep(0, ncomps))[seq_len(ncomps)];
+    var.exp <- matrix(round(ve, 3), nrow = ncomps, ncol = max(1L, length(unique(omics.vec))),
+                      dimnames = list(paste0("Factor", seq_len(ncomps)), unique(omics.vec)));
 
   }
 
