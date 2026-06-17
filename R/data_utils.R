@@ -25,7 +25,7 @@
 .init.sqlite.path <- function(){ 
 if(file.exists("/data/sqlite/")){
     sqlite.path <<- "/data/sqlite/";  #vip server
-  } else if(nzchar(Sys.getenv("OMICS_LIB_DIR", "")) && dir.exists(Sys.getenv("OMICS_LIB_DIR", ""))){
+  } else if(nzchar(Sys.getenv("OMICS_LIB_DIR", "")) && dir.exists(Sys.getenv("OMICS_LIB_DIR", "")) && any(file.info(list.files(Sys.getenv("OMICS_LIB_DIR", ""), pattern = "\\.sqlite$", full.names = TRUE))$size > 0, na.rm = TRUE)){
     sqlite.path <<- paste0(sub("/+$", "", Sys.getenv("OMICS_LIB_DIR", "")), "/");  # Docker shared library mount (OMICS_LIB_DIR)
   } else if(file.exists("/home/glassfish/sqlite/")){
     sqlite.path <<- "/home/glassfish/sqlite/";  #public server
