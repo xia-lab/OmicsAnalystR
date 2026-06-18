@@ -106,9 +106,18 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet$filenms <- filenms;
  
   if(reductionOpt == "mcia") {
-    
+
     mcoin <- run.mcia(data.list, cia.nf=ncomps)
- 
+    # run.mcia returns scalar 0 when the isolated ade4 subprocess fails. Dereferencing
+    # mcoin$mcoa on an atomic 0 throws a cryptic "$ operator is invalid for atomic
+    # vectors", which would abort with no usable message AND skip persistence (leaving
+    # the prior rdt.set.qs). Fail explicitly instead so the caller sees a clear error
+    # and no stub/empty-loadings result is produced.
+    if (is.null(mcoin) || !is.list(mcoin) || is.null(mcoin$mcoa)) {
+      AddErrMsg("MCIA failed: the co-inertia analysis returned no result (subprocess error or degenerate input). Check that each omics layer has enough non-constant features after harmonization.");
+      return(0);
+    }
+
      pos.xyz = mcoin$mcoa$SynVar;
 
     #setting rownames because mcia may modify the names (i.e "-")
@@ -550,10 +559,26 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   }
 
   # preserve original order
-    
+
   loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
   loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
+
+  # Stub guard: do NOT persist a degenerate result. If the loadings collapsed to zero
+  # rows, or every loading value is NA (e.g. the uniqFeats/ids reorder above did not
+  # align — the ids/type a method emits not matching uniqFeats), the reductionSet would
+  # be saved with empty loadings (the ~1KB stub rdt.set.qs), the loading_<method>.arrow
+  # would be written empty, and the dashboard loadings table would read "no features
+  # available". Bail BEFORE .set.rdt.set so the prior valid rdt.set.qs is preserved and
+  # the caller (PerformOaIntegration/PerformOaMofa) reports a real failure.
+  if (is.null(loading.pos.xyz) || nrow(loading.pos.xyz) == 0L ||
+      all(is.na(as.matrix(loading.pos.xyz[, seq_len(ncomps), drop = FALSE])))) {
+    AddErrMsg(paste0(toupper(reductionOpt), " produced no usable loadings (the feature loadings ",
+              "did not align to the harmonized features). The integration result was NOT saved; ",
+              "check that each omics layer retains non-constant features after harmonization."));
+    return(0);
+  }
+
   #loading.pos.xyz$filenm <-   filenms
   #update colnames to "Loading"
   colnames(loading.pos.xyz)[c(1:ncomps)] <- c(paste0("Loading", 1:ncomps))

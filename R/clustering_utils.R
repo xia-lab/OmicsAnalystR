@@ -502,6 +502,11 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   if (is.null(spec_result)) return(0)
   res <- spec_result$res
   clust <- spec_result$assignments
+  # Spectrum returns an UNNAMED assignment vector (in input sample-column order).
+  # Name it by sample so the heatmap's name-based realignment
+  # (clustVec[rownames(meta)] in EmitOaHeatmapManifest) resolves like K-means'
+  # named res$cluster -- without names that lookup yields an all-NA column.
+  names(clust) <- colnames(data.list[[1]])
 
   SNFNMI = .calNMI(clust, as.numeric(dat$cls));
  
@@ -796,6 +801,10 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   if (is.null(snf_result)) return(0)
   group <- snf_result$group
   W <- snf_result$W
+  # spectralClustering returns an UNNAMED vector (W row order = sample order);
+  # name by sample so clustVec[rownames(meta)] realigns like K-means (otherwise
+  # the heatmap's SNF column would be all NA whenever SNF does run).
+  names(group) <- colnames(data.list[[1]])
   res <- estimateClusters(W, 2:10)
   SNFNMI = .calNMI(group, truelabel)
   reductionSet$clustType <- "SNF"
