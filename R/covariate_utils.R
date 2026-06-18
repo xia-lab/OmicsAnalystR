@@ -462,6 +462,22 @@ PlotMultiFacCmpdSummary <- function(dataName, imgName, name, id, meta, meta2 = N
   meta.info <- rdtSet$dataSet$meta.info
   print(meta.info)
 
+  # Result-view robustness: the loadings detail view may hand a placeholder dataName
+  # ("Data"/"Dataset") or a layer whose sample columns no longer align with meta.info
+  # (the per-run Java dataset list is not fully restored in the _runN result session),
+  # which made this look-up empty -> "Meta information could not be found ...". A loading
+  # feature `id` belongs to a specific omics layer, so re-resolve `dat` to the ACTIVE
+  # dataset that actually contains `id` and whose samples match the metadata.
+  if (!(id %in% rownames(dat)) ||
+      length(which(rownames(meta.info) %in% colnames(dat))) == 0) {
+    act <- tryCatch(names(mdata.all)[mdata.all == 1], error = function(e) character(0))
+    for (nm in act) {
+      d2 <- tryCatch(readDataset(nm)$data.proc, error = function(e) NULL)
+      if (!is.null(d2) && (id %in% rownames(d2)) &&
+          any(rownames(meta.info) %in% colnames(d2))) { dat <- d2; break }
+    }
+  }
+
   # Select the primary metadata
   sel.cls <- meta.info[which(rownames(meta.info) %in% colnames(dat)), meta]
   
