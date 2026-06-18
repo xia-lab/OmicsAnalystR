@@ -830,6 +830,7 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
 }
 
 PlotCorrViolin <- function(imgNm, dpi=150, format="png", corNetOpt="default"){
+  try(RecordRCommand(paste0("PlotCorrViolin(\"", imgNm, "\")")), silent = TRUE)
   dpi<-as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 

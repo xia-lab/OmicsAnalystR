@@ -342,10 +342,22 @@ saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.inf
   return(result)
 }
 
+# Upper bound for a data-driven cluster-count search. Cap at max_k AND at ~n/5 (a rule of
+# thumb so we don't look for many clusters in few samples), always allow at least 3, and
+# never request as many clusters as there are samples. Shared by the K-means silhouette
+# search and the SNF/Spectrum eigen-gap search; for the isolated SNF/Spectrum workers it is
+# evaluated in the main process and the resulting scalar is passed in (the workers can't
+# see this function).
+.ov_auto_kmax <- function(n, max_k = 10L) {
+  if (n < 4L) return(2L)
+  ub <- max(3L, min(as.integer(max_k), n %/% 5L))
+  min(ub, n - 1L)
+}
+
 ComputeKmeans <- function(clusterNum="-1"){
-   
+
   print(clusterNum)
- 
+
   sel.inx <- mdata.all==1;
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
@@ -355,13 +367,26 @@ ComputeKmeans <- function(clusterNum="-1"){
   }
   reductionSet <- .get.rdt.set();
   reductionSet$omicstype <- sel.nms
-  
+
   clusterNum <- as.numeric(clusterNum)
-  if(clusterNum==-1){
-    clusterNum =3
-   }
   combined_data <-  do.call(rbind, data.list)
-    
+  if(is.na(clusterNum) || clusterNum == -1){
+    # Data-driven k: maximize average silhouette width over 2..kmax (kmax capped at ~n/5),
+    # with a < 4-sample floor; fall back to 3 on any failure (e.g. cluster pkg missing).
+    clusterNum <- tryCatch({
+      Xs <- t(combined_data); n <- nrow(Xs)
+      if(n < 4L){
+        max(2L, n)
+      }else{
+        kmax <- .ov_auto_kmax(n)
+        d <- dist(Xs)
+        sil <- vapply(2:kmax, function(kk)
+          mean(cluster::silhouette(kmeans(Xs, centers = kk, nstart = 25)$cluster, d)[, 3]),
+          numeric(1))
+        (2:kmax)[which.max(sil)]
+      }
+    }, error = function(e){ message("[oa/kmeans] auto-k failed, using 3: ", conditionMessage(e)); 3L })
+  }
   res <- kmeans(t(combined_data), centers = clusterNum, nstart = 25)
    
   clust <- res$cluster
@@ -470,7 +495,7 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   reductionSet$omicstype <- sel.nms
   
   clusterNum <- as.numeric(clusterNum)
-  if(clusterNum == -1){
+  if(is.na(clusterNum) || clusterNum == -1){
     clusterNum = NULL;
     if(method == "eigengap"){
       method=1;
@@ -480,17 +505,19 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   }else{
     method=3;
   }
+  # Cap Spectrum's auto k search to ~n/5 (samples = ncol of a layer matrix).
+  spec_maxk <- .ov_auto_kmax(ncol(data.list[[1]]))
 
   spec_result <- tryCatch({
     rsclient_isolated_exec(
       func_body = function(input_data) {
         require(Spectrum)
         res <- Spectrum::Spectrum(input_data$data.list, method=input_data$method,
-                                  fixk=input_data$clusterNum, maxk=10, missing=TRUE,
+                                  fixk=input_data$clusterNum, maxk=input_data$maxk, missing=TRUE,
                                   fontsize=8, dotsize=2, showres=FALSE, silent=TRUE)
         list(assignments = res$assignments, res = res, similarity_matrix = res$similarity_matrix)
       },
-      input_data = list(data.list = data.list, method = method, clusterNum = clusterNum),
+      input_data = list(data.list = data.list, method = method, clusterNum = clusterNum, maxk = spec_maxk),
       packages = c("Spectrum"),
       timeout = 300
     )
@@ -750,23 +777,29 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   reductionSet$omicstype <- sel.nms
   
   truelabel = as.numeric(dat$cls)
-  Data1 <- t(data.list[[1]])
-  Data2 <- t(data.list[[2]])
+  # Fuse ALL active omics layers (transposed to samples-in-rows), not just the first
+  # two — on a 3+ layer study the old Data1/Data2 hard-coding silently dropped the
+  # remaining layers from the SNF fusion.
+  dataT.list <- lapply(data.list, function(d) t(d))
   clusterNum <- as.numeric(clusterNum)
+  # Eigen-gap search range, capped to ~n/5 (computed here; the isolated worker can't see
+  # .ov_auto_kmax). nrow after transpose = number of samples.
+  snf_kmax <- .ov_auto_kmax(nrow(dataT.list[[1]]))
 
   snf_result <- tryCatch({
     rsclient_isolated_exec(
       func_body = function(input_data) {
         require(SNFtool)
         K <- input_data$K; alpha <- input_data$alpha; T_iter <- input_data$T_iter
-        Data1 <- input_data$Data1; Data2 <- input_data$Data2
+        dataT.list <- input_data$dataT.list
         clusterNum <- input_data$clusterNum
+        snf_kmax <- input_data$snf_kmax
 
-        Dist1 <- SNFtool::dist2(as.matrix(Data1), as.matrix(Data1))
-        Dist2 <- SNFtool::dist2(as.matrix(Data2), as.matrix(Data2))
-        W1 <- SNFtool::affinityMatrix(Dist1, K, alpha)
-        W2 <- SNFtool::affinityMatrix(Dist2, K, alpha)
-        W <- SNFtool::SNF(list(W1, W2), K, T_iter)
+        W.list <- lapply(dataT.list, function(D) {
+          Dist <- SNFtool::dist2(as.matrix(D), as.matrix(D))
+          SNFtool::affinityMatrix(Dist, K, alpha)
+        })
+        W <- if (length(W.list) == 1L) W.list[[1]] else SNFtool::SNF(W.list, K, T_iter)
 
         # estimateClusters is defined in clustering_utils.R, not SNFtool
         # Inline the eigen-gap estimation here
@@ -778,18 +811,18 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
         eigs_order <- sort(eigs$values, index.return = TRUE)$ix
         eigs$values <- eigs$values[eigs_order]
         eigengap <- abs(diff(eigs$values))
-        NUMC <- 2:10
+        NUMC <- 2:snf_kmax
         t1 <- sort(eigengap[NUMC], decreasing = TRUE, index.return = TRUE)$ix
         auto_k <- NUMC[t1[1]]
         eigs_vals <- (1 - eigs$values)[NUMC]
 
-        C <- if (clusterNum == -1) auto_k else clusterNum
+        C <- if (is.na(clusterNum) || clusterNum == -1) auto_k else clusterNum
         group <- SNFtool::spectralClustering(W, C)
 
         list(group = group, W = W, auto_k = auto_k, eigs_vals = eigs_vals)
       },
-      input_data = list(Data1 = Data1, Data2 = Data2, K = K, alpha = alpha,
-                        T_iter = T, clusterNum = clusterNum),
+      input_data = list(dataT.list = dataT.list, K = K, alpha = alpha,
+                        T_iter = T, clusterNum = clusterNum, snf_kmax = snf_kmax),
       packages = c("SNFtool"),
       timeout = 300
     )
@@ -1059,6 +1092,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
 
 
 PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
+  try(RecordRCommand(paste0("PlotClusterHeatmap(\"", imgName, "\")")), silent = TRUE)
 
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
@@ -1084,9 +1118,30 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
   met <- sapply(metaData, function(x) as.integer(x))
   rownames(met) <- smp.nms;
 
+  # Every cell shows its ACTUAL value in-cell so the heatmap is directly examinable
+  # and matches the membership table: cluster columns ("Cluster" / "Clusters (...)")
+  # show the integer cluster id, and metadata columns show their real value
+  # (e.g. Ctr/Ik for Condition, 0/2/6/... for Hours) rather than being left blank.
+  # Colour still encodes the per-column scaled value (below); only the in-cell text
+  # differs. Separators: a gap after the cluster columns and row gaps between the
+  # (row-sorted) primary clusters.
+  clustColMask <- grepl("^Cluster", colnames(met))
+  labelMat <- matrix("", nrow(met), ncol(met))
+  if (any(clustColMask)) labelMat[, clustColMask] <- as.character(met[, clustColMask])
+  for (j in which(!clustColMask)) {
+    vals <- as.character(metaData[[j]])
+    vals[is.na(vals)] <- ""
+    labelMat[, j] <- substr(vals, 1, 16)   # keep cell text compact
+  }
+  n_clust <- sum(clustColMask)
+  gapsRow <- which(diff(as.integer(metaData[[.ord.col]])) != 0)
+
   data_for_rsclient <- list(
     metaData = metaData,
     met = met,
+    labelMat = labelMat,
+    n_clust = n_clust,
+    gapsRow = gapsRow,
     viewOpt = viewOpt,
     clustSelOpt = clustSelOpt,
     smplDist = smplDist,
@@ -1108,18 +1163,12 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
     met <- input_data$met
     metaData <- input_data$metaData
 
-    colorGradient <- input_data$colorGradient
-    if(colorGradient == "gbr"){
-      colors <- colorRampPalette(c("green", "black", "red"), space="rgb")(256)
-    } else if(colorGradient == "heat") {
-      colors <- rev(heat.colors(10))
-    } else if(colorGradient == "topo") {
-      colors <- rev(topo.colors(10))
-    } else if(colorGradient == "bwm") {
-      colors <- colorRampPalette(c("#0000FF","white","#FF0000"))(256)
-    } else {
-      colors <- rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256));
-    }
+    # This is a sample x (cluster + metadata) MEMBERSHIP grid, not deviation-from-mean
+    # data, so use a SEQUENTIAL palette (each column auto-scaled to its full range below).
+    # The ramp is CAPPED at medium blue (no navy) so the in-cell cluster labels (drawn in
+    # dark grey, and always the ACTUAL cluster id — never scaled) stay readable on every
+    # cell; a too-dark end made "2" unreadable (dark-on-navy).
+    colors <- grDevices::colorRampPalette(c("#deebf7","#c6dbef","#9ecae1","#6baed6","#4292c6"))(256)
 
     clustSelOpt <- input_data$clustSelOpt
     if(clustSelOpt == "both"){
@@ -1132,10 +1181,23 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
       rowBool <- FALSE; colBool <- FALSE;
     }
 
-    met <- scale(met)
+    # Per-column min-max to [0,1] (all positive) so cluster labels and metadata share one
+    # scale without z-scoring (which forces each column's mean onto the palette midpoint).
+    rn <- rownames(met)
+    met <- apply(met, 2, function(x) {
+      rng <- range(x, na.rm = TRUE)
+      if (!is.finite(diff(rng)) || diff(rng) == 0) return(rep(0.5, length(x)))
+      (x - rng[1]) / diff(rng)
+    })
+    rownames(met) <- rn
 
-    w <- max(6, ncol(met) * 0.3 + 2)
-    h <- max(4, nrow(met) * 0.15 + 1.5)
+    w <- max(6, ncol(met) * 0.5 + 2)
+    h <- max(4, nrow(met) * 0.16 + 1.5)
+
+    gc <- input_data$n_clust
+    gaps_col_v <- if (!is.null(gc) && gc > 0 && gc < ncol(met)) gc else NULL
+    gr <- input_data$gapsRow
+    gaps_row_v <- if (length(gr) > 0) gr else NULL
 
     Cairo::Cairo(file = input_data$imgName, unit="in", dpi=input_data$dpi,
                  width=w, height=h, type=input_data$format, bg="white");
@@ -1145,13 +1207,17 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
                        clustering_distance_rows = input_data$smplDist,
                        clustering_distance_cols = input_data$smplDist,
                        clustering_method = input_data$clstDist,
-                       border_color = NA,
+                       border_color = "grey70",
                        cluster_rows = FALSE,
                        cluster_cols = FALSE,
-                       scale = "column",
+                       scale = "none",
+                       gaps_col = gaps_col_v,
+                       gaps_row = gaps_row_v,
                        show_rownames = input_data$includeRowNames,
                        color = colors,
-                       display_numbers = FALSE);
+                       display_numbers = input_data$labelMat,
+                       number_color = "grey15",
+                       fontsize_number = 8);
     dev.off();
 
     return(input_data$imgName)

@@ -950,23 +950,35 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
         }, error=function(e){ cat(">>> RunVpa: ordination skipped:", conditionMessage(e), "\n"); FALSE })
 
         # ── Figure 4: predictor collinearity (leading omics PCs + traits) ───────
+        # Match the Data Overview metadata-correlation / RV heatmap style: upper-triangle
+        # tiles, reversed-RdYlBu fill on [-1,1], in-cell values, y-axis on the right,
+        # vertical legend on the left, coord_fixed + theme_minimal, content-proportional size.
         corr_ok <- tryCatch({
           cmat <- cbind(X1_df[, 1, drop=FALSE], X2_df[, 1, drop=FALSE], Y_mat)
           colnames(cmat) <- c(paste0(xn[1], ".PC1"), paste0(xn[2], ".PC1"), colnames(Y_mat))
-          cc <- cor(cmat, use="pairwise.complete.obs")
+          cc <- round(cor(cmat, use="pairwise.complete.obs"), 3)
           k  <- ncol(cc)
-          Cairo::Cairo(file=corrPath, type=fmt, dpi=dpi,
-                       width=max(5, 0.75*k + 3.5), height=max(4.5, 0.75*k + 3), units="in", bg="white")
-          par(mar=c(9, 9, 3, 4))
-          colpal <- colorRampPalette(c("#2166AC", "white", "#B2182B"))(101)
-          image(1:k, 1:k, t(cc[k:1, , drop=FALSE]), col=colpal, zlim=c(-1, 1),
-                axes=FALSE, xlab="", ylab="", main="Predictor collinearity (Pearson r)")
-          axis(1, at=1:k, labels=colnames(cc), las=2, cex.axis=0.82, tick=FALSE)
-          axis(2, at=1:k, labels=rev(colnames(cc)), las=2, cex.axis=0.82, tick=FALSE)
-          for (i in 1:k) for (j in 1:k)
-            text(j, k - i + 1, sprintf("%.2f", cc[i, j]), cex=0.72,
-                 col=if (abs(cc[i, j]) > 0.6) "white" else "black")
-          dev.off(); TRUE
+          ccu <- cc; ccu[lower.tri(ccu)] <- NA          # upper triangle incl. diagonal
+          df <- reshape2::melt(ccu, na.rm = TRUE)
+          df$value <- signif(df$value, 3)
+          p <- ggplot2::ggplot(df, ggplot2::aes(Var2, Var1, fill = value)) +
+            ggplot2::geom_tile(color = "white") +
+            ggplot2::scale_y_discrete("Var1", position = "right") +
+            ggplot2::scale_fill_gradientn(
+              colors = rev(RColorBrewer::brewer.pal(10, "RdYlBu")),
+              limits = c(-1, 1), name = "r") +
+            ggplot2::geom_text(ggplot2::aes(Var2, Var1, label = value),
+                               color = "black", size = 4) +
+            ggplot2::theme_minimal() +
+            ggplot2::theme(axis.text.x  = ggplot2::element_text(angle = 45, vjust = 1, hjust = 1),
+                           axis.title.x = ggplot2::element_blank(),
+                           axis.title.y = ggplot2::element_blank(),
+                           axis.text.y.right = ggplot2::element_text(),
+                           legend.direction = "vertical", legend.position = "left") +
+            ggplot2::coord_fixed()
+          side <- max(3.2, 1.6 + 0.8 * k)
+          Cairo::Cairo(file=corrPath, type=fmt, dpi=dpi, width=side, height=side, units="in", bg="white")
+          print(p); dev.off(); TRUE
         }, error=function(e){ cat(">>> RunVpa: corr heatmap skipped:", conditionMessage(e), "\n"); FALSE })
 
         results_df <- data.frame(

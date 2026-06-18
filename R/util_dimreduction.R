@@ -694,6 +694,7 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
 }
 
 PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
+  try(RecordRCommand(paste0("PlotDimredVarexp(\"", imgNm, "\")")), silent = TRUE)
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   library(see)
@@ -746,6 +747,7 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
 
 # Cumulative R-squared plot for MOFA/MCIA — stacked bar chart with cumulative line
 PlotCumR2 <- function(imgNm, dpi=150, format="png") {
+  try(RecordRCommand(paste0("PlotCumR2(\"", imgNm, "\")")), silent = TRUE)
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo(); load_ggplot();
   library(data.table)
@@ -796,6 +798,7 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
 }
 
 PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=150, format="png"){
+  try(RecordRCommand(paste0("PlotDimredFactors(\"", imgNm, "\")")), silent = TRUE)
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();
@@ -1059,6 +1062,7 @@ GenerateDiabloCircosJson <- function(cutoff=0.5, maxEdges=100) {
 
 # Plot DIABLO BER (Balanced Error Rate) diagnostic - performance vs number of components
 PlotDiabloBER <- function(imgNm, dpi=150, format="png") {
+  try(RecordRCommand(paste0("PlotDiabloBER(\"", imgNm, "\")")), silent = TRUE)
   infoSet <- readSet(infoSet, "infoSet");
   dpi <- as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
@@ -1107,6 +1111,7 @@ GetBerTableValues <- function(row) {
 }
 
 PlotDiabloLoading <- function(imgNm, dpi=150, format="png") {
+  try(RecordRCommand(paste0("PlotDiabloLoading(\"", imgNm, "\")")), silent = TRUE)
   infoSet <- readSet(infoSet, "infoSet");
   dpi <- as.numeric(dpi)
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
@@ -1123,6 +1128,7 @@ PlotDiabloLoading <- function(imgNm, dpi=150, format="png") {
 }
 
 PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
+  try(RecordRCommand(paste0("PlotDiabloCircos(\"", imgNm, "\")")), silent = TRUE)
   infoSet <- readSet(infoSet, "infoSet")
   dpi <- as.numeric(dpi)
   cutoff <- as.numeric(cutoff)

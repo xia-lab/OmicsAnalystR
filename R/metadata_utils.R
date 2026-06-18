@@ -5,8 +5,9 @@
 ###################################################
 
 ReadMetaDataFile <- function(metafilename){
+  try(RecordRCommand(paste0("ReadMetaDataFile(\"", metafilename, "\")")), silent = TRUE)
   reductionSet <- .get.rdt.set();
-  res <- .readMetaData(metafilename,"", "false"); 
+  res <- .readMetaData(metafilename,"", "false");
   res$meta.info <- removeXPrefix(res$meta.info);
   meta.types <- rep("disc", ncol(res$meta.info));
   meta.types[res$cont.inx] <- "cont";
@@ -610,6 +611,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'@export
 
 PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient="", imgName="", dpi=150, imgFormat="png", interactive=F){
+  try(RecordRCommand(paste0("PlotMetaCorrHeatmap(\"", imgName, "\")")), silent = TRUE)
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
@@ -629,8 +631,13 @@ PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorG
     w <- 16
     h <- 12
   } else {
-    w <- 10
-    h <- 7.5
+    # Size the canvas to the content: with coord_fixed() a handful of factors blown
+    # up to a fixed 10x7.5in canvas looks oversized next to the (already proportional)
+    # Data Overview RV-coefficient heatmap. Match that heatmap's per-cell scaling
+    # (side = max(3.2, 1.6 + 0.8 * n)) so a 2-3 factor matrix is rendered small.
+    side <- max(3.2, 1.6 + 0.8 * meta.num)
+    w <- side
+    h <- side
   }
   
   library(reshape2)

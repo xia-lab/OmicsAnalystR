@@ -54,6 +54,7 @@ if(file.exists("/data/sqlite/")){
 #'
 Init.Data <- function(){ 
   
+  try(RecordRCommand("Init.Data()"), silent = TRUE)
   if(!exists(".on.public.web")){
     .on.public.web <<- FALSE;
   }
@@ -113,6 +114,7 @@ SetOrganism <- function(org){
 #'@export
 #'
 SanityCheckData <- function(dataName){
+  try(RecordRCommand(paste0("SanityCheckData(\"", dataName, "\")")), silent = TRUE)
   dataSet <- readDataset(dataName);
   # general sanity check then omics specific
 

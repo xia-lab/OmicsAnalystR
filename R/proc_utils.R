@@ -369,6 +369,7 @@ M2Mscore <- function(qvec,mvec,taxlvl="Genus",dataGem="agora"){
 
 
 ReadOmicsDataFile <- function(fileName, omics.type=NA) {
+  try(RecordRCommand(paste0("ReadOmicsDataFile(\"", fileName, "\", \"", omics.type, "\")")), silent = TRUE)
   suppressMessages(library(data.table))
   rdtSet <- .get.rdt.set()
 
@@ -508,6 +509,7 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
 }
 
 SanityCheckMeta <- function(){
+    try(RecordRCommand("SanityCheckMeta()"), silent = TRUE)
     infoSet <- readSet(infoSet, "infoSet");
     rdtSet <- .get.rdt.set();
     sel.nms <- names(mdata.all)

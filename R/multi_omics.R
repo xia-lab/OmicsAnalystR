@@ -262,6 +262,7 @@ FilterDataByVariance <- function(data, filterPercent){
 #'
 
 PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F){
+  try(RecordRCommand(paste0("PlotMultiPCA(\"", imgNm, "\")")), silent = TRUE)
   load_cairo();
   load_ggplot();
   dpi<-as.numeric(dpi)
@@ -370,6 +371,7 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
 }
 
 PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactive=F){
+  try(RecordRCommand(paste0("PlotMultiDensity(\"", imgNm, "\")")), silent = TRUE)
   load_cairo();
   load_ggplot();
   dpi <- as.numeric(dpi)
@@ -424,8 +426,9 @@ PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactiv
 } 
 
 CheckMetaIntegrity <- function(){
+  try(RecordRCommand("CheckMetaIntegrity()"), silent = TRUE)
   sel.nms <- names(mdata.all)
-  
+
   data.list <- list()
   cnms <- list()
   metas <- list();
