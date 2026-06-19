@@ -775,7 +775,13 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   corrPath <- file.path(homeDir, paste0(corrName, "dpi", dpi, ".", format))
   csvPath  <- file.path(homeDir, "vpa_results.csv")
 
-  # ── 7. Isolated subprocess: vegan + Cairo ─────────────────────────────────────
+  # ── 7. Isolated subprocess: COMPUTE ONLY (vegan) ──────────────────────────────
+  # The four figures are drawn by the four standalone .PlotVpa* functions below,
+  # each in its own subprocess reading from vpa_plotdata.qs — so the AI "Refine"
+  # feature can re-render a single VPA figure without re-running this expensive
+  # compute (varpart + RDA + 999 permutations). This subprocess therefore writes
+  # vpa_plotdata.qs (everything each draw needs, fully pre-computed) + csvPath, and
+  # returns only the result/paths list.
   vpa_res <- tryCatch(
     rsclient_isolated_exec(
       func_body = function(inp) {
@@ -785,6 +791,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
         x1_name   <- inp$x1_name;  x2_name   <- inp$x2_name
         imgPath   <- inp$imgPath;  csvPath   <- inp$csvPath
         barPath   <- inp$barPath;  rdaPath   <- inp$rdaPath;   corrPath <- inp$corrPath
+        homeDir   <- inp$homeDir
         dpi       <- inp$dpi;      fmt        <- inp$format
 
         impute_cm <- function(m) {
@@ -844,7 +851,6 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
         fmt_p    <- function(p) if (is.na(p)) "N/A" else if (p<0.001) "<0.001" else sprintf("%.3f",p)
         sig_star <- function(p) if (is.na(p)) "" else if (p<0.001) "***" else if (p<0.01) "**" else if (p<0.05) "*" else "ns"
 
-        library(Cairo)
         # Short, extension-free block names so the Venn corner labels don't clip.
         short_nm <- function(s) {
           s <- sub("\\.(csv|tsv|txt|tabular)$", "", s, ignore.case = TRUE)
@@ -852,134 +858,55 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
         }
         xn <- c(short_nm(x1_name), short_nm(x2_name))
 
-        # ── Figure 1: variance-partition Venn ───────────────────────────────────
-        Cairo::Cairo(file=imgPath, type=fmt, dpi=dpi, width=8.5, height=7, units="in", bg="white")
-        par(mar=c(5, 3, 3, 3), xpd=NA)
-        plot(vp, digits=2, Xnames=xn, bg=c("steelblue","tomato"), alpha=80,
-             main="Variance Partitioning", cex=0.95)
-        mtext(sprintf("[a] Unique %s: %.3f   |   [b] Shared: %.3f   |   [c] Unique %s: %.3f   |   Residual: %.3f",
-                      xn[1], max(0,a_val), max(0,b_val), xn[2], max(0,c_val), max(0,d_val)),
-              side=1L, line=2.3, cex=0.78)
-        mtext(sprintf("Permutation P (n=999):  [a] %s%s   |   [c] %s%s   |   joint %s%s",
-                      fmt_p(p1), sig_star(p1), fmt_p(p2), sig_star(p2),
-                      fmt_p(p12), sig_star(p12)),
-              side=1L, line=3.5, cex=0.72)
-        dev.off()
+        # ── Pre-compute Figure 3 (ordination) draw inputs: ord scores + envfit arrows ──
+        # All vegan compute lives here so the draw step is pure ggplot2. `si` carries
+        # the per-sample scores + colouring vectors; `arr` carries the fitted trait
+        # vectors (already scaled by ordiArrowMul). `rda_mode` is the resolved
+        # cont/disc/none colouring mode.
+        ord <- vegan::rda(cbind(X1_df, X2_df))
+        evv <- ord$CA$eig; evv <- evv[evv > 0]
+        p1v <- if (length(evv) >= 1L) 100*evv[1]/sum(evv) else NA_real_
+        p2v <- if (length(evv) >= 2L) 100*evv[2]/sum(evv) else NA_real_
+        si  <- as.data.frame(vegan::scores(ord, display="sites", choices=1:2))
+        colnames(si) <- c("PC1", "PC2")
+        si$OVlab <- if (!is.null(inp$samp_names) && length(inp$samp_names) == nrow(si))
+                      inp$samp_names else rownames(si)
+        cby <- inp$cby_vals; cbt <- inp$cby_type
+        clab <- if (!is.null(inp$cby_label)) inp$cby_label else "Group"
+        has_color <- !is.null(cby) && length(cby) == nrow(si) && !all(is.na(cby))
+        rda_mode <- if (has_color && identical(cbt, "cont")) "cont" else if (has_color) "disc" else "none"
+        if (rda_mode == "cont") si$OVcol <- suppressWarnings(as.numeric(as.character(cby)))
+        if (rda_mode == "disc") si$OVgrp <- factor(as.character(cby))
+        ft <- tryCatch(vegan::envfit(ord, as.data.frame(Y_mat), choices = 1:2, permutations = 0),
+                       error = function(e) NULL)
+        arr <- NULL
+        if (!is.null(ft)) arr <- tryCatch({
+          mul <- tryCatch(vegan::ordiArrowMul(ft), error = function(e) 1)
+          a   <- as.data.frame(vegan::scores(ft, display = "vectors")) * mul
+          colnames(a) <- c("PC1", "PC2"); a$OVlab <- rownames(a); a
+        }, error = function(e) NULL)
 
-        # ── Figure 2: fraction-importance bar (adj. R2 %, with significance) ─────
-        bar_ok <- tryCatch({
-          fr  <- pmax(0, c(a_val, b_val, c_val, d_val)) * 100
-          sig <- c(sig_star(p1), "", sig_star(p2), "")
-          labs<- c(paste0("Unique: ", xn[1]), "Shared", paste0("Unique: ", xn[2]), "Residual")
-          cols<- c("steelblue", "mediumpurple3", "tomato", "grey80")
-          Cairo::Cairo(file=barPath, type=fmt, dpi=dpi, width=8.5, height=5, units="in", bg="white")
-          par(mar=c(4.5, 13, 3, 3))
-          bp <- barplot(rev(fr), horiz=TRUE, names.arg=rev(labs), col=rev(cols),
-                        las=1, border=NA, xlim=c(0, max(fr)*1.2 + 2),
-                        xlab="Variance explained (adj. R², %)",
-                        main="VPA fraction importance", cex.names=0.82)
-          text(rev(fr), bp,
-               labels=paste0(sprintf("%.1f%%", rev(fr)),
-                             ifelse(rev(sig)=="", "", paste0("  ", rev(sig)))),
-               pos=4, cex=0.9, xpd=NA)
-          dev.off(); TRUE
-        }, error=function(e){ cat(">>> RunVpa: bar plot skipped:", conditionMessage(e), "\n"); FALSE })
+        # ── Pre-compute Figure 4 (corr heatmap) draw input: the melted upper-tri df ──
+        cmat <- cbind(X1_df[, 1, drop=FALSE], X2_df[, 1, drop=FALSE], Y_mat)
+        colnames(cmat) <- c(paste0(xn[1], ".PC1"), paste0(xn[2], ".PC1"), colnames(Y_mat))
+        cc <- round(cor(cmat, use="pairwise.complete.obs"), 3)
+        corr_k  <- ncol(cc)
+        ccu <- cc; ccu[lower.tri(ccu)] <- NA          # upper triangle incl. diagonal
+        corr_df <- reshape2::melt(ccu, na.rm = TRUE)
+        corr_df$value <- signif(corr_df$value, 3)
 
-        # ── Figure 3: sample ordination — MetaboAnalyst PCA score-plot style (ggplot2) ──
-        # Filled group-coloured points (shape 21) with shaded 95% confidence ellipses
-        # (categorical colorBy) or a viridis gradient (continuous colorBy), fitted trait
-        # vectors (envfit), optional sample labels — mirrors PlotPCA2DScore / WfPlotSamplePCA.
-        rda_ok <- tryCatch({
-          library(ggplot2)
-          ord <- vegan::rda(cbind(X1_df, X2_df))
-          evv <- ord$CA$eig; evv <- evv[evv > 0]
-          p1v <- if (length(evv) >= 1L) 100*evv[1]/sum(evv) else NA_real_
-          p2v <- if (length(evv) >= 2L) 100*evv[2]/sum(evv) else NA_real_
-          si  <- as.data.frame(vegan::scores(ord, display="sites", choices=1:2))
-          colnames(si) <- c("PC1", "PC2")
-          si$OVlab <- if (!is.null(inp$samp_names) && length(inp$samp_names) == nrow(si))
-                        inp$samp_names else rownames(si)
-          cby <- inp$cby_vals; cbt <- inp$cby_type
-          clab <- if (!is.null(inp$cby_label)) inp$cby_label else "Group"
-          has_color <- !is.null(cby) && length(cby) == nrow(si) && !all(is.na(cby))
-          mode <- if (has_color && identical(cbt, "cont")) "cont" else if (has_color) "disc" else "none"
-          if (mode == "cont") si$OVcol <- suppressWarnings(as.numeric(as.character(cby)))
-          if (mode == "disc") si$OVgrp <- factor(as.character(cby))
-
-          axlab <- function(n, pct) if (is.na(pct)) n else sprintf("%s (%.1f%%)", n, pct)
-          p <- ggplot(si, aes(x = PC1, y = PC2)) +
-            geom_hline(yintercept = 0, linetype = "dashed", colour = "grey85") +
-            geom_vline(xintercept = 0, linetype = "dashed", colour = "grey85")
-          if (mode == "cont") {
-            p <- p + geom_point(aes(fill = OVcol), shape = 21, size = 3.4, colour = "grey30", stroke = 0.4) +
-                 scale_fill_viridis_c(name = clab)
-          } else if (mode == "disc") {
-            pal <- grDevices::hcl.colors(max(2L, nlevels(si$OVgrp)), "Dark 3")
-            if (nlevels(si$OVgrp) >= 2L)
-              p <- p + stat_ellipse(aes(fill = OVgrp), geom = "polygon", alpha = 0.18,
-                                    colour = NA, level = 0.95, show.legend = FALSE, na.rm = TRUE)
-            p <- p + geom_point(aes(fill = OVgrp), shape = 21, size = 3.4, colour = "grey25", stroke = 0.4) +
-                 scale_fill_manual(name = clab, values = pal)
-          } else {
-            p <- p + geom_point(shape = 21, size = 3.4, fill = "grey70", colour = "grey30", stroke = 0.4)
-          }
-          ft <- tryCatch(vegan::envfit(ord, as.data.frame(Y_mat), choices = 1:2, permutations = 0),
-                         error = function(e) NULL)
-          if (!is.null(ft)) tryCatch({
-            mul <- tryCatch(vegan::ordiArrowMul(ft), error = function(e) 1)
-            arr <- as.data.frame(vegan::scores(ft, display = "vectors")) * mul
-            colnames(arr) <- c("PC1", "PC2"); arr$OVlab <- rownames(arr)
-            p <- p +
-              geom_segment(data = arr, aes(x = 0, y = 0, xend = PC1, yend = PC2),
-                           arrow = grid::arrow(length = grid::unit(0.18, "cm")),
-                           colour = "grey20", linewidth = 0.4, inherit.aes = FALSE) +
-              geom_text(data = arr, aes(x = PC1 * 1.08, y = PC2 * 1.08, label = OVlab),
-                        colour = "grey10", size = 3.2, fontface = "italic", inherit.aes = FALSE)
-          }, error = function(e) NULL)
-          if (isTRUE(inp$show_labels))
-            p <- p + geom_text(aes(label = OVlab), size = 2.2, colour = "grey45", vjust = -0.9, show.legend = FALSE)
-          p <- p +
-            labs(x = axlab("PC1", p1v), y = axlab("PC2", p2v),
-                 title = "Sample ordination (omics PC space)") +
-            theme_bw(base_size = 13) +
-            theme(panel.grid.minor = element_blank(),
-                  plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-                  legend.position = "right")
-          Cairo::Cairo(file = rdaPath, type = fmt, dpi = dpi, width = 8, height = 6.2, units = "in", bg = "white")
-          print(p); dev.off(); TRUE
-        }, error=function(e){ cat(">>> RunVpa: ordination skipped:", conditionMessage(e), "\n"); FALSE })
-
-        # ── Figure 4: predictor collinearity (leading omics PCs + traits) ───────
-        # Match the Data Overview metadata-correlation / RV heatmap style: upper-triangle
-        # tiles, reversed-RdYlBu fill on [-1,1], in-cell values, y-axis on the right,
-        # vertical legend on the left, coord_fixed + theme_minimal, content-proportional size.
-        corr_ok <- tryCatch({
-          cmat <- cbind(X1_df[, 1, drop=FALSE], X2_df[, 1, drop=FALSE], Y_mat)
-          colnames(cmat) <- c(paste0(xn[1], ".PC1"), paste0(xn[2], ".PC1"), colnames(Y_mat))
-          cc <- round(cor(cmat, use="pairwise.complete.obs"), 3)
-          k  <- ncol(cc)
-          ccu <- cc; ccu[lower.tri(ccu)] <- NA          # upper triangle incl. diagonal
-          df <- reshape2::melt(ccu, na.rm = TRUE)
-          df$value <- signif(df$value, 3)
-          p <- ggplot2::ggplot(df, ggplot2::aes(Var2, Var1, fill = value)) +
-            ggplot2::geom_tile(color = "white") +
-            ggplot2::scale_y_discrete("Var1", position = "right") +
-            ggplot2::scale_fill_gradientn(
-              colors = rev(RColorBrewer::brewer.pal(10, "RdYlBu")),
-              limits = c(-1, 1), name = "r") +
-            ggplot2::geom_text(ggplot2::aes(Var2, Var1, label = value),
-                               color = "black", size = 4) +
-            ggplot2::theme_minimal() +
-            ggplot2::theme(axis.text.x  = ggplot2::element_text(angle = 45, vjust = 1, hjust = 1),
-                           axis.title.x = ggplot2::element_blank(),
-                           axis.title.y = ggplot2::element_blank(),
-                           axis.text.y.right = ggplot2::element_text(),
-                           legend.direction = "vertical", legend.position = "left") +
-            ggplot2::coord_fixed()
-          side <- max(3.2, 1.6 + 0.8 * k)
-          Cairo::Cairo(file=corrPath, type=fmt, dpi=dpi, width=side, height=side, units="in", bg="white")
-          print(p); dev.off(); TRUE
-        }, error=function(e){ cat(">>> RunVpa: corr heatmap skipped:", conditionMessage(e), "\n"); FALSE })
+        # ── Persist EVERY draw input so each .PlotVpa* can re-render independently ──
+        plot_data <- list(
+          dpi = dpi, format = fmt,
+          venn = list(vp=vp, xn=xn, a_val=a_val, b_val=b_val, c_val=c_val, d_val=d_val,
+                      p1=p1, p2=p2, p12=p12),
+          bar  = list(xn=xn, a_val=a_val, b_val=b_val, c_val=c_val, d_val=d_val,
+                      p1=p1, p2=p2),
+          rda  = list(si=si, arr=arr, mode=rda_mode, clab=clab, p1v=p1v, p2v=p2v,
+                      show_labels=isTRUE(inp$show_labels)),
+          corr = list(df=corr_df, side=max(3.2, 1.6 + 0.8 * corr_k))
+        )
+        qs::qsave(plot_data, file.path(homeDir, "vpa_plotdata.qs"))
 
         results_df <- data.frame(
           Fraction = c(sprintf("Unique %s [a]",x1_name), "Shared [b]",
@@ -1002,9 +929,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
              a_val=a_val, b_val=b_val, c_val=c_val, d_val=d_val,
              p1=p1, p2=p2, p12=p12, n_samples=nrow(X1_mat),
              trait_cols=colnames(Y_mat), imgPath=imgPath, csvPath=csvPath,
-             barPath=if (isTRUE(bar_ok)) barPath else NA_character_,
-             rdaPath=if (isTRUE(rda_ok)) rdaPath else NA_character_,
-             corrPath=if (isTRUE(corr_ok)) corrPath else NA_character_,
+             barPath=barPath, rdaPath=rdaPath, corrPath=corrPath,
              x1_name=x1_name, x2_name=x2_name, performed=TRUE)
       },
       input_data = list(
@@ -1012,11 +937,11 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
         cby_vals=cby_vals, cby_type=cby_type, cby_label=cby_label,
         show_labels=isTRUE(showLabels), samp_names=rownames(Y_mat),
         pcaReduce=isTRUE(pcaReduce), nPcsX1=as.integer(nPcsX1), nPcsX2=as.integer(nPcsX2),
-        x1_name=x1Name, x2_name=x2Name,
+        x1_name=x1Name, x2_name=x2Name, homeDir=homeDir,
         imgPath=imgPath, barPath=barPath, rdaPath=rdaPath, corrPath=corrPath,
         csvPath=csvPath, dpi=as.integer(dpi), format=format
       ),
-      packages = c("vegan", "Cairo", "qs", "ggplot2"),
+      packages = c("vegan", "qs"),
       timeout  = 300L
     ),
     error = function(e) { AddErrMsg(paste("VPA subprocess error:", e$message)); NULL }
@@ -1027,9 +952,229 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
     AddErrMsg(paste("RunVpa FAILED:", msg)); return(0L)
   }
 
+  # ── 8. Initial render: draw the four figures via the standalone .PlotVpa* fns ──
+  # Each is independently replayable (records its own command), so the AI "Refine"
+  # feature re-renders a single figure without re-running the compute above. A draw
+  # that fails leaves its path NA so PerformOaVpa's "emit only if produced" holds.
+  vpa_res$imgPath <- tryCatch(.PlotVpaVenn(fileName, dpi, format),
+                              error=function(e){ cat(">>> RunVpa: venn draw failed:", conditionMessage(e), "\n"); NULL })
+  if (is.null(vpa_res$imgPath)) vpa_res$imgPath <- imgPath  # Venn is the keystone; keep path even if draw failed
+  vpa_res$barPath  <- tryCatch(.PlotVpaBar(barName, dpi, format),
+                               error=function(e){ cat(">>> RunVpa: bar draw failed:", conditionMessage(e), "\n"); NULL })
+  if (is.null(vpa_res$barPath))  vpa_res$barPath  <- NA_character_
+  vpa_res$rdaPath  <- tryCatch(.PlotVpaRda(rdaName, dpi, format),
+                               error=function(e){ cat(">>> RunVpa: rda draw failed:", conditionMessage(e), "\n"); NULL })
+  if (is.null(vpa_res$rdaPath))  vpa_res$rdaPath  <- NA_character_
+  vpa_res$corrPath <- tryCatch(.PlotVpaCorr(corrName, dpi, format),
+                               error=function(e){ cat(">>> RunVpa: corr draw failed:", conditionMessage(e), "\n"); NULL })
+  if (is.null(vpa_res$corrPath)) vpa_res$corrPath <- NA_character_
+
   rdtSet$analSet$vpa <- vpa_res
   .set.rdt.set(rdtSet)
   cat(sprintf(">>> RunVpa: done — a=%.3f b=%.3f c=%.3f n=%d\n",
               vpa_res$a_val, vpa_res$b_val, vpa_res$c_val, vpa_res$n_samples))
   return(1L)
+}
+
+# ── Per-figure VPA draw functions (independently replayable for AI "Refine") ───
+# Each reads its pre-computed inputs from vpa_plotdata.qs (written by RunVpa's
+# compute step), draws ONE figure in its own isolated subprocess, and records its
+# own replay command (NAMED imgName arg — critical for the Refine engine). Calling
+# any one of them re-renders just that figure without touching the expensive
+# varpart/RDA/permutation compute.
+
+.PlotVpaVenn <- function(imgName = "vpa_venn_0_", dpi = 150L, format = "png") {
+  try(RecordRCommand(paste0(".PlotVpaVenn(imgName = \"", imgName, "\")")), silent = TRUE)
+  rdtSet  <- .get.rdt.set()
+  homeDir <- tryCatch(rdtSet$paramSet$home.path, error=function(e) getwd())
+  if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
+  pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
+  if (!file.exists(pdPath)) return(NULL)
+  pd <- qs::qread(pdPath)
+  imgPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+
+  rsclient_isolated_exec(
+    func_body = function(inp) {
+      v <- inp$venn; dpi <- inp$dpi; fmt <- inp$format; imgPath <- inp$imgPath
+      vp <- v$vp; xn <- v$xn
+      a_val <- v$a_val; b_val <- v$b_val; c_val <- v$c_val; d_val <- v$d_val
+      p1 <- v$p1; p2 <- v$p2; p12 <- v$p12
+      fmt_p    <- function(p) if (is.na(p)) "N/A" else if (p<0.001) "<0.001" else sprintf("%.3f",p)
+      sig_star <- function(p) if (is.na(p)) "" else if (p<0.001) "***" else if (p<0.01) "**" else if (p<0.05) "*" else "ns"
+      library(Cairo)
+      # ── Figure 1: variance-partition Venn ───────────────────────────────────
+      Cairo::Cairo(file=imgPath, type=fmt, dpi=dpi, width=8.5, height=7, units="in", bg="white")
+      par(mar=c(5, 3, 3, 3), xpd=NA)
+      plot(vp, digits=2, Xnames=xn, bg=c("steelblue","tomato"), alpha=80,
+           main="Variance Partitioning", cex=0.95)
+      mtext(sprintf("[a] Unique %s: %.3f   |   [b] Shared: %.3f   |   [c] Unique %s: %.3f   |   Residual: %.3f",
+                    xn[1], max(0,a_val), max(0,b_val), xn[2], max(0,c_val), max(0,d_val)),
+            side=1L, line=2.3, cex=0.78)
+      mtext(sprintf("Permutation P (n=999):  [a] %s%s   |   [c] %s%s   |   joint %s%s",
+                    fmt_p(p1), sig_star(p1), fmt_p(p2), sig_star(p2),
+                    fmt_p(p12), sig_star(p12)),
+            side=1L, line=3.5, cex=0.72)
+      dev.off()
+      list(ok=TRUE)
+    },
+    input_data = list(venn=pd$venn, dpi=as.integer(dpi), format=format, imgPath=imgPath),
+    packages = c("Cairo"),
+    timeout  = 120L
+  )
+  if (file.exists(imgPath)) imgPath else NULL
+}
+
+.PlotVpaBar <- function(imgName = "vpa_bar_0_", dpi = 150L, format = "png") {
+  try(RecordRCommand(paste0(".PlotVpaBar(imgName = \"", imgName, "\")")), silent = TRUE)
+  rdtSet  <- .get.rdt.set()
+  homeDir <- tryCatch(rdtSet$paramSet$home.path, error=function(e) getwd())
+  if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
+  pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
+  if (!file.exists(pdPath)) return(NULL)
+  pd <- qs::qread(pdPath)
+  barPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+
+  rsclient_isolated_exec(
+    func_body = function(inp) {
+      b <- inp$bar; dpi <- inp$dpi; fmt <- inp$format; barPath <- inp$barPath
+      xn <- b$xn
+      a_val <- b$a_val; b_val <- b$b_val; c_val <- b$c_val; d_val <- b$d_val
+      p1 <- b$p1; p2 <- b$p2
+      sig_star <- function(p) if (is.na(p)) "" else if (p<0.001) "***" else if (p<0.01) "**" else if (p<0.05) "*" else "ns"
+      library(Cairo)
+      # ── Figure 2: fraction-importance bar (adj. R2 %, with significance) ─────
+      fr  <- pmax(0, c(a_val, b_val, c_val, d_val)) * 100
+      sig <- c(sig_star(p1), "", sig_star(p2), "")
+      labs<- c(paste0("Unique: ", xn[1]), "Shared", paste0("Unique: ", xn[2]), "Residual")
+      cols<- c("steelblue", "mediumpurple3", "tomato", "grey80")
+      Cairo::Cairo(file=barPath, type=fmt, dpi=dpi, width=8.5, height=5, units="in", bg="white")
+      par(mar=c(4.5, 13, 3, 3))
+      bp <- barplot(rev(fr), horiz=TRUE, names.arg=rev(labs), col=rev(cols),
+                    las=1, border=NA, xlim=c(0, max(fr)*1.2 + 2),
+                    xlab="Variance explained (adj. R², %)",
+                    main="VPA fraction importance", cex.names=0.82)
+      text(rev(fr), bp,
+           labels=paste0(sprintf("%.1f%%", rev(fr)),
+                         ifelse(rev(sig)=="", "", paste0("  ", rev(sig)))),
+           pos=4, cex=0.9, xpd=NA)
+      dev.off()
+      list(ok=TRUE)
+    },
+    input_data = list(bar=pd$bar, dpi=as.integer(dpi), format=format, barPath=barPath),
+    packages = c("Cairo"),
+    timeout  = 120L
+  )
+  if (file.exists(barPath)) barPath else NULL
+}
+
+.PlotVpaRda <- function(imgName = "vpa_rda_0_", dpi = 150L, format = "png") {
+  try(RecordRCommand(paste0(".PlotVpaRda(imgName = \"", imgName, "\")")), silent = TRUE)
+  rdtSet  <- .get.rdt.set()
+  homeDir <- tryCatch(rdtSet$paramSet$home.path, error=function(e) getwd())
+  if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
+  pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
+  if (!file.exists(pdPath)) return(NULL)
+  pd <- qs::qread(pdPath)
+  rdaPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+
+  rsclient_isolated_exec(
+    func_body = function(inp) {
+      r <- inp$rda; dpi <- inp$dpi; fmt <- inp$format; rdaPath <- inp$rdaPath
+      si <- r$si; arr <- r$arr; mode <- r$mode; clab <- r$clab
+      p1v <- r$p1v; p2v <- r$p2v
+      library(ggplot2)
+      # ── Figure 3: sample ordination — MetaboAnalyst PCA score-plot style (ggplot2) ──
+      # Filled group-coloured points (shape 21) with shaded 95% confidence ellipses
+      # (categorical colorBy) or a viridis gradient (continuous colorBy), fitted trait
+      # vectors (envfit), optional sample labels — mirrors PlotPCA2DScore / WfPlotSamplePCA.
+      axlab <- function(n, pct) if (is.na(pct)) n else sprintf("%s (%.1f%%)", n, pct)
+      p <- ggplot(si, aes(x = PC1, y = PC2)) +
+        geom_hline(yintercept = 0, linetype = "dashed", colour = "grey85") +
+        geom_vline(xintercept = 0, linetype = "dashed", colour = "grey85")
+      if (mode == "cont") {
+        p <- p + geom_point(aes(fill = OVcol), shape = 21, size = 3.4, colour = "grey30", stroke = 0.4) +
+             scale_fill_viridis_c(name = clab)
+      } else if (mode == "disc") {
+        pal <- grDevices::hcl.colors(max(2L, nlevels(si$OVgrp)), "Dark 3")
+        if (nlevels(si$OVgrp) >= 2L)
+          p <- p + stat_ellipse(aes(fill = OVgrp), geom = "polygon", alpha = 0.18,
+                                colour = NA, level = 0.95, show.legend = FALSE, na.rm = TRUE)
+        p <- p + geom_point(aes(fill = OVgrp), shape = 21, size = 3.4, colour = "grey25", stroke = 0.4) +
+             scale_fill_manual(name = clab, values = pal)
+      } else {
+        p <- p + geom_point(shape = 21, size = 3.4, fill = "grey70", colour = "grey30", stroke = 0.4)
+      }
+      if (!is.null(arr)) tryCatch({
+        p <- p +
+          geom_segment(data = arr, aes(x = 0, y = 0, xend = PC1, yend = PC2),
+                       arrow = grid::arrow(length = grid::unit(0.18, "cm")),
+                       colour = "grey20", linewidth = 0.4, inherit.aes = FALSE) +
+          geom_text(data = arr, aes(x = PC1 * 1.08, y = PC2 * 1.08, label = OVlab),
+                    colour = "grey10", size = 3.2, fontface = "italic", inherit.aes = FALSE)
+      }, error = function(e) NULL)
+      if (isTRUE(r$show_labels))
+        p <- p + geom_text(aes(label = OVlab), size = 2.2, colour = "grey45", vjust = -0.9, show.legend = FALSE)
+      p <- p +
+        labs(x = axlab("PC1", p1v), y = axlab("PC2", p2v),
+             title = "Sample ordination (omics PC space)") +
+        theme_bw(base_size = 13) +
+        theme(panel.grid.minor = element_blank(),
+              plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+              legend.position = "right")
+      library(Cairo)
+      Cairo::Cairo(file = rdaPath, type = fmt, dpi = dpi, width = 8, height = 6.2, units = "in", bg = "white")
+      print(p); dev.off()
+      list(ok=TRUE)
+    },
+    input_data = list(rda=pd$rda, dpi=as.integer(dpi), format=format, rdaPath=rdaPath),
+    packages = c("Cairo", "ggplot2", "vegan"),
+    timeout  = 120L
+  )
+  if (file.exists(rdaPath)) rdaPath else NULL
+}
+
+.PlotVpaCorr <- function(imgName = "vpa_corr_0_", dpi = 150L, format = "png") {
+  try(RecordRCommand(paste0(".PlotVpaCorr(imgName = \"", imgName, "\")")), silent = TRUE)
+  rdtSet  <- .get.rdt.set()
+  homeDir <- tryCatch(rdtSet$paramSet$home.path, error=function(e) getwd())
+  if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
+  pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
+  if (!file.exists(pdPath)) return(NULL)
+  pd <- qs::qread(pdPath)
+  corrPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+
+  rsclient_isolated_exec(
+    func_body = function(inp) {
+      cc <- inp$corr; dpi <- inp$dpi; fmt <- inp$format; corrPath <- inp$corrPath
+      df <- cc$df; side <- cc$side
+      library(ggplot2)
+      # ── Figure 4: predictor collinearity (leading omics PCs + traits) ───────
+      # Match the Data Overview metadata-correlation / RV heatmap style: upper-triangle
+      # tiles, reversed-RdYlBu fill on [-1,1], in-cell values, y-axis on the right,
+      # vertical legend on the left, coord_fixed + theme_minimal, content-proportional size.
+      p <- ggplot2::ggplot(df, ggplot2::aes(Var2, Var1, fill = value)) +
+        ggplot2::geom_tile(color = "white") +
+        ggplot2::scale_y_discrete("Var1", position = "right") +
+        ggplot2::scale_fill_gradientn(
+          colors = rev(RColorBrewer::brewer.pal(10, "RdYlBu")),
+          limits = c(-1, 1), name = "r") +
+        ggplot2::geom_text(ggplot2::aes(Var2, Var1, label = value),
+                           color = "black", size = 4) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(axis.text.x  = ggplot2::element_text(angle = 45, vjust = 1, hjust = 1),
+                       axis.title.x = ggplot2::element_blank(),
+                       axis.title.y = ggplot2::element_blank(),
+                       axis.text.y.right = ggplot2::element_text(),
+                       legend.direction = "vertical", legend.position = "left") +
+        ggplot2::coord_fixed()
+      library(Cairo)
+      Cairo::Cairo(file=corrPath, type=fmt, dpi=dpi, width=side, height=side, units="in", bg="white")
+      print(p); dev.off()
+      list(ok=TRUE)
+    },
+    input_data = list(corr=pd$corr, dpi=as.integer(dpi), format=format, corrPath=corrPath),
+    packages = c("Cairo", "ggplot2"),
+    timeout  = 120L
+  )
+  if (file.exists(corrPath)) corrPath else NULL
 }
