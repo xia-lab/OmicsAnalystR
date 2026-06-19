@@ -1092,7 +1092,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
 
 
 PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
-  try(RecordRCommand(paste0("PlotClusterHeatmap(\"", imgName, "\")")), silent = TRUE)
+  try(RecordRCommand(paste0("PlotClusterHeatmap(imgName = \"", imgName, "\")")), silent = TRUE)
 
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();

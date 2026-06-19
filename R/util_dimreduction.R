@@ -797,8 +797,13 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   return(1)
 }
 
-PlotDimredFactors <- function(meta, pc.num = 5, imgNm, dpi=150, format="png"){
-  try(RecordRCommand(paste0("PlotDimredFactors(\"", imgNm, "\")")), silent = TRUE)
+PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="png"){
+  # Record imgNm as a NAMED arg so the Refine engine's replay sets it correctly even
+  # though it is not the first parameter (the recorded call carries only imgNm). The
+  # replay leaves meta unset, so reload it from state — the MOFA/MCIA/DIABLO branch
+  # below does not use meta, but the ggpairs branch does.
+  try(RecordRCommand(paste0("PlotDimredFactors(imgNm = \"", imgNm, "\")")), silent = TRUE)
+  if (is.null(meta)) meta <- tryCatch(.get.rdt.set()$dataSet$meta.info, error = function(e) NULL)
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo();
   load_ggplot();

@@ -611,7 +611,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'@export
 
 PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient="", imgName="", dpi=150, imgFormat="png", interactive=F){
-  try(RecordRCommand(paste0("PlotMetaCorrHeatmap(\"", imgName, "\")")), silent = TRUE)
+  try(RecordRCommand(paste0("PlotMetaCorrHeatmap(imgName = \"", imgName, "\")")), silent = TRUE)
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
