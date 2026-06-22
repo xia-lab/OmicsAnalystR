@@ -1102,6 +1102,11 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
     return(.set.rdt.set(rdtSet));
   }
 
+  # Method-standard: persist the per-sample cluster + metadata table behind the
+  # clustered heatmap so Refine can re-plot from data and it is portable.
+  if (exists("WfSaveFigureData"))
+    tryCatch(WfSaveFigureData("oa_cluster_heatmap", metaData), error = function(e) NULL)
+
   rdtSet$imgSet$clusterHeat <- imgName;
 
   # Also save to infoSet for report generation

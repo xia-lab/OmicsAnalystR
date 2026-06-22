@@ -340,7 +340,12 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
   #library("ggpubr")
   #p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2))
   combined_data <- do.call(rbind, all_data)
-  
+
+  # Method-standard: persist the per-sample PCA coordinates behind this figure so
+  # Refine can re-plot from data and the scores are portable to any tool.
+  if (exists("WfSaveFigureData"))
+    tryCatch(WfSaveFigureData("oa_multi_pca", combined_data), error = function(e) NULL)
+
   p1 <- ggplot(combined_data, aes(x=PC1, y=PC2, color=Conditions)) +
     geom_point(size=3, alpha=0.5) + 
     facet_wrap(~ dataset, scales = "free") + # Use facet_wrap or facet_grid
@@ -395,7 +400,12 @@ PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactiv
   
   type<-merged.df$type
   merged.df$ind <- paste0(merged.df$ind, "_", merged.df$type)
-    g =ggplot(merged.df, aes(x=values)) + 
+  # Method-standard: persist the plotted density data so the AI "Refine" control can
+  # re-plot from data and users can regenerate it in any tool (key on the figure stem,
+  # since this fn draws several stable-named densities: raw / norm / scaled / qc).
+  if (exists("WfSaveFigureData"))
+    tryCatch(WfSaveFigureData(sub("_dpi.*$", "", basename(imgNm)), merged.df), error = function(e) NULL)
+    g =ggplot(merged.df, aes(x=values)) +
     geom_line(aes(color=Dataset, group=ind), stat="density", alpha=0.1) + 
     geom_line(aes(color=Dataset), stat="density", alpha=0.7, size=3) +
     theme_bw() +

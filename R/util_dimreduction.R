@@ -726,6 +726,10 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
 
     df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
   }
+  # Method-standard: persist the per-component variance-explained data behind the figure.
+  if (exists("WfSaveFigureData"))
+    tryCatch(WfSaveFigureData(paste0("oa_dimred_varexp_", reductionSet$reductionOpt), df),
+             error = function(e) NULL)
   min_r2 = 0
   max_r2 = max(df$value)
   
@@ -776,6 +780,10 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   df_long <- melt(as.data.table(df[, c("Factor", view.cols), drop=FALSE]),
                   id.vars="Factor", variable.name="View", value.name="Variance")
   df_long$Factor <- factor(df_long$Factor, levels=df$Factor)
+  # Method-standard: persist the cumulative-variance data behind the figure.
+  if (exists("WfSaveFigureData"))
+    tryCatch(WfSaveFigureData(paste0("oa_cumr2_", reductionSet$reductionOpt), df),
+             error = function(e) NULL)
 
   p <- ggplot(df_long, aes(x=Factor, y=Variance, fill=View)) +
     geom_bar(stat="identity", width=0.6) +
@@ -837,6 +845,10 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
     df_long <- as.data.frame(melt(as.data.table(df), id.vars = "Factor", variable.name = "View", value.name = "Variance"))
     df_long$Variance <- df_long$Variance * 100
     df_long$Factor <- gsub("Factor", "Factor ", df_long$Factor)
+    # Method-standard: persist the per-factor variance-explained data behind the figure.
+    if (exists("WfSaveFigureData"))
+      tryCatch(WfSaveFigureData(paste0("oa_dimred_factors_", reductionSet$reductionOpt), df_long),
+               error = function(e) NULL)
 
     p1 <- ggplot(df_long, aes(x = Factor, y = View, fill = Variance)) +
       geom_tile(color = "grey30", linewidth = 0.8) +
