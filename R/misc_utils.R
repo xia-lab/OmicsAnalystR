@@ -955,7 +955,7 @@ GetBashFullPath<-function(){
 # a utility function to get pheatmap image size (before saving to PNG)
 # https://stackoverflow.com/questions/61874876/get-size-of-plot-in-pixels-in-r
 get_pheatmap_dims <- function(dat, annotation, view.type, width, cellheight = 15, cellwidth = 15){
-  png("NUL"); # trick to avoid open device in server 
+  grDevices::pdf(file = nullfile()); # headless device for dimension measurement (cross-platform)
   heat_map <- pheatmap::pheatmap(dat, annotation=annotation, cellheight = cellheight, cellwidth = cellwidth);
   h <- sum(sapply(heat_map$gtable$heights, grid::convertHeight, "in"));
   w  <- sum(sapply(heat_map$gtable$widths, grid::convertWidth, "in"));
