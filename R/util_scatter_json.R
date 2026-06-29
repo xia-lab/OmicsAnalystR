@@ -273,7 +273,11 @@ ComputeEncasing <- function(filenm, type, names.vec, level=0.95, omics="NA"){
       if(omics.inx == 1){
         pos.xyz = reductionSet[[reductionOpt]]$pos.xyz
       }else{
-        pos.xyz = reductionSet[[reductionOpt]]$pos.xyz2
+        # pos.xyz2 (2nd omics block) is never written back unit-scaled the way
+        # my.json.scatter persists pos.xyz, so it is still in raw variate space.
+        # Scale it here to match the node coordinate space (unit [-1,1], *1000 in
+        # the viewer) so the encasing ellipsoid is the right size, not tiny.
+        pos.xyz = unitAutoScale(reductionSet[[reductionOpt]]$pos.xyz2)
       }
     }
 
@@ -330,7 +334,10 @@ ComputeEncasingBatch <- function(filenm, type, groups_json, level = 0.95, omics 
           dataSet <- readDataset(sel.nms[i])
           if (omics == dataSet$type) omics.inx <- i
         }
-        pos.xyz <- if (omics.inx == 1) reductionSet[[reductionOpt]]$pos.xyz else reductionSet[[reductionOpt]]$pos.xyz2
+        # pos.xyz2 (2nd omics block) isn't written back unit-scaled like pos.xyz,
+        # so scale it here to match the viewer's unit coordinate space (else the
+        # encasing ellipsoid is computed in raw variate space and renders tiny).
+        pos.xyz <- if (omics.inx == 1) reductionSet[[reductionOpt]]$pos.xyz else unitAutoScale(reductionSet[[reductionOpt]]$pos.xyz2)
       }
     } else {
       pos.xyz <- reductionSet[[reductionOpt]]$pos.xyz
