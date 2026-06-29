@@ -657,49 +657,45 @@ PlotPairCorr <- function(reductionSet=NA,imgName,corrID,dpi=150,format="png"){
     stype <- reductionSet$intLim$stype
     sampleMetaData <- reductionSet$intLim$sampleMetaData
     
-    # Check whether continuous or discrete.
-    unique_stypes <- unique(sampleMetaData[,stype])
-    
-    # For continuous data, plot the marginal effects graph.
-    if(length(unique_stypes) > 2){
-      MarginalEffectsGraph(
-        dataframe = MarginalEffectsGraphDataframe(inputResults = inputResults,
-                                                  inputData = inputData,
-                                                  outcomeAnalyteOfInterest = outcomeAnalyteOfInterest,
-                                                  independentAnalyteOfInterest = independentAnalyteOfInterest,
-                                                  outcome = outcome,
-                                                  independentVariable = independentVariable), 
-        title = paste("Marginal Effects -", independentAnalyteOfInterest,
-                      "and", outcomeAnalyteOfInterest), xlab = independentAnalyteOfInterest,
-        ylab = outcomeAnalyteOfInterest)
-    }else{
-       
-      independentAnalyteOfInterest = unlist(strsplit(corrID,split = "__"))[1]
-      outcomeAnalyteOfInterest = unlist(strsplit(corrID,split = "__"))[2]
- 
-      outcomeData <-  reductionSet$intLim$outcomeArray
-      independentData <- reductionSet$intLim$independentArray
-      sOutcome<-as.numeric(outcomeData[rownames(outcomeData)==outcomeAnalyteOfInterest,])
-      sIndependent<-as.numeric(independentData[rownames(independentData)==independentAnalyteOfInterest,])
-      
-        
-      data<-data.frame(x=sIndependent,y=sOutcome,sample=colnames(independentData),
-                       label=sampleMetaData[,stype])
-   
-      p<-ggplot(data, aes(x = x, y = y, color = label)) +
-        geom_point(size = 3) + # Dots represent the samples
-        geom_smooth(method = "lm", se = FALSE) + 
-        ggsci::scale_color_aaas(alpha = 0.85) +            
-        labs(title = "",
-            x = reductionSet$intLim$myres$label1[independentAnalyteOfInterest],
-            y =  reductionSet$intLim$myres$label2[outcomeAnalyteOfInterest],
-             color = stype) +
-        theme_minimal()+
-      theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5), # Add panel border
-             plot.margin = margin(10, 10, 10, 10),
-      axis.title = element_text(size = 11, color = "black"),
-    axis.text = element_text(size = 10, color = "black")) 
-      
+    # Continuous (regression) vs discrete (per-group). Use the stored analysis flag
+    # rather than counting unique values. The feature1 x feature2 scatter is the same
+    # in both cases; only the colour scale and the fitted line differ.
+    continuous <- isTRUE(reductionSet$intLim$continuous)
+
+    independentAnalyteOfInterest = unlist(strsplit(corrID, split = "__"))[1]
+    outcomeAnalyteOfInterest    = unlist(strsplit(corrID, split = "__"))[2]
+
+    outcomeData     <- reductionSet$intLim$outcomeArray
+    independentData <- reductionSet$intLim$independentArray
+    sOutcome     <- as.numeric(outcomeData[rownames(outcomeData) == outcomeAnalyteOfInterest, ])
+    sIndependent <- as.numeric(independentData[rownames(independentData) == independentAnalyteOfInterest, ])
+    lab <- sampleMetaData[, stype]
+    if (continuous) {
+      lab <- suppressWarnings(as.numeric(as.character(lab)))
+    } else {
+      lab <- as.factor(lab)
+    }
+
+    data <- data.frame(x = sIndependent, y = sOutcome, sample = colnames(independentData), label = lab)
+
+    p <- ggplot(data, aes(x = x, y = y, color = label)) +
+      geom_point(size = 3) +
+      labs(title = "",
+           x = reductionSet$intLim$myres$label1[independentAnalyteOfInterest],
+           y = reductionSet$intLim$myres$label2[outcomeAnalyteOfInterest],
+           color = stype) +
+      theme_minimal() +
+      theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5),
+            plot.margin = margin(10, 10, 10, 10),
+            axis.title = element_text(size = 11, color = "black"),
+            axis.text = element_text(size = 10, color = "black"))
+    if (continuous) {
+      # Regression mode: a single fitted line; samples coloured by the continuous phenotype.
+      p <- p + geom_smooth(method = "lm", se = FALSE, color = "grey30") +
+        ggplot2::scale_color_viridis_c()
+    } else {
+      # Per-group regression lines with a discrete palette.
+      p <- p + geom_smooth(method = "lm", se = FALSE) + ggsci::scale_color_aaas(alpha = 0.85)
     }
 
    w <- 7.5
