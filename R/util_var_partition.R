@@ -140,7 +140,10 @@ dataSet <- readDataset(selectedData);
   }
   # Ensure factors are treated as factors and numeric covariates are numeric
   for (col in colnames(meta_data)) {
-    if (meta_types[col] == "disc") {
+    # isTRUE guard: a column with no meta.types entry yields NA, and `if (NA)` would
+    # throw and abort the whole analysis ("failed on all layers"). Treat unknown as
+    # non-discrete (it is not part of the model formula, so coercion is harmless).
+    if (isTRUE(meta_types[col] == "disc")) {
       meta_data[[col]] <- as.factor(meta_data[[col]])
     } else {
       meta_data[[col]] <- as.numeric(meta_data[[col]])

@@ -126,12 +126,23 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
     if(is.null(mat)) next
     use.opt <- opt
     if(identical(opt, "auto")){
-      use.opt <- .OmicsDetectNormOpt(mat, tryCatch(dataSet$type, error = function(e) ""))
+      # Per-layer declared data state (set in data-prep) drives the choice; the
+      # auto-detector is only the fallback for an UNdeclared layer. "normalized" ->
+      # scale only (Mode A); "raw" -> transform by omics type (Mode B); else detect.
+      state <- tryCatch(tolower(as.character(dataSet$dataState)), error = function(e) "")
+      type  <- tryCatch(dataSet$type, error = function(e) "")
+      if(identical(state, "normalized")){
+        use.opt <- "NA"
+      } else if(identical(state, "raw")){
+        use.opt <- .OmicsTypeNormOpt(mat, type)
+      } else {
+        use.opt <- .OmicsDetectNormOpt(mat, type)
+      }
     }
     if(!identical(use.opt, "NA")){
       # log / voom on raw data: clip the few stray negatives (artifacts) to 0 first,
       # otherwise log2 of a negative value returns NaN.
-      if(use.opt %in% c("log", "logcount")){
+      if(use.opt %in% c("log", "logcount", "clr")){
         mat <- as.matrix(mat); mat[!is.na(mat) & mat < 0] <- 0
       }
       dataSet$data.proc <- NormalizingDataOmics(mat, use.opt, "NA", "NA")
@@ -143,15 +154,36 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
   return(1);
 }
 
+# Omics-type -> normalization map for RAW data. Used directly when a layer is DECLARED
+# raw (Mode B), and by the auto-detector once it concludes a layer is raw.
+#   Microbiome (ASV/OTU) -> CLR (centered log-ratio): feature-level microbiome stays at
+#     ASV/OTU here (no taxa collapse, unlike MMP) and is sparse, zero-inflated and
+#     compositional; plain log2 leaves the zero-inflation + a mismatched scale that
+#     dominates MCIA/DIABLO. CLR centres each sample by its geometric mean.
+#   Sequencing (RNA-seq/miRNA) -> voom/log2-CPM, but ONLY for integer count data; data
+#     that is not integer counts (TPM/FPKM/CPM, already library-normalized) -> log2.
+#   Intensity / concentration / generic -> log2.
+.OmicsTypeNormOpt <- function(mat, omicsType = ""){
+  t <- tolower(as.character(omicsType))
+  if(grepl("mic", t)) return("clr")
+  if(grepl("rna|mirna|seq|count|gene", t)){
+    m  <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
+    nz <- m[is.finite(m) & m > 0]
+    if(length(nz) > 2000L) nz <- nz[seq_len(2000L)]
+    if(length(nz) > 0L && mean(nz == round(nz)) > 0.95) return("logcount")
+    return("log")
+  }
+  "log"
+}
+
 # Detect a layer's data STATE and pick the normalization to bring it to log-space
 # (the auto-scale step runs on every layer afterwards regardless). Returns the
-# NormalizingDataOmics opt ("logcount" voom for counts, "log" log2 for intensities)
-# when the layer is RAW, or "NA" (skip) when it is already normalized or auto-scaled.
+# NormalizingDataOmics opt ("logcount" voom for counts, "clr" for microbiome ASV/OTU
+# tables, "log" log2 for intensities) when the layer is RAW, or "NA" (skip) when it is
+# already normalized or auto-scaled.
 .OmicsDetectNormOpt <- function(mat, omicsType = ""){
   m <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
   if(all(is.na(m))) return("NA")
-  .norm <- function(){ t <- tolower(as.character(omicsType))
-                       if(grepl("rna|mirna|seq|count|gene", t)) "logcount" else "log" }
 
   # (1) Already AUTO-SCALED (z-scored): the DEFINING signature is per-feature mean ~ 0
   #     and sd ~ 1. This is unambiguous, so detect it directly and skip.
@@ -181,7 +213,7 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
     is.raw <- length(nz) > 0L && mean(nz == round(nz)) > 0.95
   }
   if(!is.raw) return("NA")
-  .norm()
+  .OmicsTypeNormOpt(mat, omicsType)
 }
 
 FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
