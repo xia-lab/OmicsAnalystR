@@ -222,7 +222,9 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
 # abundance/rank filters but are the main cause of the density spike + within-fold zero
 # variance in integration — prevalence is the right cut for counts. Never reduces below
 # `min.keep` features (returns the input unchanged when the cut would leave too few).
-FilterByPrevalence <- function(data, min.prev = 0.1, min.count = 1, min.keep = 10L){
+# Defaults match MicrobiomeAnalyst's MMP filter (ApplyAbundanceFilter "prevalence", 4, 0.2):
+# >= 4 reads in >= 20% of samples.
+FilterByPrevalence <- function(data, min.prev = 0.2, min.count = 4, min.keep = 10L){
   data <- as.matrix(data)
   nS <- ncol(data)
   if(nS < 5L || nrow(data) <= min.keep) return(data)
@@ -261,7 +263,7 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     # variance) for every layer — they carry no signal and break DIABLO CV folds.
     .ot <- tryCatch(tolower(as.character(dataSet$type)), error = function(e) "")
     if(grepl("mic|rna|mirna|seq|count|gene", .ot)){
-      int.mat <- FilterByPrevalence(int.mat, min.prev = 0.1)
+      int.mat <- FilterByPrevalence(int.mat)   # MMP-aligned defaults: >=4 reads in >=20% samples
     }
     .fvar <- suppressWarnings(apply(int.mat, 1, stats::var, na.rm = TRUE))
     .nzv  <- is.finite(.fvar) & .fvar > 0
