@@ -52,9 +52,21 @@ PerformVarPartOverview <- function(selectedData,selMeta, top_n = 500, fileName =
  
 dataSet <- readDataset(selectedData);
   df =  dataSet[["data.proc"]]
- sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)  
-  sanitized_names <- names(dataSet[["enrich_ids"]])[match(sanitized_names,dataSet$enrich_ids)]
-  uniqFeats <- paste0( dataSet$type,".",sanitized_names)
+ sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(df), perl = TRUE)
+  # Map feature IDs to their enrichment names when available, but KEEP the original
+  # id wherever there is no mapping. An unmapped feature otherwise becomes NA, so
+  # every such row collapses to "<type>.NA"; assigning those duplicated names to a
+  # data.frame's row.names throws "duplicate 'row.names' are not allowed" and
+  # variancePartition fails on every layer (e.g. microbiome/metabolite layers with
+  # no enrich_ids). Guard the NULL/empty case and make.unique the final names.
+  eids <- dataSet[["enrich_ids"]]
+  if (!is.null(eids) && length(eids) > 0L) {
+    mapped <- names(eids)[match(sanitized_names, eids)]
+    mapped[is.na(mapped)] <- sanitized_names[is.na(mapped)]
+  } else {
+    mapped <- sanitized_names
+  }
+  uniqFeats <- make.unique(paste0(dataSet$type, ".", mapped))
   rownames(df) <- uniqFeats;
  
 
@@ -961,7 +973,10 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   # that fails leaves its path NA so PerformOaVpa's "emit only if produced" holds.
   vpa_res$imgPath <- tryCatch(.PlotVpaVenn(fileName, dpi, format),
                               error=function(e){ cat(">>> RunVpa: venn draw failed:", conditionMessage(e), "\n"); NULL })
-  if (is.null(vpa_res$imgPath)) vpa_res$imgPath <- imgPath  # Venn is the keystone; keep path even if draw failed
+  # Draw failed -> leave the path empty (NA), exactly like the sibling figures, so
+  # PerformOaVpa's "emit only if produced" guard skips it instead of the manifest
+  # referencing an unwritten vpa_venn_*.png (the missing-output guardrail fires on it).
+  if (is.null(vpa_res$imgPath)) vpa_res$imgPath <- NA_character_
   vpa_res$barPath  <- tryCatch(.PlotVpaBar(barName, dpi, format),
                                error=function(e){ cat(">>> RunVpa: bar draw failed:", conditionMessage(e), "\n"); NULL })
   if (is.null(vpa_res$barPath))  vpa_res$barPath  <- NA_character_

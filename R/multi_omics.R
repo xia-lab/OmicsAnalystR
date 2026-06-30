@@ -258,6 +258,7 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     if (is.null(int.mat)) { AddErrMsg(paste0("No data matrix (data.proc) for ", dataSet$name, " — cannot filter.")); return(0); }
     int.mat <- as.matrix(int.mat);
     suppressWarnings(storage.mode(int.mat) <- "numeric");
+    n0.feat <- nrow(int.mat);   # features entering this filter pass (for the transparency table)
 
     # Basic raw-data filtering (before normalization). For COUNT data (microbiome ASV/OTU,
     # sequencing) apply the generic prevalence filter; then drop constant features (zero
@@ -311,6 +312,14 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
       })
       dataSet$data.proc.taxa <- data.norm.taxa
     }
+
+    # Per-layer feature counts for the Harmonization transparency table. The Filter
+    # and Feature-Selection steps both call this fn; keep the FIRST input as n_before
+    # (the true pre-filter count) and update n_after to the latest retained count.
+    .fi <- tryCatch(dataSet$filterInfo, error = function(e) NULL)
+    n_before <- if (!is.null(.fi) && !is.null(.fi$n_before)) .fi$n_before else n0.feat
+    dataSet$filterInfo <- list(n_before = n_before, n_after = nrow(data),
+                               prevalence = isTRUE(grepl("mic|rna|mirna|seq|count|gene", .ot)))
 
     RegisterData(dataSet)
   }
