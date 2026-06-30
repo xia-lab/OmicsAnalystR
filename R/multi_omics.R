@@ -129,6 +129,11 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
       use.opt <- .OmicsDetectNormOpt(mat, tryCatch(dataSet$type, error = function(e) ""))
     }
     if(!identical(use.opt, "NA")){
+      # log / voom on raw data: clip the few stray negatives (artifacts) to 0 first,
+      # otherwise log2 of a negative value returns NaN.
+      if(use.opt %in% c("log", "logcount")){
+        mat <- as.matrix(mat); mat[!is.na(mat) & mat < 0] <- 0
+      }
       dataSet$data.proc <- NormalizingDataOmics(mat, use.opt, "NA", "NA")
     }
     dataSet$normInfo <- use.opt
@@ -138,16 +143,37 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
   return(1);
 }
 
-# Heuristic raw-vs-normalized detection + per-type method. Non-negative matrix with a
-# large dynamic range (max > 50) or mostly-integer values => raw; negatives or a small
-# range => already normalized (skip). Raw sequencing counts -> "logcount" (voom log2-CPM);
-# raw intensity/concentration -> "log".
+# Detect a layer's data STATE and pick the normalization to bring it to log-space
+# (the auto-scale step runs on every layer afterwards regardless). Returns the
+# NormalizingDataOmics opt ("logcount" voom for counts, "log" log2 for intensities)
+# when the layer is RAW, or "NA" (skip) when it is already normalized or auto-scaled.
 .OmicsDetectNormOpt <- function(mat, omicsType = ""){
   m <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
   if(all(is.na(m))) return("NA")
-  if(any(m < 0, na.rm = TRUE)) return("NA")
+  .norm <- function(){ t <- tolower(as.character(omicsType))
+                       if(grepl("rna|mirna|seq|count|gene", t)) "logcount" else "log" }
+
+  # (1) Already AUTO-SCALED (z-scored): the DEFINING signature is per-feature mean ~ 0
+  #     and sd ~ 1. This is unambiguous, so detect it directly and skip.
+  rmean <- suppressWarnings(rowMeans(m, na.rm = TRUE))
+  rsd   <- suppressWarnings(apply(m, 1, stats::sd, na.rm = TRUE))
+  ok    <- is.finite(rmean) & is.finite(rsd) & rsd > 0
+  if(sum(ok) >= 5L && stats::median(abs(rmean[ok])) < 0.15 &&
+     abs(stats::median(rsd[ok]) - 1) < 0.25) return("NA")
+
+  # (2) Already NORMALIZED + CENTERED (e.g. log-CPM): a SUBSTANTIAL negative fraction.
+  #     A few stray negatives (imputation / sparse outliers) in raw data do NOT count --
+  #     that wrongly skipped a raw microbiome layer (max ~15000, 0.01% negatives).
+  if(suppressWarnings(mean(m < 0, na.rm = TRUE)) > 0.10) return("NA")
+
+  # (3) Small dynamic range (max < 20) => already in log / normalized space => skip.
+  #     log2/ln-transformed data never exceeds ~25 even for counts in the millions, so
+  #     a large max is the reliable signal that a layer is still RAW.
   mx <- suppressWarnings(max(m, na.rm = TRUE))
   if(!is.finite(mx) || mx < 20) return("NA")
+
+  # (4) max in (20, 50]: small RAW counts vs already-log -> distinguish by integer-ness
+  #     (counts are whole numbers, log values are not). max > 50 is unambiguously RAW.
   is.raw <- TRUE
   if(mx <= 50){
     nz <- m[m > 0 & !is.na(m)]
@@ -155,8 +181,7 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
     is.raw <- length(nz) > 0L && mean(nz == round(nz)) > 0.95
   }
   if(!is.raw) return("NA")
-  t <- tolower(as.character(omicsType))
-  if(grepl("rna|mirna|seq|count|gene", t)) "logcount" else "log"
+  .norm()
 }
 
 FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
