@@ -241,6 +241,28 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     int.mat <- as.matrix(int.mat);
     suppressWarnings(storage.mode(int.mat) <- "numeric");
 
+    # Basic raw-data filtering (before normalization). Always drop constant / all-zero
+    # features (no signal; they trigger zero-variance failures in DIABLO CV folds). For
+    # COUNT data (microbiome ASV/OTU, sequencing) ALSO apply a PREVALENCE filter: drop
+    # features detected in <10% of samples. Sparse ASVs nonzero in a few samples pass a
+    # mean/abundance filter but are the main source of the density spike + within-fold
+    # zero variance, so prevalence (not mean) is the right cut for counts.
+    .ot     <- tryCatch(tolower(as.character(dataSet$type)), error = function(e) "")
+    .isCnt  <- grepl("mic|rna|mirna|seq|count|gene", .ot)
+    .nS     <- ncol(int.mat)
+    .fvar   <- suppressWarnings(apply(int.mat, 1, stats::var, na.rm = TRUE))
+    .keep   <- is.finite(.fvar) & .fvar > 0
+    if(.isCnt && .nS >= 5L){
+      .prev  <- rowSums(int.mat > 0, na.rm = TRUE) / .nS
+      .keepP <- .keep & (.prev >= 0.1)
+      if(sum(.keepP) >= 10L) .keep <- .keepP        # only when it leaves enough features
+    }
+    if(sum(!.keep) > 0L && sum(.keep) >= 2L){
+      message("[filter] ", sel.nms[i], " (", .ot, "): prevalence/constant filter kept ",
+              sum(.keep), "/", length(.keep), " features")
+      int.mat <- int.mat[.keep, , drop = FALSE]
+    }
+
     if(filterMethod == "variance"){
       # Variance can't rank already-scaled data: z-scoring sets every feature's variance to
       # ~1, so var-of-variances ~ 0. IQR, by contrast, reflects each feature's distribution
