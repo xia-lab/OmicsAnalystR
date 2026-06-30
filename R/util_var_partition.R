@@ -136,9 +136,13 @@ dataSet <- readDataset(selectedData);
   
   # Create formula for variance partitioning
   formula_fixed <- paste(fixed_effects, collapse = " + ")
-  if(random_effects != ""){
+  # random_effects may be a single "" (none) OR a VECTOR of effect names; test for
+  # ANY non-empty name so `if` never receives a length>1 condition (R 4.2+ errors
+  # on "the condition has length > 1").
+  random_effects <- random_effects[nzchar(random_effects)]
+  if (length(random_effects) > 0L) {
     formula_random <- paste(paste0("(1 | ", random_effects, ")"), collapse = " + ")
-  }else{
+  } else {
     formula_random <- "";
   }
   if (formula_fixed != "" && formula_random != "") {
