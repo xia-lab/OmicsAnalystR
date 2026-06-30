@@ -216,6 +216,21 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
   .OmicsTypeNormOpt(mat, omicsType)
 }
 
+# Generic PREVALENCE filter for count-type data. `data` is features x samples: keep
+# features detected (value >= min.count) in at least `min.prev` fraction of samples.
+# Sparse features (e.g. microbiome ASVs nonzero in a handful of samples) survive
+# abundance/rank filters but are the main cause of the density spike + within-fold zero
+# variance in integration — prevalence is the right cut for counts. Never reduces below
+# `min.keep` features (returns the input unchanged when the cut would leave too few).
+FilterByPrevalence <- function(data, min.prev = 0.1, min.count = 1, min.keep = 10L){
+  data <- as.matrix(data)
+  nS <- ncol(data)
+  if(nS < 5L || nrow(data) <= min.keep) return(data)
+  prev <- rowSums(data >= min.count, na.rm = TRUE) / nS
+  keep <- is.finite(prev) & prev >= min.prev
+  if(sum(keep) >= min.keep) data[keep, , drop = FALSE] else data
+}
+
 FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
   filterPercent <- suppressWarnings(as.numeric(filterPercent));
   if (length(filterPercent) == 0L || is.na(filterPercent)) filterPercent <- 0;
@@ -241,26 +256,18 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     int.mat <- as.matrix(int.mat);
     suppressWarnings(storage.mode(int.mat) <- "numeric");
 
-    # Basic raw-data filtering (before normalization). Always drop constant / all-zero
-    # features (no signal; they trigger zero-variance failures in DIABLO CV folds). For
-    # COUNT data (microbiome ASV/OTU, sequencing) ALSO apply a PREVALENCE filter: drop
-    # features detected in <10% of samples. Sparse ASVs nonzero in a few samples pass a
-    # mean/abundance filter but are the main source of the density spike + within-fold
-    # zero variance, so prevalence (not mean) is the right cut for counts.
-    .ot     <- tryCatch(tolower(as.character(dataSet$type)), error = function(e) "")
-    .isCnt  <- grepl("mic|rna|mirna|seq|count|gene", .ot)
-    .nS     <- ncol(int.mat)
-    .fvar   <- suppressWarnings(apply(int.mat, 1, stats::var, na.rm = TRUE))
-    .keep   <- is.finite(.fvar) & .fvar > 0
-    if(.isCnt && .nS >= 5L){
-      .prev  <- rowSums(int.mat > 0, na.rm = TRUE) / .nS
-      .keepP <- .keep & (.prev >= 0.1)
-      if(sum(.keepP) >= 10L) .keep <- .keepP        # only when it leaves enough features
+    # Basic raw-data filtering (before normalization). For COUNT data (microbiome ASV/OTU,
+    # sequencing) apply the generic prevalence filter; then drop constant features (zero
+    # variance) for every layer — they carry no signal and break DIABLO CV folds.
+    .ot <- tryCatch(tolower(as.character(dataSet$type)), error = function(e) "")
+    if(grepl("mic|rna|mirna|seq|count|gene", .ot)){
+      int.mat <- FilterByPrevalence(int.mat, min.prev = 0.1)
     }
-    if(sum(!.keep) > 0L && sum(.keep) >= 2L){
-      message("[filter] ", sel.nms[i], " (", .ot, "): prevalence/constant filter kept ",
-              sum(.keep), "/", length(.keep), " features")
-      int.mat <- int.mat[.keep, , drop = FALSE]
+    .fvar <- suppressWarnings(apply(int.mat, 1, stats::var, na.rm = TRUE))
+    .nzv  <- is.finite(.fvar) & .fvar > 0
+    if(sum(!.nzv) > 0L && sum(.nzv) >= 2L){
+      message("[filter] ", sel.nms[i], " (", .ot, "): removed ", sum(!.nzv), " constant feature(s)")
+      int.mat <- int.mat[.nzv, , drop = FALSE]
     }
 
     if(filterMethod == "variance"){
