@@ -214,6 +214,9 @@ GetMultiSummary <- function(){
 SetReductionOpt <- function(opt){
   reductionSet<-.get.rdt.set();
   reductionSet$reductionOpt <- opt;
+  # Persist the change (was missing, so reductionOpt was never actually stored and
+  # downstream views gated on it reported "Dimension reduction results not available").
+  .set.rdt.set(reductionSet);
 }
 
 
