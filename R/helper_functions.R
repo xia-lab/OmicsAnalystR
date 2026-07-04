@@ -252,6 +252,9 @@ CheckDetailsTablePerformed <-function(type, dataName){
 #' @param args List of arguments passed via do.call
 #' @param timeout_sec Hard timeout in seconds
 #' @return Result of do.call(func, args)
+# Backward-compatible alias: external/community callers of the old name still resolve.
+run_func_via_rc_microservice <- function(...) run_func_via_microservice(...)
+
 run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
   # Run the closure in a fresh, short-lived R process (a microservice), which then exits and reclaims
   # all memory it used plus any packages it attached. Replaces the old nested Rserve-client path, which
