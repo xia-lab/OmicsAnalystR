@@ -256,6 +256,13 @@ CheckDetailsTablePerformed <-function(type, dataName){
 run_func_via_rc_microservice <- function(...) run_func_via_microservice(...)
 
 run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
+  # Default to the more efficient RSclient fork. The host app sets on.OmicsVerse = TRUE at startup to
+  # force a fresh callr subprocess in deployments where a nested RSclient fork is unstable (a startup
+  # flag is used rather than a filesystem probe, which is not a reliable signal).
+  if (!isTRUE(tryCatch(get("on.OmicsVerse", envir = globalenv()), error = function(e) FALSE)) &&
+      requireNamespace("RSclient", quietly = TRUE)) {
+    return(run_func_via_rsclient(func, args, timeout_sec))
+  }
   # Run the closure in a fresh, short-lived R process (a microservice), which then exits and reclaims
   # all memory it used plus any packages it attached. Replaces the old nested Rserve-client path, which
   # reliably crashed the worker with "Fatal error: unable to initialize the JIT" (Rserve error 127) —
@@ -291,16 +298,12 @@ run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
 }
 
 run_func_via_rsclient <- function(func, args = list(), timeout_sec = 60) {
-  # Self-host: a NESTED RSclient connection (an Rserve session opening a
-  # connection back to Rserve on 6311) reliably crashes the spawned worker with
-  # "Fatal error: unable to initialize the JIT", which leaves the caller looping.
-  # The subprocess buys nothing here, so run the function in-process. `func` is a
-  # self-contained closure that exchanges data through its bridge files via the
-  # globally-defined ov_qs_* helpers, so it behaves identically here or in a worker.
-  if (file.exists("/.dockerenv")) {
-    setTimeLimit(elapsed = timeout_sec, transient = TRUE)
-    on.exit(setTimeLimit(elapsed = Inf), add = TRUE)
-    return(invisible(do.call(func, args)))
+  # When the host app marks on.OmicsVerse = TRUE, a nested RSclient connection (an Rserve session
+  # opening a connection back to Rserve on 6311) is unstable and crashes the worker, so route to the
+  # callr microservice instead. Off that flag (public/self-host) the efficient RSclient fork below is
+  # used. `func` is a self-contained closure that exchanges data through ov_qs_* bridge files.
+  if (isTRUE(tryCatch(get("on.OmicsVerse", envir = globalenv()), error = function(e) FALSE))) {
+    return(run_func_via_microservice(func, args, timeout_sec))
   }
   conn <- RSclient::RS.connect(host = "localhost", port = 6311)
   on.exit(try(RSclient::RS.close(conn), silent = TRUE))
@@ -390,7 +393,9 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
                 func_body = func_body, pkgs = packages),
     timeout_sec = timeout
   )
-  if (isTRUE(result$success) && file.exists(output_path)) {
+  # The bridge file's existence is the success signal — the callr microservice returns NULL
+  # (a subprocess cannot pass a value back), so never gate on result$success.
+  if (file.exists(output_path)) {
     return(ov_qs_read(output_path))
   }
   msg <- if (!is.null(result$message)) result$message else "RSclient subprocess failed"
