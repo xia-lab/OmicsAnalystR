@@ -252,7 +252,7 @@ CheckDetailsTablePerformed <-function(type, dataName){
 #' @param args List of arguments passed via do.call
 #' @param timeout_sec Hard timeout in seconds
 #' @return Result of do.call(func, args)
-run_func_via_rc_microservice <- function(func, args = list(), timeout_sec = 60) {
+run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
   # Run the closure in a fresh, short-lived R process (a microservice), which then exits and reclaims
   # all memory it used plus any packages it attached. Replaces the old nested Rserve-client path, which
   # reliably crashed the worker with "Fatal error: unable to initialize the JIT" (Rserve error 127) —
@@ -362,7 +362,7 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
   ov_qs_save(input_data, input_path, preset = "fast")
   Sys.sleep(0.02)
   on.exit({ for (p in c(input_path, output_path)) if (file.exists(p)) unlink(p) }, add = TRUE)
-  result <- run_func_via_rc_microservice(
+  result <- run_func_via_microservice(
     func = function(input_path, output_path, func_body, pkgs) {
       tryCatch({
         # Suppress quartz/X11 popups from rgl
