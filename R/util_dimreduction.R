@@ -561,7 +561,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   # preserve original order
 
   loading.pos.xyz <- loading.pos.xyz[match(uniqFeats, paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type)), ]
-  loading.pos.xyz$label <-  invert_named_vector(enrich.nms1)[as.character(loading.pos.xyz$ids)];
+  loading.pos.xyz$label <-  label_or_id(loading.pos.xyz$ids, enrich.nms1);
   pos.xyz <- pos.xyz[match(rownames(reductionSet$meta), rownames(pos.xyz)), ];
 
   # Stub guard: do NOT persist a degenerate result. If the loadings collapsed to zero

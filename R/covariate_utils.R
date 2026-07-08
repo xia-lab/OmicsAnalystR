@@ -276,9 +276,9 @@ print(pval.type)
 
   AddMsg(paste(c("A total of", sig.num, "significant features were found."), collapse=" "));
 
-  both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];
-  rest$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rest$ids)];
-  sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
+  both.mat$label <- label_or_id(rownames(both.mat), dataSet$enrich_ids);
+  rest$label <- label_or_id(rest$ids, dataSet$enrich_ids);
+  sig.mat$label <-  label_or_id(sig.mat$ids, dataSet$enrich_ids);
   rownames(sig.mat) <- sig.mat$ids;
   dataSet$sig.mat <- sig.mat
   if(sig.num> 0){
@@ -365,6 +365,17 @@ invert_named_vector <- function(input_named_vec) {
   
   # Return output named vector
   return(output_named_vec)
+}
+
+# Map feature ids to their annotation labels, defaulting to the raw id when a feature
+# has no annotation (the lookup returns NA / empty) — so loadings / DE / correlation
+# tables and plots show the feature id instead of "NA".
+label_or_id <- function(ids, enrich_map) {
+  ids <- as.character(ids)
+  lbl <- invert_named_vector(enrich_map)[ids]
+  bad <- is.na(lbl) | !nzchar(lbl)
+  lbl[bad] <- ids[bad]
+  unname(lbl)
 }
 
 
@@ -758,7 +769,7 @@ CombineFacScatter.Anal <- function(dataName="",
   both.mat$fdr.adj <- -log10(both.mat$fdr.adj)
   both.mat$pval.no <- -log10(both.mat$pval.no)
   both.mat$fdr.no <- -log10(both.mat$fdr.no)
-  both.mat$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rownames(both.mat))];  
+  both.mat$label <- label_or_id(rownames(both.mat), dataSet$enrich_ids);  
   
 
   # make plot
@@ -809,8 +820,8 @@ CombineFacScatter.Anal <- function(dataName="",
   both.mat <- both.mat[rownames(rest),];
  
   
-  rest$label <- invert_named_vector(dataSet$enrich_ids)[as.character(rest$ids)];
-  sig.mat$label <-  invert_named_vector(dataSet$enrich_ids)[as.character(sig.mat$ids)];
+  rest$label <- label_or_id(rest$ids, dataSet$enrich_ids);
+  sig.mat$label <-  label_or_id(sig.mat$ids, dataSet$enrich_ids);
   rownames(sig.mat) <- sig.mat$ids;
   dataSet$sig.mat <- sig.mat
 
