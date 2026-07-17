@@ -814,6 +814,50 @@ LogNorm<-function(x, min.val){
   log10((x + sqrt(x^2 + min.val^2))/2)
 }
 
+# Probabilistic Quotient Normalization (Dieterle et al. 2006). Corrects for
+# sample-to-sample dilution (metabolomics injection/concentration effects). `data`
+# is features x samples. A reference profile is the per-feature median across
+# samples; each sample's dilution factor is the median of its feature-wise quotients
+# against that reference, and the sample is divided by it. Scale-only (leaves the
+# feature-to-feature pattern intact), so it is applied before the log transform.
+PQNNorm <- function(data, ref = NULL){
+  data <- as.matrix(data)
+  if(is.null(ref)) ref <- apply(data, 1, stats::median, na.rm = TRUE)
+  ref[!is.finite(ref) | ref <= 0] <- NA
+  quo <- sweep(data, 1, ref, FUN = "/")            # feature-wise quotient vs reference
+  quo[!is.finite(quo) | quo <= 0] <- NA
+  f <- apply(quo, 2, stats::median, na.rm = TRUE)   # per-sample dilution factor
+  f[!is.finite(f) | f <= 0] <- 1
+  sweep(data, 2, f, FUN = "/")
+}
+
+# QRILC (Quantile Regression Imputation of Left-Censored data) — MNAR-aware
+# imputation for metabolomics values below the limit of detection. Expects a
+# LOG-scale matrix (features x samples) with NA at the missing/below-LOD entries;
+# draws replacements from the lower tail of each sample's fitted distribution. A
+# fixed seed keeps runs reproducible. Falls back to a half-minimum fill (per feature)
+# if imputeLCMD is unavailable or the fit fails.
+qrilc_impute <- function(logmat, seed = 123L){
+  logmat <- as.matrix(logmat)
+  if(!any(is.na(logmat))) return(logmat)
+  half.min <- function(m){
+    for(r in seq_len(nrow(m))){
+      v <- m[r, ]; na <- is.na(v)
+      if(any(na)){ mn <- suppressWarnings(min(v[!na], na.rm = TRUE))
+        m[r, na] <- if(is.finite(mn)) mn - 1 else 0 }
+    }
+    m
+  }
+  if(!requireNamespace("imputeLCMD", quietly = TRUE)) return(half.min(logmat))
+  tryCatch({
+    set.seed(seed)
+    res <- imputeLCMD::impute.QRILC(logmat)
+    out <- res[[1]]
+    if(any(is.na(out))) out <- half.min(out)
+    out
+  }, error = function(e) half.min(logmat))
+}
+
 fast.write.csv <- function(dat, file, row.names=TRUE){
     tryCatch(
         {

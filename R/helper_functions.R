@@ -115,11 +115,23 @@ GetLoadingFileName <-function(dataName){
   reductionSet[[reductionSet$reductionOpt]]$loading.file.nm;
 }
 
+# Resolve a dataName to its UNIQUE integration block label (reductionSet$layer.labels, aligned
+# with reductionSet$filenms). The loadings / var.exp are keyed by these labels, which equal the
+# raw dataSet$type for DISTINCT-type runs but differ ("met_t" -> "met_t_1") when two layers share
+# a type. Falls back to the raw type for a reductionSet made before layer.labels existed.
+.OaLayerLabel <- function(reductionSet, dataName){
+  ll <- reductionSet$layer.labels; fn <- reductionSet$filenms;
+  if(!is.null(ll) && !is.null(fn)){
+    i <- match(dataName, fn);
+    if(!is.na(i) && i >= 1L && i <= length(ll)) return(ll[i]);
+  }
+  tryCatch(as.character(readDataset(dataName)$type), error = function(e) dataName);
+}
+
 GetLoadingMat<-function(dataName){
   reductionSet<-.get.rdt.set();
   if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(matrix(0));
-  dataSet <- readDataset(dataName);
-  omicstype <- dataSet$type
+  omicstype <- .OaLayerLabel(reductionSet, dataName);
   loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
   inx <- loading.pos.xyz$type %in% omicstype;
   drops <- c("ids","label", "type")
@@ -129,8 +141,7 @@ GetLoadingMat<-function(dataName){
 GetLoadingIds<-function(dataName){
   reductionSet<-.get.rdt.set();
   if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(character(0));
-  dataSet <- readDataset(dataName);
-  omicstype <- dataSet$type;
+  omicstype <- .OaLayerLabel(reductionSet, dataName);
   loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
   inx <- loading.pos.xyz$type %in% omicstype;
   loading.pos.xyz$ids[inx];
@@ -139,8 +150,7 @@ GetLoadingIds<-function(dataName){
 GetLoadingSymbols<-function(dataName){
   reductionSet<-.get.rdt.set();
   if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(character(0));
-  dataSet <- readDataset(dataName);
-  omicstype <- dataSet$type
+  omicstype <- .OaLayerLabel(reductionSet, dataName);
   loading.pos.xyz <- reductionSet[[reductionSet$reductionOpt]]$loading.pos.xyz
   inx <- loading.pos.xyz$type %in% omicstype;
   loading.pos.xyz$label[inx];
@@ -158,9 +168,8 @@ GetLoadingColNames<-function(dataName){
 GetVarianceArr<-function(dataName){
   reductionSet <- .get.rdt.set();
   if (is.null(reductionSet$reductionOpt) || is.null(reductionSet[[reductionSet$reductionOpt]])) return(c(0, 0, 0));
-  dataSet <- readDataset(dataName);
   df <- reductionSet[[reductionSet$reductionOpt]]$var.exp;
-  varArr <- df[,dataSet$type];
+  varArr <- df[, .OaLayerLabel(reductionSet, dataName)];
   varArr <- signif(varArr,4)*100;
   return(varArr);
 }

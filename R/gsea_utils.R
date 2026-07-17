@@ -73,7 +73,11 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
       AddErrMsg("Dimension reduction results not available for GSEA."); return(0);
     }
     loading.pos.xyz <- rdtSet[[rdtSet$reductionOpt]]$loading.pos.xyz.orig;
-    loading.pos.xyz <- loading.pos.xyz[loading.pos.xyz$omicstype == omics.type,]
+    # The block-label column is $type (NOT $omicstype — that name was a bug that matched no
+    # rows). It holds the UNIQUE per-layer labels, so strip any make.unique "_N" suffix to
+    # match the raw omics.type passed from the UI — this also includes every block of a
+    # modality when two layers share a type (e.g. met_t + met_t_1 for raw "met_t").
+    loading.pos.xyz <- loading.pos.xyz[sub("_[0-9]+$", "", loading.pos.xyz$type) == omics.type, ]
     rankedVec <- loading.pos.xyz[,loading.comp];
     names(rankedVec) <- loading.pos.xyz$ids;
   }else{

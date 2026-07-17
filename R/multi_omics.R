@@ -106,13 +106,15 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   return(1);
 }
 
-# Per-dataset normalization for multi-omics harmonization. Reads data.proc (the
-# harmonization-FILTERED matrix) and writes data.proc, so it composes with the
-# variance filter — unlike NormalizeDataWrapper, which reads data.filtered and would
-# undo the harmonization filter. `opt`: "auto" detects raw-vs-normalized per layer
-# (raw sequencing counts -> log2-CPM via limma::voom; raw intensity/concentration ->
-# log2; already-normalized layers left unchanged), or an explicit NormalizingDataOmics
-# norm.opt ("logcount","log","NA",...). Records dataSet$normInfo for transparency.
+# Per-dataset normalization for multi-omics harmonization. Reads data.proc and writes
+# data.proc, so it composes with the surrounding filter steps. `opt`: "auto" resolves a
+# per-layer plan from the layer's data STATE and omics TYPE, or an explicit
+# NormalizingDataOmics option ("log","logcpm","clr","pqn","vst","none",...) chosen in the
+# manual UI. The workflow accepts BOTH raw abundance tables (full type-specific transform)
+# AND already-normalized matrices from an individual-omics workflow. A normalized layer is
+# left unchanged here (it is only IQR-selected then auto-scaled downstream); a layer that
+# arrives already auto-scaled is flagged, because IQR feature selection can no longer rank
+# its features. Records dataSet$normInfo + dataSet$inputState for the transparency table.
 NormalizeDataMultiOmics <- function(nm, opt = "auto"){
   if(nm == "NA"){
     sel.nms <- names(Filter(function(x) isTRUE(x == 1L), mdata.all))
@@ -124,96 +126,171 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
     dataSet <- readDataset(sel.nms[i])
     mat <- dataSet$data.proc
     if(is.null(mat)) next
-    use.opt <- opt
+    type <- tryCatch(dataSet$type, error = function(e) "")
     if(identical(opt, "auto")){
-      # Per-layer declared data state (set in data-prep) drives the choice; the
-      # auto-detector is only the fallback for an UNdeclared layer. "normalized" ->
-      # scale only (Mode A); "raw" -> transform by omics type (Mode B); else detect.
-      state <- tryCatch(tolower(as.character(dataSet$dataState)), error = function(e) "")
-      type  <- tryCatch(dataSet$type, error = function(e) "")
-      if(identical(state, "normalized")){
-        use.opt <- "NA"
-      } else if(identical(state, "raw")){
-        use.opt <- .OmicsTypeNormOpt(mat, type)
+      declared <- tryCatch(tolower(as.character(dataSet$dataState)), error = function(e) "")
+      state <- .OmicsLayerState(mat, type, declared)
+      dataSet$inputState <- state
+      if(identical(state, "raw")){
+        tag <- .OmicsTypeNormPlan(mat, type)          # raw -> transform by omics type
       } else {
-        use.opt <- .OmicsDetectNormOpt(mat, type)
+        tag <- "NA"                                    # normalized/scaled -> do not re-normalize
+        if(identical(state, "scaled")){
+          AddErrMsg(paste0("Layer '", sel.nms[i], "' looks already auto-scaled (per-feature mean~0, sd~1). ",
+                           "Feed a NORMALIZED (not scaled) matrix so IQR feature selection can rank features."))
+        }
+      }
+    } else {
+      tag <- opt                                       # explicit method from the manual UI
+      dataSet$inputState <- "manual"
+    }
+    if(!identical(tag, "NA") && !identical(tag, "none") && !identical(tag, "")){
+      dataSet$data.proc <- .OmicsApplyNorm(mat, tag)
+      # Safety net: no normalization path may leave residual NAs. The prefilter retains
+      # below-LOD NAs for the QRILC paths (raw metabolomics / proteomics); the auto tags
+      # impute them, but an explicit "vsn" override (not the auto "vsn_qrilc" plan) would
+      # not — fill any survivors from the low tail so scaling stays defined.
+      if(anyNA(as.matrix(dataSet$data.proc))){
+        m <- qrilc_impute(as.matrix(dataSet$data.proc))
+        dataSet$data.proc <- as.data.frame(m)
       }
     }
-    if(!identical(use.opt, "NA")){
-      # log / voom on raw data: clip the few stray negatives (artifacts) to 0 first,
-      # otherwise log2 of a negative value returns NaN.
-      if(use.opt %in% c("log", "logcount", "clr")){
-        mat <- as.matrix(mat); mat[!is.na(mat) & mat < 0] <- 0
-      }
-      dataSet$data.proc <- NormalizingDataOmics(mat, use.opt, "NA", "NA")
-    }
-    dataSet$normInfo <- use.opt
-    message("[NormalizeDataMultiOmics] ", sel.nms[i], " -> ", use.opt)
+    dataSet$normInfo <- tag
+    message("[NormalizeDataMultiOmics] ", sel.nms[i], " (", type, ") state=", dataSet$inputState, " -> ", tag)
     RegisterData(dataSet)
   }
   return(1);
 }
 
-# Omics-type -> normalization map for RAW data. Used directly when a layer is DECLARED
-# raw (Mode B), and by the auto-detector once it concludes a layer is raw.
-#   Microbiome (ASV/OTU) -> CLR (centered log-ratio): feature-level microbiome stays at
-#     ASV/OTU here (no taxa collapse, unlike MMP) and is sparse, zero-inflated and
-#     compositional; plain log2 leaves the zero-inflation + a mismatched scale that
-#     dominates MCIA/DIABLO. CLR centres each sample by its geometric mean.
-#   Sequencing (RNA-seq/miRNA) -> voom/log2-CPM, but ONLY for integer count data; data
-#     that is not integer counts (TPM/FPKM/CPM, already library-normalized) -> log2.
-#   Intensity / concentration / generic -> log2.
-.OmicsTypeNormOpt <- function(mat, omicsType = ""){
+# log2 an intensity matrix and impute the below-LOD entries with QRILC (MNAR). MS matrices
+# encode non-detects as 0, and log2(0) = -Inf would crash imputeLCMD::impute.QRILC. So the
+# order is strictly: (1) convert every 0 / non-positive / non-finite value to NA; (2) log2
+# the remaining positive values (never sees a 0, so no -Inf); (3) QRILC-impute the NA from
+# the lower tail. Used by the metabolomics path; proteomics reuses qrilc_impute directly on
+# the VSN-transformed (glog2) matrix — see the "vsn_qrilc" branch in .OmicsApplyNorm.
+.OmicsLogQrilc <- function(m){
+  m[!is.finite(m) | m <= 0] <- NA                      # (1) 0 / below-LOD -> NA (avoid -Inf)
+  m <- log2(m)                                         # (2) log2 on positive values only
+  qrilc_impute(m)                                      # (3) QRILC impute the NA (MNAR)
+}
+
+# Apply one normalization TAG to a raw/normalized feature x sample matrix.
+#   log/logcount/logcpm/clr/vst -> delegate to NormalizingDataOmics (negatives clipped
+#     to 0 first so the log is defined); pqn -> PQN dilution correction then log2;
+#     pqn_log_qrilc -> PQN -> log2 -> QRILC below-LOD impute (the auto metabolomics path);
+#     vsn_qrilc -> VSN (per-sample calibration + glog2, normalize+transform in one) -> QRILC
+#     below-LOD impute (the auto proteomics path); any other string (log, vsn, quantile, ...)
+#     is passed straight through to NormalizingDataOmics.
+.OmicsApplyNorm <- function(mat, tag){
+  mat <- as.matrix(mat)
+  if(tag %in% c("log", "logcount", "logcpm", "clr", "vst")){
+    mat[!is.na(mat) & mat < 0] <- 0
+    return(NormalizingDataOmics(mat, tag, "NA", "NA"))
+  }
+  if(identical(tag, "pqn")){
+    mat[!is.na(mat) & mat < 0] <- 0
+    return(NormalizingDataOmics(mat, "log", "pqn", "NA"))
+  }
+  if(identical(tag, "pqn_log_qrilc")){                 # metabolomics: PQN -> log2 -> QRILC
+    m <- mat; m[!is.na(m) & m < 0] <- 0
+    m <- PQNNorm(m)
+    m <- .OmicsLogQrilc(m)
+    d <- as.data.frame(m); rownames(d) <- rownames(mat); colnames(d) <- colnames(mat)
+    return(d)
+  }
+  if(identical(tag, "vsn_qrilc")){                     # proteomics: VSN (steps 2-3) -> QRILC (step 4)
+    d <- NormalizingDataOmics(mat, "vsn", "NA", "NA")  # per-sample calibration + glog2 in one op
+    m <- as.matrix(d)
+    if(anyNA(m)) m <- qrilc_impute(m)                  # impute residual below-LOD entries (MNAR)
+    d <- as.data.frame(m); rownames(d) <- rownames(mat); colnames(d) <- colnames(mat)
+    return(d)
+  }
+  NormalizingDataOmics(mat, tag, "NA", "NA")
+}
+
+# Omics-type -> normalization PLAN tag for RAW data. Used when a layer is raw (declared,
+# or concluded by the state classifier). .OmicsApplyNorm consumes the tag.
+#   Microbiome (ASV/OTU) -> "clr": total-sum scaling + additive pseudo-count + centered
+#     log-ratio. Sparse, zero-inflated and compositional; plain log2 would leave the
+#     zero-inflation and a scale that dominates the joint projection.
+#   Sequencing (RNA-seq/miRNA) -> "logcpm" (TMM-normalized log2-CPM, prior.count=2) for
+#     integer count data; already library-normalized values (TPM/FPKM/CPM) -> "log".
+#   Metabolomics (incl. LC-MS / GC-MS labelled as metabolomics) -> "pqn_log_qrilc": PQN
+#     dilution correction, log2, QRILC below-LOD impute (MS has genuine below-LOD zeros).
+#   Proteomics -> "vsn_qrilc": VSN variance-stabilizing normalization (limma) normalizes each
+#     sample AND applies a glog2 transform in one step (tolerates zeros, no -Inf); the residual
+#     below-detection NAs it leaves are then QRILC-imputed (MNAR) — the dedicated missing-value
+#     step for proteomics.
+#   Generic / type-agnostic layer (e.g. "generic_layer1", an arbitrary table or a platform we
+#     do not special-case such as NMR) -> "vsn": variance-stabilizing normalization is the safe
+#     assumption-free default — it normalizes each sample AND applies a glog2 transform in one
+#     step and tolerates zeros. The data STATE still gates it (an already-normalized generic
+#     layer is skipped and only scaled).
+.OmicsTypeNormPlan <- function(mat, omicsType = ""){
   t <- tolower(as.character(omicsType))
+  # Generic / type-agnostic layer FIRST — checked before the biological-type patterns because
+  # "generic" contains the substring "gene" (RNA). (The slot code is "generic_layer", not
+  # "generic_omics", so it also avoids the "mic" in "omics" — this is belt-and-suspenders.)
+  if(grepl("generic", t)) return("vsn")
   if(grepl("mic", t)) return("clr")
   if(grepl("rna|mirna|seq|count|gene", t)){
     m  <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
     nz <- m[is.finite(m) & m > 0]
     if(length(nz) > 2000L) nz <- nz[seq_len(2000L)]
-    if(length(nz) > 0L && mean(nz == round(nz)) > 0.95) return("logcount")
+    if(length(nz) > 0L && mean(nz == round(nz)) > 0.95) return("logcpm")
     return("log")
   }
-  "log"
+  if(grepl("prot", t)) return("vsn_qrilc")                             # proteomics: VSN -> QRILC
+  if(grepl("met", t)) return("pqn_log_qrilc")                          # metabolomics (incl. LC-MS/GC-MS)
+  "log"                                                                # generic / unknown -> data-state log
 }
 
-# Detect a layer's data STATE and pick the normalization to bring it to log-space
-# (the auto-scale step runs on every layer afterwards regardless). Returns the
-# NormalizingDataOmics opt ("logcount" voom for counts, "clr" for microbiome ASV/OTU
-# tables, "log" log2 for intensities) when the layer is RAW, or "NA" (skip) when it is
-# already normalized or auto-scaled.
-.OmicsDetectNormOpt <- function(mat, omicsType = ""){
-  m <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
-  if(all(is.na(m))) return("NA")
+# Classify a layer's INPUT STATE: "raw" (abundance/counts/intensities -> full transform),
+# "normalized" (already normalized by an upstream single-omics workflow -> leave as-is,
+# only IQR-select + auto-scale downstream), or "scaled" (already z-scored -> unusable for
+# variance-based feature selection; the caller warns). A declared state ("raw"/"normalized")
+# is honoured; "auto"/unset falls back to the statistical signature.
+.OmicsLayerState <- function(mat, omicsType = "", declared = ""){
+  d <- tolower(as.character(declared))
+  if(d %in% c("raw", "normalized", "scaled")) return(d)
 
-  # (1) Already AUTO-SCALED (z-scored): the DEFINING signature is per-feature mean ~ 0
-  #     and sd ~ 1. This is unambiguous, so detect it directly and skip.
+  m <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))
+  if(all(is.na(m))) return("normalized")
+
+  # (1) Already AUTO-SCALED (z-scored): per-feature mean ~ 0 and sd ~ 1 — unambiguous.
   rmean <- suppressWarnings(rowMeans(m, na.rm = TRUE))
   rsd   <- suppressWarnings(apply(m, 1, stats::sd, na.rm = TRUE))
   ok    <- is.finite(rmean) & is.finite(rsd) & rsd > 0
   if(sum(ok) >= 5L && stats::median(abs(rmean[ok])) < 0.15 &&
-     abs(stats::median(rsd[ok]) - 1) < 0.25) return("NA")
+     abs(stats::median(rsd[ok]) - 1) < 0.25) return("scaled")
 
   # (2) Already NORMALIZED + CENTERED (e.g. log-CPM): a SUBSTANTIAL negative fraction.
-  #     A few stray negatives (imputation / sparse outliers) in raw data do NOT count --
-  #     that wrongly skipped a raw microbiome layer (max ~15000, 0.01% negatives).
-  if(suppressWarnings(mean(m < 0, na.rm = TRUE)) > 0.10) return("NA")
+  #     A few stray negatives (imputation / sparse outliers) in raw data do NOT count.
+  if(suppressWarnings(mean(m < 0, na.rm = TRUE)) > 0.10) return("normalized")
 
-  # (3) Small dynamic range (max < 20) => already in log / normalized space => skip.
-  #     log2/ln-transformed data never exceeds ~25 even for counts in the millions, so
-  #     a large max is the reliable signal that a layer is still RAW.
+  # Integer-count signature: log/normalized values are essentially never all whole
+  # numbers, so integer non-negative data is RAW counts regardless of magnitude — this
+  # rescues a low-depth count layer (e.g. sparse microbiome, max < 20) that the
+  # dynamic-range heuristic alone would misread as already-log.
+  nz <- m[m > 0 & !is.na(m)]
+  if(length(nz) > 2000L) nz <- nz[seq_len(2000L)]
+  is.int <- length(nz) > 0L && mean(nz == round(nz)) > 0.95 &&
+            suppressWarnings(min(m, na.rm = TRUE)) >= 0
+
+  # (3) Small dynamic range (max < 20) => already in log / normalized space, unless the
+  #     data is integer counts (handled above).
   mx <- suppressWarnings(max(m, na.rm = TRUE))
-  if(!is.finite(mx) || mx < 20) return("NA")
+  if(!is.finite(mx) || mx < 20) return(if(is.int) "raw" else "normalized")
 
-  # (4) max in (20, 50]: small RAW counts vs already-log -> distinguish by integer-ness
-  #     (counts are whole numbers, log values are not). max > 50 is unambiguously RAW.
-  is.raw <- TRUE
-  if(mx <= 50){
-    nz <- m[m > 0 & !is.na(m)]
-    if(length(nz) > 2000L) nz <- nz[seq_len(2000L)]
-    is.raw <- length(nz) > 0L && mean(nz == round(nz)) > 0.95
-  }
-  if(!is.raw) return("NA")
-  .OmicsTypeNormOpt(mat, omicsType)
+  # (4) max in (20, 50]: small RAW counts vs already-log -> integer-ness decides.
+  #     max > 50 is unambiguously RAW.
+  if(mx <= 50 && !is.int) return("normalized")
+  "raw"
+}
+
+# Back-compat shim: return the normalization tag for a layer concluded RAW, else "NA".
+.OmicsDetectNormOpt <- function(mat, omicsType = ""){
+  if(identical(.OmicsLayerState(mat, omicsType), "raw")) .OmicsTypeNormPlan(mat, omicsType) else "NA"
 }
 
 # Generic PREVALENCE filter for count-type data. `data` is features x samples: keep
@@ -234,9 +311,144 @@ FilterByPrevalence <- function(data, min.prev = 0.2, min.count = 2, min.keep = 1
   if(sum(keep) >= min.keep) data[keep, , drop = FALSE] else data
 }
 
-FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0){
+# Microbiome prevalence filter on RELATIVE abundance: keep taxa present above
+# `min.relabund` (fraction of a sample's total, default 0.01%) in at least `min.prev`
+# of samples (default 10%). Robust to sequencing-depth differences (unlike a raw-count
+# threshold). Never reduces below `min.keep`.
+.PrevalenceFilterMic <- function(data, min.prev = 0.10, min.relabund = 1e-4, min.keep = 10L){
+  data <- as.matrix(data); nS <- ncol(data)
+  if(nS < 5L || nrow(data) <= min.keep) return(data)
+  cs <- colSums(data, na.rm = TRUE); cs[cs <= 0] <- NA
+  rel <- sweep(data, 2, cs, FUN = "/")
+  prev <- rowSums(rel > min.relabund, na.rm = TRUE) / nS
+  keep <- is.finite(prev) & prev >= min.prev
+  if(sum(keep) >= min.keep) data[keep, , drop = FALSE] else data
+}
+
+# edgeR::filterByExpr for sequencing counts. Defaults keep genes with >= 10 reads in
+# >= 70% of samples (min.count = 10, min.prop = 0.7). Never reduces below `min.keep`.
+.FilterByExpr <- function(data, min.keep = 10L){
+  data <- as.matrix(data)
+  if(nrow(data) <= min.keep || !requireNamespace("edgeR", quietly = TRUE)) return(data)
+  keep <- tryCatch(edgeR::filterByExpr(data), error = function(e) rep(TRUE, nrow(data)))
+  if(sum(keep) >= min.keep) data[keep, , drop = FALSE] else data
+}
+
+# Metabolomics "80% rule": drop features present (finite, > 0) in fewer than `min.present`
+# of samples. Applied per group when a grouping vector is supplied (kept if it clears the
+# threshold in ANY group), else globally. Never reduces below `min.keep`.
+.Rule80Filter <- function(data, group = NULL, min.present = 0.80, min.keep = 10L){
+  data <- as.matrix(data); nS <- ncol(data)
+  if(nS < 5L || nrow(data) <= min.keep) return(data)
+  present <- is.finite(data) & data > 0
+  if(!is.null(group) && length(group) == nS && length(unique(group)) > 1L){
+    keep <- rep(FALSE, nrow(data))
+    for(g in unique(group)){
+      cols <- which(group == g)
+      keep <- keep | (rowSums(present[, cols, drop = FALSE], na.rm = TRUE) / length(cols) >= min.present)
+    }
+  } else {
+    keep <- rowSums(present, na.rm = TRUE) / nS >= min.present
+  }
+  if(sum(keep) >= min.keep) data[keep, , drop = FALSE] else data
+}
+
+# STEP 1 — low-abundance / quality pre-filter, per omics type, applied to RAW layers
+# only (a normalized layer coming from an upstream workflow is passed through untouched
+# except for constant-feature removal). Reads/writes data.proc so it composes with the
+# rest of the harmonization chain. Records dataSet$filterInfo$n_before.
+PrefilterOmicsByType <- function(dataName){
+  if (length(dataName) == 0L || is.na(dataName) || tolower(as.character(dataName)) %in% c("na","all")) {
+    sel.nms <- names(mdata.all)[vapply(mdata.all, function(x) isTRUE(x == 1), logical(1))]
+  } else {
+    sel.nms <- as.character(dataName);
+  }
+  if (length(sel.nms) == 0L) { AddErrMsg("No active dataset available to pre-filter."); return(0); }
+  for(i in 1:length(sel.nms)){
+    dataSet <- readDataset(sel.nms[i])
+    int.mat <- dataSet$data.proc
+    if(is.null(int.mat)) next
+    int.mat <- as.matrix(int.mat); suppressWarnings(storage.mode(int.mat) <- "numeric")
+    n0.feat <- nrow(int.mat)
+    .ot <- tryCatch(tolower(as.character(dataSet$type)), error = function(e) "")
+    .dec <- tryCatch(tolower(as.character(dataSet$dataState)), error = function(e) "")
+    state <- .OmicsLayerState(int.mat, .ot, .dec)
+    if(identical(state, "raw")){
+      # Generic / type-agnostic layer FIRST (before the "mic"/"gene" substring patterns) —
+      # a plain missing-fraction drop, no platform-specific abundance filter.
+      if(grepl("generic", .ot)){
+        keep <- rowMeans(!is.finite(int.mat) | int.mat == 0, na.rm = TRUE) <= 0.5
+        if(sum(keep) >= 10L) int.mat <- int.mat[keep, , drop = FALSE]
+      } else if(grepl("mic", .ot)){
+        int.mat <- .PrevalenceFilterMic(int.mat)                 # >0.01% in >=10% of samples
+      } else if(grepl("rna|mirna|seq|count|gene", .ot)){
+        int.mat <- .FilterByExpr(int.mat)                        # edgeR filterByExpr
+      } else if(grepl("met", .ot)){
+        grp <- tryCatch(.OmicsPrimaryGroup(dataSet), error = function(e) NULL)
+        int.mat <- .Rule80Filter(int.mat, group = grp)           # 80% rule (metabolomics)
+      } else if(grepl("prot", .ot)){
+        grp <- tryCatch(.OmicsPrimaryGroup(dataSet), error = function(e) NULL)
+        int.mat <- .Rule80Filter(int.mat, group = grp, min.present = 0.70)  # valid-value filter
+      } else {
+        keep <- rowMeans(!is.finite(int.mat) | int.mat == 0, na.rm = TRUE) <= 0.5
+        if(sum(keep) >= 10L) int.mat <- int.mat[keep, , drop = FALSE]
+      }
+    }
+    # constant / zero-variance features carry no signal and break downstream CV folds
+    .fvar <- suppressWarnings(apply(int.mat, 1, stats::var, na.rm = TRUE))
+    .nzv  <- is.finite(.fvar) & .fvar > 0
+    if(sum(!.nzv) > 0L && sum(.nzv) >= 2L) int.mat <- int.mat[.nzv, , drop = FALSE]
+    # impute residual missing values (per-feature half-minimum) so normalization/scaling
+    # are defined and NA features are not silently dropped. Keep zeros/NAs for a layer whose
+    # normalization plan runs the MNAR QRILC path downstream — raw metabolomics ("pqn_log_qrilc")
+    # AND raw proteomics ("vsn_qrilc"), which impute below-detection values in the dedicated
+    # missing-value step; every other layer (generic -> VSN, all normalized layers) is filled
+    # here, since none of them impute NA downstream (VSN tolerates zeros but leaves NA as-is).
+    qrilc.path <- identical(state, "raw") &&
+                  .OmicsTypeNormPlan(int.mat, .ot) %in% c("pqn_log_qrilc", "vsn_qrilc")
+    if(!qrilc.path && anyNA(int.mat)){
+      for(r in which(rowSums(is.na(int.mat)) > 0L)){
+        v <- int.mat[r, ]; mn <- suppressWarnings(min(v[v > 0 & !is.na(v)], na.rm = TRUE))
+        int.mat[r, is.na(v)] <- if(is.finite(mn)) mn / 2 else 0
+      }
+    }
+    dataSet$data.proc <- int.mat
+    dataSet$filterInfo <- list(n_before = n0.feat, n_after = nrow(int.mat), state = state)
+    message("[PrefilterOmicsByType] ", sel.nms[i], " (", .ot, ", ", state, "): ", n0.feat, " -> ", nrow(int.mat))
+    RegisterData(dataSet)
+  }
+  return(1)
+}
+
+# Best-effort primary grouping vector for a dataset (metabolomics 80% rule). Tries the
+# per-dataset analysis variable, then a shared primary metadata factor; NULL -> global rule.
+.OmicsPrimaryGroup <- function(dataSet){
+  g <- tryCatch(dataSet$analysis.var, error = function(e) NULL)
+  if(!is.null(g) && length(g) == ncol(dataSet$data.proc)) return(as.character(g))
+  meta <- tryCatch(dataSet$meta.info, error = function(e) NULL)
+  if(is.null(meta)) meta <- tryCatch(dataSet$meta, error = function(e) NULL)
+  if(!is.null(meta) && is.data.frame(meta) && ncol(meta) >= 1L &&
+     nrow(meta) == ncol(dataSet$data.proc)) return(as.character(meta[[1]]))
+  NULL
+}
+
+# Per-feature IQR (Q3 - Q1) for a features x samples matrix, using the vectorized
+# matrixStats::rowIQRs (C, much faster than apply on a large layer) when it is available,
+# else a base-R fallback so matrixStats is not a hard dependency.
+.OmicsRowIQR <- function(m){
+  m <- as.matrix(m)
+  if(requireNamespace("matrixStats", quietly = TRUE)){
+    matrixStats::rowIQRs(m, na.rm = TRUE)
+  } else {
+    suppressWarnings(apply(m, 1, stats::IQR, na.rm = TRUE))
+  }
+}
+
+FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPercent = 0, topN = 0){
   filterPercent <- suppressWarnings(as.numeric(filterPercent));
   if (length(filterPercent) == 0L || is.na(filterPercent)) filterPercent <- 0;
+  topN <- suppressWarnings(as.integer(topN));
+  if (length(topN) == 0L || is.na(topN)) topN <- 0L;
   # "all datasets" = the ACTIVE datasets (mdata.all==1), NOT every entry — a
   # deselected / stale dataset (e.g. manual->AI contamination) must not be
   # re-filtered, and iterating one with mismatched samples drops int.mat to a vector.
@@ -260,13 +472,11 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
     suppressWarnings(storage.mode(int.mat) <- "numeric");
     n0.feat <- nrow(int.mat);   # features entering this filter pass (for the transparency table)
 
-    # Basic raw-data filtering (before normalization). For COUNT data (microbiome ASV/OTU,
-    # sequencing) apply the generic prevalence filter; then drop constant features (zero
-    # variance) for every layer — they carry no signal and break DIABLO CV folds.
+    # High-variance feature SELECTION (spec Step 4) runs AFTER normalization; the
+    # type-specific abundance/prevalence pre-filter lives in PrefilterOmicsByType (Step 1)
+    # and must NOT be repeated here (a count threshold on log/CLR values is meaningless).
+    # Drop any residual constant features for every layer — they break downstream CV folds.
     .ot <- tryCatch(tolower(as.character(dataSet$type)), error = function(e) "")
-    if(grepl("mic|rna|mirna|seq|count|gene", .ot)){
-      int.mat <- FilterByPrevalence(int.mat)   # >=2 reads in >=20% of samples
-    }
     .fvar <- suppressWarnings(apply(int.mat, 1, stats::var, na.rm = TRUE))
     .nzv  <- is.finite(.fvar) & .fvar > 0
     if(sum(!.nzv) > 0L && sum(.nzv) >= 2L){
@@ -274,7 +484,25 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
       int.mat <- int.mat[.nzv, , drop = FALSE]
     }
 
-    if(filterMethod == "variance"){
+    if(topN > 0L){
+      # High-variance selection by IQR (spec Step 4). Rank features by interquartile range
+      # (Q3-Q1, robust to single-sample outliers, ranks meaningfully on normalized data).
+      # First discard features with IQR == 0 (or non-finite): they have no middle-50% spread,
+      # add nothing but flat noise dimensions, and shouldn't survive even the keep-all case.
+      # (The z-scoring divisor is SD, already guarded by the zero-variance filter above; this
+      # keeps the metric and the valid-feature count consistent.) Then keep exactly the top N
+      # valid features, or all of them when a layer has <= N.
+      iqrv  <- .OmicsRowIQR(int.mat)
+      valid <- which(is.finite(iqrv) & iqrv > 0)
+      if(length(valid) == 0L){
+        data <- int.mat                                  # degenerate: nothing has spread
+      } else if(length(valid) <= topN){
+        data <- int.mat[valid, , drop = FALSE]           # <= N valid features -> keep all valid
+      } else {
+        ord  <- order(iqrv[valid], decreasing = TRUE)
+        data <- int.mat[valid[ord[seq_len(topN)]], , drop = FALSE]
+      }
+    }else if(filterMethod == "variance"){
       # Variance can't rank already-scaled data: z-scoring sets every feature's variance to
       # ~1, so var-of-variances ~ 0. IQR, by contrast, reflects each feature's distribution
       # SHAPE and still varies after scaling — so fall back to IQR ranking there. Non-scaled
@@ -313,13 +541,14 @@ FilterDataMultiOmicsHarmonization <- function(dataName,filterMethod, filterPerce
       dataSet$data.proc.taxa <- data.norm.taxa
     }
 
-    # Per-layer feature counts for the Harmonization transparency table. The Filter
-    # and Feature-Selection steps both call this fn; keep the FIRST input as n_before
-    # (the true pre-filter count) and update n_after to the latest retained count.
+    # Per-layer feature counts for the Harmonization transparency table. PrefilterOmicsByType
+    # sets n_before (the true pre-filter count) and the input state; this step updates n_after
+    # to the retained count after high-variance selection while preserving both.
     .fi <- tryCatch(dataSet$filterInfo, error = function(e) NULL)
     n_before <- if (!is.null(.fi) && !is.null(.fi$n_before)) .fi$n_before else n0.feat
+    .st <- if (!is.null(.fi) && !is.null(.fi$state)) .fi$state else NA
     dataSet$filterInfo <- list(n_before = n_before, n_after = nrow(data),
-                               prevalence = isTRUE(grepl("mic|rna|mirna|seq|count|gene", .ot)))
+                               state = .st, topN = topN)
 
     RegisterData(dataSet)
   }
@@ -532,6 +761,49 @@ PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactiv
   saveSet(infoSet);
   }
 } 
+
+# Harmonization sanity check: per-layer boxplot of the (final, scaled) data.proc. After
+# harmonization every layer should sit near zero with a comparable spread — a layer that
+# stays shifted or skewed flags an upstream filtering / normalization problem.
+PlotMultiBoxplot <- function(imgNm, dpi=150, format="png", factor="1", interactive=F){
+  try(RecordRCommand(paste0("PlotMultiBoxplot(\"", imgNm, "\")")), silent = TRUE)
+  load_cairo();
+  load_ggplot();
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  sel.nms <- names(Filter(function(x) isTRUE(x == 1L), mdata.all))
+  if(length(sel.nms) == 0L) sel.nms <- names(mdata.all)
+  df.list <- vector("list", length(sel.nms))
+  for(i in 1:length(sel.nms)){
+    dataSet <- readDataset(sel.nms[i])
+    dat <- tryCatch(as.matrix(dataSet$data.proc), error = function(e) NULL)
+    if(is.null(dat)) next
+    st <- utils::stack(as.data.frame(dat))
+    st$Dataset <- sel.nms[i]
+    df.list[[i]] <- st
+  }
+  merged.df <- do.call(rbind, df.list)
+  if (exists("WfSaveFigureData"))
+    tryCatch(WfSaveFigureData(sub("_dpi.*$", "", basename(imgNm)), merged.df), error = function(e) NULL)
+  g <- ggplot(merged.df, aes(x=Dataset, y=values, fill=Dataset)) +
+       geom_hline(yintercept=0, linetype="dashed", colour="grey50") +
+       geom_boxplot(outlier.size=0.3, alpha=0.85) +
+       labs(x=NULL, y="Value (after scaling)") +
+       theme_bw() +
+       theme(text=element_text(size=13), legend.position="none",
+             axis.text.x=element_text(angle=30, hjust=1))
+  if(interactive){
+    library(plotly);
+    return(ggplotly(g));
+  }else{
+    Cairo(file=imgNm, width=8, height=6, type=format, bg="white", dpi=dpi, unit="in");
+    print(g)
+    dev.off();
+    infoSet <- readSet(infoSet, "infoSet");
+    infoSet$imgSet$qc_multi_boxplot <- imgNm;
+    saveSet(infoSet);
+  }
+}
 
 CheckMetaIntegrity <- function(){
   try(RecordRCommand("CheckMetaIntegrity()"), silent = TRUE)

@@ -15,14 +15,27 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   omics.type = vector();
   featureNms <- vector();
   uniqFeats <- vector();
- 
+
+  # Per-layer BLOCK LABELS for integration. data.list / the DIABLO design matrix / the MOFA
+  # views are keyed by this label, so it MUST be unique per layer: two layers sharing a type
+  # string (e.g. two metabolomics platforms both "met_t", or two generic tables) would
+  # otherwise overwrite each other in data.list and silently drop a layer. make.unique leaves
+  # DISTINCT types unchanged (byte-identical behavior for normal multi-omics) and only
+  # disambiguates duplicates (type, type_1, ...), enabling same-modality / multi-platform and
+  # generic-table integration on shared samples.
+  raw.types <- vapply(sel.nms, function(nm){
+    tt <- readDataset(nm)$type
+    if(is.null(tt) || all(is.na(tt)) || !nzchar(as.character(tt)[1])) "layer" else as.character(tt)[1]
+  }, character(1))
+  layer.labels <- make.unique(raw.types, sep = "_");
+
   for(i in 1:length(sel.nms)){
-  
+
     dataSet = readDataset(sel.nms[i])
-    omics.type <- c(omics.type, dataSet$type)
+    omics.type <- c(omics.type, layer.labels[i])
     sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dataSet$data.proc), perl = TRUE)
     rownames(dataSet$data.proc) <- sanitized_names;
-    data.list[[dataSet$type]] <- dataSet$data.proc
+    data.list[[layer.labels[i]]] <- dataSet$data.proc
  
     # A layer can legitimately have NO comparison result (no covariate analysis run,
     # or no significant features) — its dataSet$comp.res is then NULL. Build a
@@ -56,8 +69,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       enrich.nms1 = dataSet$enrich_ids
       comp.res.inx1 = rep(1, nrow(cres.i));
       featureNms <- feats.i;
-      omics.vec <- rep(dataSet$type, length(feats.i));
-      uniqFeats <- paste0(feats.i,"_", dataSet$type)
+      omics.vec <- rep(layer.labels[i], length(feats.i));
+      uniqFeats <- paste0(feats.i,"_", layer.labels[i])
       filenms <- sel.nms[i]
 
     } else {
@@ -65,8 +78,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       enrich.nms1 = c(enrich.nms1, dataSet$enrich_ids);
       comp.res.inx1 = c(comp.res.inx1, rep(i, nrow(cres.i)));
       featureNms <- c(featureNms, feats.i);
-      omics.vec <- c(omics.vec, rep(dataSet$type, length(feats.i)));
-      uniqFeats <- c(uniqFeats, paste0(feats.i,"_", dataSet$type))
+      omics.vec <- c(omics.vec, rep(layer.labels[i], length(feats.i)));
+      uniqFeats <- c(uniqFeats, paste0(feats.i,"_", layer.labels[i]))
       filenms <- c(filenms, sel.nms[i])
 
     }
@@ -104,7 +117,12 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet$featureNms <- featureNms;
   reductionSet$omics.vec <- omics.vec;
   reductionSet$filenms <- filenms;
- 
+  # Per-layer UNIQUE block labels, aligned position-for-position with filenms (= the dataset
+  # names). The loadings / var.exp are keyed by these labels (which differ from the raw
+  # dataSet$type when two layers share a type), so result consumers resolve a dataName -> label
+  # through this map (.OaLayerLabel) instead of the raw type.
+  reductionSet$layer.labels <- layer.labels;
+
   if(reductionOpt == "mcia") {
 
     mcoin <- run.mcia(data.list, cia.nf=ncomps)

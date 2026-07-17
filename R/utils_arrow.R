@@ -443,8 +443,9 @@ ExportLoadingArrow <- function(dataName) {
             return(NULL)
         }
 
-        # Filter by omics type
-        omicstype <- dataSet$type
+        # Filter by omics block (the UNIQUE per-layer label, which differs from the raw
+        # dataSet$type when two layers share a type).
+        omicstype <- .OaLayerLabel(reductionSet, dataName)
         inx <- loading.pos.xyz$type %in% omicstype
         filtered <- loading.pos.xyz[inx, , drop = FALSE]
 

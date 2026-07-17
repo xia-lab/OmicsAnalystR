@@ -561,8 +561,8 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   rnms <- rownames(data)
   cnms <- colnames(data)
 
-  # Isolate heavy normalization packages (limma, edgeR, preprocessCore, metagenomeSeq) in subprocess
-  heavy_norm_opts <- c("vsn", "quantile", "combined", "logcount", "rle", "TMM")
+  # Isolate heavy normalization packages (limma, edgeR, preprocessCore, metagenomeSeq, DESeq2) in subprocess
+  heavy_norm_opts <- c("vsn", "quantile", "combined", "logcount", "logcpm", "vst", "rle", "TMM")
   heavy_scale_opts <- c("upperquartile", "CSS")
 
   if (norm.opt %in% heavy_norm_opts || scaleNorm %in% heavy_scale_opts) {
@@ -615,6 +615,18 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
           y <- limma::voom(data, plot = FALSE, lib.size = colSums(data) * nf)
           data <- y$E
           msg <- paste(msg, "Limma based on log2-counts per million transformation.", collapse = " ")
+        } else if (norm.opt == "logcpm") {
+          library(edgeR)
+          cnt <- round(as.matrix(data)); cnt[cnt < 0] <- 0
+          y <- edgeR::DGEList(counts = cnt)
+          y <- edgeR::calcNormFactors(y, method = "TMM")
+          data <- edgeR::cpm(y, log = TRUE, prior.count = 2)
+          msg <- c(msg, "TMM-normalized log2-CPM (prior.count = 2)")
+        } else if (norm.opt == "vst") {
+          library(DESeq2)
+          cnt <- round(as.matrix(data)); cnt[cnt < 0] <- 0
+          data <- DESeq2::varianceStabilizingTransformation(cnt, blind = TRUE)
+          msg <- c(msg, "DESeq2 variance-stabilizing transformation")
         } else if (norm.opt == "rle") {
           data <- edgeRnorm_local(data, method = "RLE")
           msg <- c(msg, "Performed RLE Normalization")
@@ -663,7 +675,7 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
           rnms = rnms,
           cnms = cnms
         ),
-        packages = c("limma", "edgeR", "preprocessCore", "metagenomeSeq", "qs"),
+        packages = c("limma", "edgeR", "preprocessCore", "metagenomeSeq", "DESeq2", "qs"),
         timeout = 300,
         output_type = "qs"
       )
@@ -729,6 +741,9 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
   }else if(colNorm=="MedianNorm"){
     data<-t(apply(data, 2, MedianNorm));
     rownm<-"Normalization to sample median";
+  }else if(colNorm=="pqn"){
+    data<-PQNNorm(data);
+    rownm<-"Probabilistic quotient normalization";
   }else{
     # nothing to do
     rownm<-"N/A";
@@ -768,8 +783,23 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
     data <- edgeRnorm(data,method="TMM");
     msg <- c(msg, paste("Performed TMM Normalization"));
   }else if(norm.opt=="clr"){
-    data <- apply(data, 2, clr_transform);
-    msg <- "Performed centered-log-ratio normalization.";
+    # Microbiome compositional transform. CLR of a proportion vector containing zeros is
+    # mathematically undefined (log(0) and a zero geometric mean), so the pseudo-count MUST
+    # be added BEFORE the geometric mean / log ratios. Strict order per sample:
+    #   (1) total-sum scaling -> relative abundance (proportions);
+    #   (2) add an additive pseudo-count (half the smallest non-zero proportion) at the zeros;
+    #   (3) CLR: divide by the geometric mean and take log2 (clr_transform), centering the sample.
+    # Resolves the closed-composition constraint without the zero-inflation a plain log2 leaves.
+    data <- apply(data, 2, function(col){
+      s <- sum(col, na.rm=TRUE);
+      if(!is.finite(s) || s <= 0) return(rep(0, length(col)));
+      p <- col / s;                                    # (1) TSS -> proportions
+      nzp <- p[is.finite(p) & p > 0];
+      pseudo <- if(length(nzp)) min(nzp)/2 else 1e-6;
+      p[!is.finite(p) | p <= 0] <- pseudo;             # (2) pseudo-count BEFORE the log-ratio
+      clr_transform(p);                                # (3) geometric-mean centering + log2
+    });
+    msg <- "Performed total-sum scaling followed by centered-log-ratio (CLR) normalization.";
   }else if(norm.opt=='LogNorm'){
     min.val <- min(abs(data[data!=0]))/10;
     data<-apply(data, 2, LogNorm, min.val);
