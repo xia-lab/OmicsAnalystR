@@ -1012,7 +1012,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
-  pd <- qs::qread(pdPath)
+  pd <- ov_qs_read(pdPath)
   imgPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
 
   rsclient_isolated_exec(
@@ -1053,7 +1053,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
-  pd <- qs::qread(pdPath)
+  pd <- ov_qs_read(pdPath)
   barPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
 
   rsclient_isolated_exec(
@@ -1096,7 +1096,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
-  pd <- qs::qread(pdPath)
+  pd <- ov_qs_read(pdPath)
   rdaPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
 
   rsclient_isolated_exec(
@@ -1162,7 +1162,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   if (is.null(homeDir) || !nzchar(homeDir)) homeDir <- getwd()
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
-  pd <- qs::qread(pdPath)
+  pd <- ov_qs_read(pdPath)
   corrPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
 
   rsclient_isolated_exec(
