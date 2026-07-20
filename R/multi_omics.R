@@ -252,6 +252,7 @@ NormalizeDataMultiOmics <- function(nm, opt = "auto"){
 # is honoured; "auto"/unset falls back to the statistical signature.
 .OmicsLayerState <- function(mat, omicsType = "", declared = ""){
   d <- tolower(as.character(declared))
+  if(length(d) != 1L) d <- ""
   if(d %in% c("raw", "normalized", "scaled")) return(d)
 
   m <- suppressWarnings(matrix(as.numeric(as.matrix(mat)), nrow = nrow(mat)))

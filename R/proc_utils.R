@@ -513,14 +513,16 @@ SanityCheckMeta <- function(){
     infoSet <- readSet(infoSet, "infoSet");
     rdtSet <- .get.rdt.set();
     sel.nms <- names(mdata.all)
-    data.list = list();
-
     for(i in 1:length(sel.nms)){
-        dataSet <- readDataset(sel.nms[i])
-        data.list[[i]] <- dataSet$meta;
         mdata.all[[i]] <- 1;
-    } 
-    samples_intersect <- intersect_rownames(data.list);
+    }
+    # sample set = IDs common to every layer's data columns and the metadata rows
+    samples_intersect <- Reduce(intersect, lapply(sel.nms, function(n) colnames(readDataset(n)$data.proc)));
+    samples_intersect <- intersect(samples_intersect, rownames(rdtSet$dataSet$meta.info));
+    if(length(samples_intersect) < 2L){
+        AddErrMsg("Sample IDs in the omics tables do not match the metadata row names. Ensure the metadata #NAME column lists the exact sample column headers of the data tables.");
+        return(0);
+    }
     meta.info <- rdtSet$dataSet$meta.info[samples_intersect, , drop = FALSE];
     meta.info <- droplevels(meta.info);
     rdtSet$dataSet$meta.info <- meta.info;

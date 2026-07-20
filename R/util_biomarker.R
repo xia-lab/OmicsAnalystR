@@ -1305,6 +1305,16 @@ Predict.class <- function(x.train, y.train, x.test, clsMethod="pls", lvNum, imp.
       return(list(imp.vec = imp.vec, prob.out = prob.out));
     }
     return(prob.out);
+  }else if(clsMethod == "glmnet"){ # elastic-net penalized logistic regression
+    cv <- glmnet::cv.glmnet(as.matrix(x.train), y.train, family="binomial", alpha=0.5,
+                            nfolds=5, type.measure="class");
+    prob.out <- as.numeric(predict(cv, as.matrix(x.test), s="lambda.min", type="response"));
+    if(imp.out){
+      co <- as.matrix(coef(cv, s="lambda.min"))[-1, 1];
+      imp.vec <- abs(co); names(imp.vec) <- colnames(x.train);
+      return(list(imp.vec = imp.vec, prob.out = prob.out));
+    }
+    return(prob.out);
   }else if(clsMethod == "lr"){ # logistic regression with selected variables (only in Test)
     x <- x.train;
     y <- y.train;

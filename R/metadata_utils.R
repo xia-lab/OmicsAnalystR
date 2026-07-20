@@ -197,13 +197,20 @@ GetUniqueMetaNames <-function(metadata){
   } 
   disc.inx <- GetDiscreteInx(meta.info);
 
-  # make sure categorical metadata are valid names
+  # keep genuine factor levels verbatim (numeric time points like 0/2/8, or a
+  # HIV- negative marker) — a valid label is left as-is so it stays a real factor
+  # level; only a genuinely invalid value falls back to make.names. NOT X-prefixed.
+  .safeNm <- function(v){ ifelse(grepl("^[A-Za-z0-9][A-Za-z0-9_-]*$", v), v, make.names(v)); }
   if(class(meta.info[,disc.inx]) == "data.frame"){
-    meta.info[,disc.inx] <- apply(meta.info[,disc.inx], 2, function(x){x[x != "NA"] = make.names(x[x != "NA"]); return(x)});
+    meta.info[,disc.inx] <- apply(meta.info[,disc.inx], 2, function(x){x[x != "NA"] = .safeNm(x[x != "NA"]); return(x)});
     meta.info[,disc.inx] <- lapply(meta.info[,disc.inx], function(x) factor(x));
   }else{
-    x <- meta.info[,disc.inx];
-    x[x != "NA"] = make.names(x[x != "NA"])
+    # single discrete column: ClearFactorStrings already made this a factor, and
+    # .safeNm (ifelse) on a factor returns integer codes that fail to map back to the
+    # string levels, NA-ing every value. Coerce to character first, exactly as the
+    # multi-column apply branch above does, so genuine labels are kept verbatim.
+    x <- as.character(meta.info[,disc.inx]);
+    x[x != "NA"] = .safeNm(x[x != "NA"])
     x <- factor(x);
     meta.info[,disc.inx] <- x;
   }
@@ -231,7 +238,7 @@ GetUniqueMetaNames <-function(metadata){
 
   meta.info <- as.data.frame(meta.info);
  
-  check.inx <-apply(meta.info , 2, function(x){ ( sum(is.na(x))/length(x) + sum(x=="NA")/length(x) + sum(x=="")/length(x) ) >0})
+  check.inx <-apply(meta.info , 2, function(x){ ( sum(is.na(x))/length(x) + sum(x=="NA", na.rm=TRUE)/length(x) + sum(x=="", na.rm=TRUE)/length(x) ) >0})
   
   init <- 1;
 

@@ -42,6 +42,14 @@ ComputePathHeatmapTable <- function(dataSet){
   
   metadf <- rdtSet$dataSet$meta.info;
   
+  # Fall back to a variance rank when the per-layer differential result is absent,
+  # so the heatmap still renders instead of indexing a NULL.
+  if(is.null(dataSet$comp.res)){
+    v <- suppressWarnings(apply(as.matrix(data), 1, stats::var, na.rm = TRUE));
+    v[!is.finite(v)] <- 0;
+    dataSet$comp.res <- data.frame(statistic = v, p.value = 1 - rank(v)/length(v),
+                                   row.names = rownames(data));
+  }
   res <- dataSet$comp.res[rownames(data),c(1:2)];
   colnames(res) <- c("statistic", "p.value");
   stat.pvals <- unname(as.vector(res[,2]));

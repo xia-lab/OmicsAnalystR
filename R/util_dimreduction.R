@@ -7,6 +7,25 @@
 ## J. Xia, jeff.xia@mcgill.ca
 ###################################################
 
+# Map internal integration block labels -> human display labels. Uses the readable omics
+# type when it is UNIQUE across the selected layers; when two layers share a type (e.g. two
+# metabolomics platforms) the readable type collides ("Metabolomics"/"Metabolomics_1") and is
+# not identifiable, so the dataset name is used instead. `labels` are per-layer block labels
+# (reductionSet$layer.labels, equal to dataSet$type for distinct-type runs). Returns a vector
+# the same length as `labels`.
+.oa_layer_display_labels <- function(labels, reductionSet, sel.nms) {
+  ds.list <- lapply(sel.nms, function(nm) tryCatch(readDataset(nm), error = function(e) NULL))
+  types   <- vapply(ds.list, function(d) if (is.null(d)) "" else as.character(d$readableType)[1], character(1))
+  blocks  <- if (!is.null(reductionSet$layer.labels) && length(reductionSet$layer.labels) == length(sel.nms)) reductionSet$layer.labels else vapply(ds.list, function(d) if (is.null(d)) "" else as.character(d$type)[1], character(1))
+  clean   <- function(x) { x <- sub("^prepared_", "", x); x <- sub("_(csv|txt)\\.(csv|txt)$", "", x); x <- sub("\\.(csv|txt)$", "", x); gsub("_", " ", x) }
+  disp    <- vapply(seq_along(sel.nms), function(i) if (sum(types == types[i]) > 1L) clean(as.character(ds.list[[i]]$name)[1]) else types[i], character(1))
+  map     <- stats::setNames(disp, blocks)
+  out <- as.character(labels)
+  hit <- out %in% names(map)
+  out[hit] <- unname(map[out[hit]])
+  out
+}
+
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
@@ -739,11 +758,8 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
 
   colnames(df) <- c("Component", "Dataset", "value")
   df$Component <- gsub("Factor","", df$Component);
-  for(i in 1:length(sel.nms)){
-    dataSet <- readDataset(sel.nms[i]);
-
-    df$Dataset <- gsub(dataSet$type,dataSet$readableType, df$Dataset);
-  }
+  # Layer display names: dataset name disambiguates two same-type layers (see helper).
+  df$Dataset <- .oa_layer_display_labels(df$Dataset, reductionSet, sel.nms);
   # Method-standard: persist the per-component variance-explained data behind the figure.
   if (exists("WfSaveFigureData"))
     tryCatch(WfSaveFigureData(paste0("oa_dimred_varexp_", reductionSet$reductionOpt), df),
@@ -785,10 +801,8 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
 
   sel.nms <- names(mdata.all)[mdata.all == 1]
   df <- as.data.frame(var.exp * 100)  # convert proportions to percentages
-  for (i in seq_along(sel.nms)) {
-    dataSet <- readDataset(sel.nms[i])
-    colnames(df) <- gsub(dataSet$type, dataSet$readableType, colnames(df))
-  }
+  # Layer display names: dataset name disambiguates two same-type layers (see helper).
+  colnames(df) <- .oa_layer_display_labels(colnames(df), reductionSet, sel.nms)
   view.cols <- colnames(df)
   df$Total <- rowSums(df[, view.cols, drop=FALSE])
   df$Factor <- if (!is.null(rownames(var.exp))) rownames(var.exp) else paste0("Factor", 1:nrow(df))
@@ -853,11 +867,9 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
     library(data.table)
     df <- as.data.frame(reductionSet[[reductionSet$reductionOpt]]$var.exp)
 
-    # Replace internal omics type names (columns) with readable names
-    for (i in 1:length(sel.nms)) {
-      dataSet <- readDataset(sel.nms[i])
-      colnames(df) <- gsub(dataSet$type, dataSet$readableType, colnames(df))
-    }
+    # Layer display names: readable omics type when unique; dataset name when two layers
+    # share a type (else "Metabolomics"/"Metabolomics_1" is unidentifiable). See helper.
+    colnames(df) <- .oa_layer_display_labels(colnames(df), reductionSet, sel.nms)
 
     df$Factor <- rownames(df)
     df_long <- as.data.frame(melt(as.data.table(df), id.vars = "Factor", variable.name = "View", value.name = "Variance"))
