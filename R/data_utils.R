@@ -229,10 +229,12 @@ RegisterData <- function(dataSet, output=1){
     #dataSets[[dataName]] <- dataSet;
     #dataSets <<- dataSets;
     ov_qs_save(dataSet, file=replace_extension_with_qs(dataName));
+    ov_qs_save(mdata.all, file="mdata.all.qs");
     return(output);
   }else{
     if(paramSet$api.bool){
         ov_qs_save(dataSet, file=replace_extension_with_qs(dataName));
+        ov_qs_save(mdata.all, file="mdata.all.qs");
         return(output);
     }else{
         dataSets[[dataName]] <- dataSet;
@@ -256,6 +258,7 @@ RemoveData <- function(dataName){
   if(!is.null(mdata.all[[dataName]])){
     mdata.all[[dataName]] <<- NULL;
   }
+  if(file.exists("mdata.all.qs")) ov_qs_save(mdata.all, file="mdata.all.qs");
 }
 
 # users can select one or more data for analysis
@@ -277,6 +280,7 @@ SelectData <- function(){
   }
  print(nm.vec)
  mdata.all <<- mdata.all
+  if(file.exists("mdata.all.qs")) ov_qs_save(mdata.all, file="mdata.all.qs");
   rm('nm.vec', envir = .GlobalEnv);
   return(1);
 }

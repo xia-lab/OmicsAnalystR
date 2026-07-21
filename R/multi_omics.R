@@ -619,11 +619,20 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
     xlim <- GetExtendRange(pca.res$PC1);
     ylim <- GetExtendRange(pca.res$PC2);
     
-    Factor <- dataSet$meta[,1];
+    # Colour by the requested metadata factor (column name OR 1-based index; default first
+    # column), so the overview can render one PCA per factor instead of only the first.
+    .mcol <- if (is.character(factor) && factor %in% colnames(dataSet$meta)) match(factor, colnames(dataSet$meta)) else {
+               fi <- suppressWarnings(as.integer(factor)); if (!is.na(fi) && fi >= 1L && fi <= ncol(dataSet$meta)) fi else 1L }
+    .factor.label <- colnames(dataSet$meta)[.mcol]
+    Factor <- dataSet$meta[, .mcol];
     pca.rest <- pca.res
     pca.rest$Conditions <- Factor
     pca.rest$names <- rownames(pca.res)
-    pca.rest$dataset <- dataSet$name # This is the new column specifying the dataset/source
+    # dataset/source label carries this layer's per-axis variance explained, so the
+    # faceted plot shows PC1/PC2 % in each panel's strip (scales are free per layer).
+    pca.rest$dataset <- paste0(dataSet$name,
+                               "  (PC1 ", round(100 * imp.pca[2, 1], 1),
+                               "%, PC2 ", round(100 * imp.pca[2, 2], 1), "%)")
     all_data[[i]] <- pca.rest
 
     #pcafig <- ggplot(pca.rest, aes(x=PC1, y=PC2,  color=Conditions)) +
@@ -674,11 +683,13 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
   if (exists("WfSaveFigureData"))
     tryCatch(WfSaveFigureData("oa_multi_pca", combined_data), error = function(e) NULL)
 
+  if (!exists(".factor.label")) .factor.label <- "Group"
   p1 <- ggplot(combined_data, aes(x=PC1, y=PC2, color=Conditions)) +
-    geom_point(size=3, alpha=0.5) + 
+    geom_point(size=3, alpha=0.7) +
     facet_wrap(~ dataset, scales = "free") + # Use facet_wrap or facet_grid
+    labs(color = .factor.label, title = paste0("Sample PCA - coloured by ", .factor.label)) +
     theme_bw() +
-    theme(text=element_text(size=13))
+    theme(text=element_text(size=13), plot.title = element_text(hjust = 0.5))
 
 
   if(interactive){

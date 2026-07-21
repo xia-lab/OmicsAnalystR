@@ -20,7 +20,7 @@ CovariateScatter.Anal <- function(dataName,
                                   ref = NULL,
                                   block = "NA",
                                   thresh=0.05,
-                                  contrast.cls = "anova",pval.type="raw"){
+                                  contrast.cls = "anova",pval.type="raw", keep=NULL){
 print(pval.type)
   dataSet <- readDataset(dataName);
 
@@ -77,6 +77,16 @@ print(pval.type)
   }
   #subset to samples contained in dataset
   covariates <- covariates[match(colnames(feature_table), rownames(covariates)),,drop=F]
+
+  # Optional sample subset: when 'keep' (a set of sample IDs) is supplied, restrict
+  # the analysis to those samples (feature-table columns / covariate rows) before fitting.
+  if (!is.null(keep)){
+    keep <- intersect(as.character(keep), colnames(feature_table));
+    if (length(keep) < 2L){ AddMsg("Too few samples in the requested subset."); return(c(0, 0)); }
+    feature_table <- feature_table[, keep, drop=F];
+    covariates <- covariates[keep, , drop=F];
+    covariates <- droplevels(covariates);
+  }
 
   if (block != "NA"){
     if(rdtSet$dataSet$meta.types[block] == "cont"){

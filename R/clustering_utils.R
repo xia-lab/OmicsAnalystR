@@ -12,9 +12,9 @@ ComputeHeatmap <- function(fileNm, type){
   }
   .set.rdt.set(reductionSet);
   res.list <- list()
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
     res <- ComputePathHeatmapTable(dataSet);
     res.list[[i]] <- res;
@@ -193,7 +193,12 @@ ComputePathHeatmapTable <- function(dataSet){
   list_of_lists <- apply(rest, 1, function(x) unname(as.list(x)))
   
   
-  heatmap_file <- saveTopRowsHeatmapImage(dat, dataSet, lbls, topN=50, meta.info=meta, meta.types=meta.types);
+  # Feature selection: if fewer than 50 significant (p < 0.05) features, show the top 50 by
+  # p-value; otherwise show ALL significant features, capped at 100. dat/stat.pvals are
+  # p-value-ranked ascending, so the number of significant features is the leading run.
+  n_sig <- sum(as.numeric(stat.pvals) < 0.05, na.rm = TRUE);
+  topN_dyn <- if (n_sig < 50L) 50L else min(as.integer(n_sig), 100L);
+  heatmap_file <- saveTopRowsHeatmapImage(dat, dataSet, lbls, topN=topN_dyn, meta.info=meta, meta.types=meta.types);
 
   json.res <- list(
     data.name = dataSet$name,
@@ -235,7 +240,7 @@ saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.inf
   if(is.na(safeName) || safeName == ""){
     safeName <- "dataset";
   }
-  heatmap_file <- paste0("heatmap_top50_", safeName, ".png");
+  heatmap_file <- paste0("heatmap_sigfeat_", safeName, ".png");
 
   data_for_rsclient <- list(
     dat = dat,
@@ -321,9 +326,9 @@ saveTopRowsHeatmapImage <- function(dat, dataSet, lbls=NULL, topN = 50, meta.inf
                        color = rev(colorRampPalette(RColorBrewer::brewer.pal(10, "RdBu"))(256)),
                        fontsize=10, fontsize_row=8,
                        border_color = NA,
-                       cluster_rows = FALSE,
-                       cluster_cols = FALSE,
-                       scale = "column",
+                       cluster_rows = TRUE,
+                       cluster_cols = TRUE,
+                       scale = "row",
                        annotation_col = anno,
                        annotation_colors = if(length(annotation_colors)>0) annotation_colors else NULL,
                        show_rownames = TRUE,
@@ -366,10 +371,10 @@ ComputeKmeans <- function(clusterNum="-1"){
 
   print(clusterNum)
 
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
@@ -440,10 +445,10 @@ ComputeKmeansPP <- function(clusterNum="-1"){
     clusterNum <- 3
   }
 
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dat <- readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
@@ -492,10 +497,10 @@ ComputeKmeansPP <- function(clusterNum="-1"){
 
  
 ComputeSpectrum <- function(method="1", clusterNum="-1"){
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
@@ -565,10 +570,10 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
 }
 
 ComputePins <- function(method="kmeans", clusterNum="auto"){
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
     data.list[[i]] <- t(dat$data.proc)
   }
@@ -774,10 +779,10 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   alpha = 0.5;  	# hyperparameter, usually (0.3~0.8)
   T = 10; 	# Number of Iterations, usually (10~20)
   
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   data.list <- list()
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
@@ -874,11 +879,11 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
 
 ComputeSilhouette <-function(type){
   
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   
   data.list <- list()
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
     data.list[[i]] <- dat$data.proc
   }
@@ -919,7 +924,7 @@ PlotDiagnostic <- function(alg, imgName, dpi=150, format="png"){
   dpi <- as.numeric(dpi);
   imgNm <- paste(imgName, "dpi", dpi, ".", format, sep="");
   h <- 8;
-  sel.inx <- mdata.all==1;
+  sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   reductionSet<-.get.rdt.set();
 
@@ -1028,7 +1033,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
   sel.nms <- names(mdata.all)
   data.list <- list()
   cls.list <- list()
-  for(i in 1:length(sel.nms)){
+  for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
     data.list[[sel.nms[i]]] <- dat$data.proc
     cls.list[[sel.nms[i]]] <- dat$cls
@@ -1049,7 +1054,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
         clust <- input_data$clust
 
         fig.list <- list()
-        for (i in 1:length(sel.nms)) {
+        for (i in seq_along(sel.nms)) {
           x <- data.list[[sel.nms[i]]]
           pca <- prcomp(t(na.omit(x)))
           imp.pca <- summary(pca)$importance

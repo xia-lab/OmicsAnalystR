@@ -1026,9 +1026,27 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
       library(Cairo)
       # ── Figure 1: variance-partition Venn ───────────────────────────────────
       Cairo::Cairo(file=imgPath, type=fmt, dpi=dpi, width=8.5, height=7, units="in", bg="white")
-      par(mar=c(5, 3, 3, 3), xpd=NA)
-      plot(vp, digits=2, Xnames=xn, bg=c("steelblue","tomato"), alpha=80,
-           main="Variance Partitioning", cex=0.95)
+      on.exit(try(dev.off(), silent=TRUE), add=TRUE)   # always close the device — never leave a black/incomplete PNG
+      # Self-contained two-circle Venn drawn from the computed fractions (a/b/c/d) — does not
+      # depend on vegan::plot.varpart, which could fail on some inputs and leave a blank image.
+      par(mar=c(5, 2, 4, 2), xpd=NA)
+      plot(NA, xlim=c(0,1), ylim=c(0,1), asp=1, axes=FALSE, xlab="", ylab="",
+           main="Variance Partitioning", cex.main=1.2)
+      .draw_circle <- function(x0, y0, rr, col) {
+        th <- seq(0, 2*pi, length.out=180L)
+        polygon(x0 + rr*cos(th), y0 + rr*sin(th), col=col, border="grey40", lwd=1.5)
+      }
+      pctf <- function(v) if (is.na(v)) "n/a" else sprintf("%.1f%%", 100*max(0, v))
+      rr <- 0.27; cx1 <- 0.39; cx2 <- 0.61; cy <- 0.55
+      .draw_circle(cx1, cy, rr, grDevices::adjustcolor("steelblue", 0.45))
+      .draw_circle(cx2, cy, rr, grDevices::adjustcolor("tomato",   0.45))
+      text(cx1 - rr*0.55, cy, pctf(a_val), font=2L, cex=1.05)   # [a] unique X1 (left)
+      text(0.50,          cy, pctf(b_val), font=2L, cex=1.05)   # [b] shared (overlap)
+      text(cx2 + rr*0.55, cy, pctf(c_val), font=2L, cex=1.05)   # [c] unique X2 (right)
+      text(cx1 - rr*0.30, cy + rr + 0.07, xn[1], col="steelblue4", font=2L)
+      text(cx2 + rr*0.30, cy + rr + 0.07, xn[2], col="tomato3",    font=2L)
+      text(0.50, cy - rr - 0.10, sprintf("Residual (unexplained): %s", pctf(d_val)),
+           col="grey30", cex=0.95)
       mtext(sprintf("[a] Unique %s: %.3f   |   [b] Shared: %.3f   |   [c] Unique %s: %.3f   |   Residual: %.3f",
                     xn[1], max(0,a_val), max(0,b_val), xn[2], max(0,c_val), max(0,d_val)),
             side=1L, line=2.3, cex=0.78)

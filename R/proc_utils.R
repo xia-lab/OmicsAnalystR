@@ -395,6 +395,35 @@ ReadOmicsDataFile <- function(fileName, omics.type=NA) {
     return(0)
   }
 
+  # Enforce features-in-rows orientation using the already-loaded metadata sample IDs as the
+  # oracle: this table must be features x samples (col 1 = features, header = samples). If the
+  # sample IDs match the FIRST COLUMN instead of the header, the table is samples-in-rows and is
+  # transposed here. This makes the analysis correct regardless of upstream shape, so a raw
+  # samples-in-rows upload never reaches downstream steps mis-oriented.
+  meta.samples <- tryCatch(rownames(meta.info), error = function(e) NULL)
+  if (!is.null(meta.samples) && length(meta.samples) > 1L && ncol(data) > 2L) {
+    hdr.ids <- as.character(colnames(data)[-1])   # sample names if features-in-rows (correct)
+    col1.ids <- as.character(data[[1]])           # sample names if samples-in-rows (transposed)
+    ov.hdr  <- length(intersect(hdr.ids, meta.samples))
+    ov.col1 <- length(intersect(col1.ids, meta.samples))
+    if (ov.col1 > ov.hdr) {
+      rn <- col1.ids
+      rest <- data[, -1, drop = FALSE]
+      # drop embedded non-numeric columns (e.g. a Group/label column carried in the raw table) —
+      # only numeric feature columns become features after transposition.
+      num.inx <- vapply(rest, function(x)
+        mean(!is.na(suppressWarnings(as.numeric(as.character(x))))) > 0.8, logical(1))
+      rest <- rest[, num.inx, drop = FALSE]
+      m <- t(as.matrix(vapply(rest, function(x) suppressWarnings(as.numeric(as.character(x))),
+                              numeric(nrow(rest)))))
+      colnames(m) <- rn
+      data <- data.frame(Feature = rownames(m), m, check.names = FALSE)
+      message("[ReadOmicsDataFile] samples-in-rows detected (", ov.col1, " sample IDs in col 1 vs ",
+              ov.hdr, " in header); dropped ", sum(!num.inx), " non-numeric col(s) -> transposed ",
+              "to features-in-rows (", nrow(m), " x ", ncol(m), "): ", fileName)
+    }
+  }
+
   # First column as row names (features)
   var.nms <- data[, 1]
   data <- data[, -1] # Remove the first column
