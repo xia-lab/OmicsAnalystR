@@ -107,7 +107,13 @@ print(pval.type)
       contrast.cls = contrast.cls,
       pval.type = pval.type,
       analysis.type = analysis.type,
-      vars = vars
+      vars = vars,
+      # Resolved HERE, in the parent. The block below runs in a callr subprocess, which
+      # inherits NO options from this session — a getOption() call inside isolated_func
+      # always returned the default, so the rank fallback was dead code and an FDR run with
+      # no significant features persisted nothing at all. Ship the value through params,
+      # which is the only channel that crosses the bridge.
+      topn.fallback = getOption("ov.oa.sig.topn.fallback", 0L)
     )
 
     isolated_func <- function(input_data) {
@@ -220,6 +226,27 @@ print(pval.type)
         inx.imp <- ifelse(is.na(inx.imp), FALSE, inx.imp)
         sig.num <- sum(inx.imp)
 
+        # Rank fallback. When nothing clears the threshold, the caller (see
+        # ov.oa.sig.topn.fallback) may ask for the top-N features by RAW p-value rank
+        # instead, so downstream steps receive a feature set rather than nothing: the
+        # outer function returns c(0,0) on sig.num == 0, which leaves sig.mat unset and
+        # no result CSV written. Opt-in by option, so with the option unset the
+        # behaviour is bit-for-bit what it was and the manual page is unaffected.
+        sig.fallback <- FALSE
+        fb <- input_data$params$topn.fallback
+        if (is.null(fb)) fb <- 0L
+        if (sig.num == 0 && is.numeric(fb) && fb >= 1 && length(p.value) > 0) {
+          ord  <- order(p.value, na.last = NA)
+          take <- utils::head(ord, min(as.integer(fb), length(ord)))
+          if (length(take) > 0) {
+            inx.imp <- rep(FALSE, length(p.value))
+            inx.imp[take] <- TRUE
+            sig.num <- length(take)
+            sig.fallback <- TRUE   # returned below; this runs in a subprocess, so a
+                                   # globalenv flag would never reach the caller.
+          }
+        }
+
         # Build sig.mat
         if (sig.num > 0) {
           sig.mat <- rest[inx.imp, ]
@@ -239,6 +266,7 @@ print(pval.type)
           both.mat = both.mat,
           p.value = p.value,
           inx.imp = inx.imp,
+          sig.fallback = sig.fallback,
           analysis.type = analysis.type
         ))
       }, error = function(e) {
@@ -276,6 +304,10 @@ print(pval.type)
     both.mat <- limma_result$both.mat
     p.value <- limma_result$p.value
     inx.imp <- limma_result$inx.imp
+    # TRUE when the features below were picked by raw-p RANK because none cleared the
+    # FDR threshold. The caller reads this to label them honestly.
+    assign(".ov.sig.fallback.fired", isTRUE(limma_result$sig.fallback),
+           envir = globalenv())
     analysis.type <- limma_result$analysis.type
     res.noadj <- NULL  # not needed, both.mat already computed
   
