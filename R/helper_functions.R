@@ -265,10 +265,10 @@ CheckDetailsTablePerformed <-function(type, dataName){
 run_func_via_rc_microservice <- function(...) run_func_via_microservice(...)
 
 run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
-  # Default to the more efficient RSclient fork. The host app sets on.OmicsVerse = TRUE at startup to
+  # Default to the more efficient RSclient fork. The host app sets on.ov = TRUE at startup to
   # force a fresh callr subprocess in deployments where a nested RSclient fork is unstable (a startup
   # flag is used rather than a filesystem probe, which is not a reliable signal).
-  if (!isTRUE(tryCatch(get("on.OmicsVerse", envir = globalenv()), error = function(e) FALSE)) &&
+  if (!isTRUE(tryCatch(get("on.ov", envir = globalenv()), error = function(e) FALSE)) &&
       requireNamespace("RSclient", quietly = TRUE)) {
     return(run_func_via_rsclient(func, args, timeout_sec))
   }
@@ -307,11 +307,11 @@ run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
 }
 
 run_func_via_rsclient <- function(func, args = list(), timeout_sec = 60) {
-  # When the host app marks on.OmicsVerse = TRUE, a nested RSclient connection (an Rserve session
+  # When the host app marks on.ov = TRUE, a nested RSclient connection (an Rserve session
   # opening a connection back to Rserve on 6311) is unstable and crashes the worker, so route to the
   # callr microservice instead. Off that flag (public/self-host) the efficient RSclient fork below is
   # used. `func` is a self-contained closure that exchanges data through ov_qs_* bridge files.
-  if (isTRUE(tryCatch(get("on.OmicsVerse", envir = globalenv()), error = function(e) FALSE))) {
+  if (isTRUE(tryCatch(get("on.ov", envir = globalenv()), error = function(e) FALSE))) {
     return(run_func_via_microservice(func, args, timeout_sec))
   }
   conn <- RSclient::RS.connect(host = "localhost", port = 6311)
