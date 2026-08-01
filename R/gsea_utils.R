@@ -297,7 +297,7 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
   
   fgseaRes <- fgseaRes[!duplicated(fgseaRes$pathway),];
   rownames(fgseaRes) <- make.names(fgseaRes$pathway, unique=TRUE)
-  fgseaRes <- fgseaRes[,c("size","ES", "pval", "pathway", "padj")]
+  fgseaRes <- fgseaRes[,c("size","NES", "pval", "pathway", "padj")]
   fgseaRes <- fgseaRes[order(fgseaRes$pval),]
   if(nrow(fgseaRes[which(fgseaRes$pval < 0.05),])<20 ){
     if(nrow(fgseaRes)>20){
@@ -405,7 +405,9 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
     ftype <- paste0("go_", fun.type);
   }
   
-  csvDf <- data.frame(Name=fgseaRes$pathway, Total=fgseaRes$total, Hits=fgseaRes$hits, EnrichmentScore=fgseaRes$ES, Pval=fgseaRes$pval, Padj=fgseaRes$padj);
+  csvDf <- data.frame(Name=fgseaRes$pathway, Total=fgseaRes$total, Hits=fgseaRes$hits, NES=fgseaRes$NES, Pval=fgseaRes$pval, Padj=fgseaRes$padj);
+  # No IDs column: current.setids is not populated here, so it would fall back to the
+  # pathway names and duplicate Name rather than carry the KEGG ids the other tools emit.
   fast.write(csvDf, file=paste0(file.nm, ".csv"));
   
   return(1);
