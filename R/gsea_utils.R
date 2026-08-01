@@ -406,8 +406,9 @@ PerformGSEA<- function(dataName, file.nm, fun.type,omics.type="", input.type="lo
   }
   
   csvDf <- data.frame(Name=fgseaRes$pathway, Total=fgseaRes$total, Hits=fgseaRes$hits, NES=fgseaRes$NES, Pval=fgseaRes$pval, Padj=fgseaRes$padj);
-  # No IDs column: current.setids is not populated here, so it would fall back to the
-  # pathway names and duplicate Name rather than carry the KEGG ids the other tools emit.
+  fun.ids <- as.vector(setids[fgseaRes$pathway]);
+  csvDf$IDs <- fun.ids;
+
   fast.write(csvDf, file=paste0(file.nm, ".csv"));
   
   return(1);
