@@ -1,3 +1,11 @@
+
+# Reference libraries live in one shared directory when running inside the host
+# app (which sets on.ov = TRUE); standalone use keeps the package-local layout.
+.ov_lib_root <- function() {
+  if (isTRUE(tryCatch(get("on.ov", envir = globalenv()), error = function(e) FALSE)))
+    "../../../../resources/data/" else "../../data/"
+}
+
 ##################################################
 ## R scripts for OmicsAnalyst
 ## Description: Data IO functions
@@ -80,7 +88,7 @@ Init.Data <- function(){
   mmeta.all <<- list(); 
   msg.vec <<- vector(mode="character");
   current.msg <<- "";
-  lib.path <<- "../../data/";
+  lib.path <<- .ov_lib_root();
   data.org <<- NULL;
   module.count <<- 0;
   
