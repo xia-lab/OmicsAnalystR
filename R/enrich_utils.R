@@ -316,9 +316,6 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
   set.ids<- names(current.geneset); 
   names(set.ids) <- names(current.geneset) <- my.lib$term;
   
-  ov_qs_save(current.geneset, "current_geneset.qs");
-
-  
   if(fun.type == "keggm"){
     res$current.setlink <- "";
     res$current.setids <- names(my.lib);
@@ -328,6 +325,12 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
     res$current.setids <- set.ids;
     res$current.geneset <- current.geneset;
   }
+  # Persist exactly what is returned. The compound library ("keggm") is a plain
+  # named list of pathway -> compound ids with no $sets element, so the
+  # current.geneset derived from my.lib$sets above is empty for it — saving that
+  # wrote a 0-pathway current_geneset.qs into the project bundle while the
+  # returned object correctly held all of them.
+  ov_qs_save(res$current.geneset, "current_geneset.qs");
   return(res);
 }
 
