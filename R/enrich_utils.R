@@ -280,6 +280,15 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
 .loadEnrichLib <- function(fun.type, data.org){
   folderNm <- data.org;
   my.path <- paste(lib.path, folderNm, "/", fun.type, ".rds", sep="");
+  # fun.type is used verbatim as the filename, but the PANTHER libraries are
+  # shipped under two spellings: hsa carries both "panthbp.rds" and
+  # "go_panthbp.rds" (byte-identical), while mmu/rno/dre/gga/bta carry only the
+  # go_-prefixed one. The organism menus offer the bare name for every one of
+  # them, so without this fallback readRDS hard-fails for those organisms.
+  if(!file.exists(my.path)){
+    alt.path <- paste(lib.path, folderNm, "/go_", fun.type, ".rds", sep="");
+    if(file.exists(alt.path)) my.path <- alt.path;
+  }
   print(my.path)
   my.lib <- readRDS(my.path);
  
