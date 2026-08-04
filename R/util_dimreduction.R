@@ -265,6 +265,11 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     reductionSet$diabloPar <- diabloPar;
 
     # Isolate mixOmics in subprocess
+    # run_cv gates the perf() cross-validation that produces the BER plot/table.
+    # Read here, in the parent, and passed in: the subprocess has its own options().
+    # Absent or unset means TRUE, so every existing caller is unaffected.
+    run_cv <- tryCatch(isTRUE(getOption("oa.diablo.cv", TRUE)), error = function(e) TRUE)
+
     rsclient_input <- list(
         data.list = data.list,
         meta = reductionSet$meta,
@@ -273,7 +278,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
         diablo.meta.type = diablo.meta.type,
         ncomps = ncomps,
         omics.type = omics.type,
-        omics.vec = omics.vec
+        omics.vec = omics.vec,
+        run_cv = run_cv
       )
 
       diablo_result <- tryCatch({
@@ -290,6 +296,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
             ncomps <- input_data$ncomps
             omics.type <- input_data$omics.type
             omics.vec <- input_data$omics.vec
+            run_cv <- !identical(input_data$run_cv, FALSE)
 
             if (diablo.meta.type == "disc") {
               Y <- meta[, diabloMeta]
@@ -368,7 +375,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
             opt.comp <- NULL
             ber_table <- NULL
             tryCatch({
-              if (diablo.meta.type == "disc") {
+              if (diablo.meta.type == "disc" && run_cv) {
                 # Limit ncomp for perf to avoid zero-variance in folds (same as MicrobiomeAnalyst)
                 ncomp_perf <- min(model$ncomp[1], 8)
                 res_perf <- model
@@ -549,6 +556,12 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
         infoSet$imgSet[["diablo_ber"]] <- diablo_result$ber_img
         reductionSet[["diablo"]]$ber_done <- TRUE
       }
+      # Why there is (or is not) a BER result, so the UI can say which. "skipped" and
+      # "failed" both leave an empty panel but mean different things to the user.
+      reductionSet[["diablo"]]$ber_status <-
+        if (!run_cv) "skipped"
+        else if (!is.null(diablo_result$ber_img)) "ok"
+        else "failed"
       if (!is.null(diablo_result$opt.comp)) {
         reductionSet[["diablo"]]$opt.ncomp <- diablo_result$opt.comp
       }
@@ -1126,6 +1139,16 @@ PlotDiabloBER <- function(imgNm, dpi=150, format="png") {
 }
 
 # Plot DIABLO Circos plot showing correlations between omics layers
+GetDiabloBerStatus <- function() {
+  reductionSet <- .get.rdt.set()
+  st <- reductionSet[["diablo"]]$ber_status
+  if (is.null(st) || !nzchar(st)) {
+    # Pre-dating this field, or DIABLO not run: fall back to whether a table exists.
+    return(if (is.null(reductionSet[["diablo"]]$ber_table)) "failed" else "ok")
+  }
+  st
+}
+
 GetBerTableRows <- function() {
   reductionSet <- .get.rdt.set()
   bt <- reductionSet[["diablo"]]$ber_table
