@@ -635,8 +635,8 @@ convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
 
       tryCatch({
         # Load compiled utility files
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/general_load_libs.Rc", .GlobalEnv)
-        compiler::loadcmp("../../rscripts/OmicsAnalystR/R/data_utils.Rc", .GlobalEnv)
+        source("../../rscripts/OmicsAnalystR/R/general_load_libs.R", local = FALSE)
+        source("../../rscripts/OmicsAnalystR/R/data_utils.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/misc_utils.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/graph_utils.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/util_graph.R", local = FALSE)

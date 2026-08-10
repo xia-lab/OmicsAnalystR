@@ -708,9 +708,7 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
         func_body = function(input_data) {
           library(ade4)
           df.list <- input_data$data_obj
-          if (!is.null(input_data$mcia_script_rc) && file.exists(input_data$mcia_script_rc)) {
-            compiler::loadcmp(input_data$mcia_script_rc, envir = globalenv())
-          } else if (!is.null(input_data$mcia_script_path) && file.exists(input_data$mcia_script_path)) {
+          if (!is.null(input_data$mcia_script_path) && file.exists(input_data$mcia_script_path)) {
             source(input_data$mcia_script_path, local = FALSE)
           } else {
             AddErrMsg("Cannot find util_mcia.R or util_mcia.Rc script"); return(0);
