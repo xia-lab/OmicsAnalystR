@@ -479,9 +479,33 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
                 local({
                   comp_idx <- cc
                   fig.list[[comp_idx]] <<- cowplot::as_grob(function() {
+                    # plotLoadings reserves its own left margin -- max(7, nchar/3) LINES -- and
+                    # then overwrites any mar set here. That heuristic under-provisions once a
+                    # name passes roughly 21 characters, so the name is drawn past the left edge
+                    # of the device and truncated: taxonomy-binned genera such as
+                    # "Lachnospiraceae UCG-004" arrived as "spiraceae UCG-004". Measure what the
+                    # longest displayed name actually needs and shrink the text to fit it.
+                    sz <- 1.1
+                    try({
+                      nms <- character(0)
+                      try({
+                        sv <- mixOmics::selectVar(model, comp = comp_idx)
+                        for (b in sv) if (is.list(b) && !is.null(b$name))
+                          nms <- c(nms, utils::head(as.character(b$name), 10))
+                      }, silent = TRUE)
+                      if (!length(nms)) nms <- unlist(lapply(model$X, colnames))
+                      nms <- nms[!is.na(nms) & nzchar(nms)]
+                      if (length(nms)) {
+                        widest   <- nms[which.max(nchar(nms))]
+                        reserved <- max(7, max(nchar(nms)) / 3) * par("csi")
+                        need     <- strwidth(widest, units = "inches", cex = sz)
+                        if (is.finite(need) && need > reserved)
+                          sz <- max(0.55, sz * reserved / need)
+                      }
+                    }, silent = TRUE)
                     par(mar = c(4, 12, 2, 2))
                     mixOmics::plotLoadings(model, ndisplay = 10, comp = comp_idx, contrib = "max",
-                                           method = "median", size.name = 1.1, legend = TRUE)
+                                           method = "median", size.name = sz, legend = TRUE)
                   })
                 })
               }
