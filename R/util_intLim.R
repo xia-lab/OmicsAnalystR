@@ -64,9 +64,9 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
     }
   } 
 dt1 = as.matrix(dataSet1$data.proc)
-dt1 <- dt1[rownames(dt1) %in% dataSet1[["sig.mat"]][["ids"]],]
+dt1 <- dt1[rownames(dt1) %in% dataSet1[["sig.mat"]][["ids"]],,drop=FALSE]
 dt2 = as.matrix(dataSet2$data.proc)
-dt2 <- dt2[rownames(dt2) %in% dataSet2[["sig.mat"]][["ids"]],]
+dt2 <- dt2[rownames(dt2) %in% dataSet2[["sig.mat"]][["ids"]],,drop=FALSE]
 
 rownames(dt1) <- paste0(rownames(dt1),"_",dataSet1$type)
 rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
