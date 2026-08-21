@@ -432,8 +432,65 @@ DeleteSample <- function(samplNm){
     dataSet <- readDataset(dataName);
     dataSet$meta <-  rdtSet$dataSet$meta.info;
     dataSet$data.proc <- dataSet$data.proc[,colnames(dataSet$data.proc)!=samplNm]
+    RegisterData(dataSet);
   }
- 
+
+  .set.rdt.set(rdtSet);
+  return(1);
+}
+
+GetUploadedSampleNames <- function(type="kept"){
+  rdtSet <- .get.rdt.set();
+  if(type == "all"){
+    return(rownames(rdtSet$dataSet.origin$meta.info));
+  }
+  return(rownames(rdtSet$dataSet$meta.info));
+}
+
+#'Update the sample set across all uploaded omics tables
+#'@description Keeps only the samples named in smpl.nm.vec. Rows currently
+#'present keep their (possibly edited) metadata; rows being added back are
+#'restored from the original copies, as are their data columns, so exclusion
+#'is always reversible.
+#'@export
+UpdateUploadedSampleItems <- function(){
+  rdtSet <- .get.rdt.set();
+
+  if(!exists("smpl.nm.vec")){
+    msg.vec <<- "Cannot find the sample names to keep!";
+    return(0);
+  }
+
+  meta.full <- rdtSet$dataSet.origin$meta.info;
+  keep <- intersect(rownames(meta.full), smpl.nm.vec);
+  if(length(keep) < 3){
+    msg.vec <<- "At least three samples must remain for analysis.";
+    return(0);
+  }
+
+  cur <- rdtSet$dataSet$meta.info;
+  kept.cur <- cur[intersect(rownames(cur), keep), , drop=FALSE];
+  add.back <- setdiff(keep, rownames(cur));
+  if(length(add.back) > 0){
+    common.cols <- intersect(colnames(cur), colnames(meta.full));
+    kept.cur <- rbind(kept.cur[, common.cols, drop=FALSE],
+                      meta.full[add.back, common.cols, drop=FALSE]);
+  }
+  ord <- rownames(meta.full)[rownames(meta.full) %in% rownames(kept.cur)];
+  rdtSet$dataSet$meta.info <- kept.cur[ord, , drop=FALSE];
+
+  sel.nms <- names(mdata.all)
+  for(dataName in sel.nms){
+    dataSet <- readDataset(dataName);
+    full <- dataSet$data.proc.origin;
+    if(is.null(full)) full <- dataSet$data.proc;
+    dataSet$data.proc <- full[, colnames(full) %in% keep, drop=FALSE];
+    dataSet$meta <- rdtSet$dataSet$meta.info;
+    RegisterData(dataSet);
+  }
+
+  excluded <- setdiff(rownames(meta.full), keep);
+  msg.vec <<- paste0(length(keep), " samples kept; ", length(excluded), " excluded.");
   .set.rdt.set(rdtSet);
   return(1);
 }
