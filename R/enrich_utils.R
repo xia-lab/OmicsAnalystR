@@ -279,14 +279,27 @@ PerformEnrichAnalysis <- function(file.nm, fun.type, ora.vec,type,ifNet=F){
 
 .loadEnrichLib <- function(fun.type, data.org){
   folderNm <- data.org;
-  my.path <- paste(lib.path, folderNm, "/", fun.type, ".rds", sep="");
+  # Resolve the reference-data root FRESH instead of trusting the cached global `lib.path`.
+  # lib.path is set once at Init.Data and PERSISTED in Rload.RData, so after a redeploy the
+  # exploded-WAR temp dir it pins (payaramicro-rt<old>tmp/.../resources/data) is deleted, and
+  # a session-reconnect that restores Rload.RData brings the stale path back — readRDS then
+  # fails "cannot open the connection" and the Function Explorer returns no results. Re-derive
+  # from the live .rscripts.dir anchor via .ov_lib_root(); self-heal the global when it works,
+  # and fall back to the cached value only if the fresh one is unusable.
+  lib.root <- tryCatch(.ov_lib_root(), error = function(e) NA_character_);
+  if(!is.na(lib.root) && dir.exists(file.path(lib.root, folderNm))){
+    lib.path <<- lib.root;
+  } else {
+    lib.root <- lib.path;
+  }
+  my.path <- paste(lib.root, folderNm, "/", fun.type, ".rds", sep="");
   # fun.type is used verbatim as the filename, but the PANTHER libraries are
   # shipped under two spellings: hsa carries both "panthbp.rds" and
   # "go_panthbp.rds" (byte-identical), while mmu/rno/dre/gga/bta carry only the
   # go_-prefixed one. The organism menus offer the bare name for every one of
   # them, so without this fallback readRDS hard-fails for those organisms.
   if(!file.exists(my.path)){
-    alt.path <- paste(lib.path, folderNm, "/go_", fun.type, ".rds", sep="");
+    alt.path <- paste(lib.root, folderNm, "/go_", fun.type, ".rds", sep="");
     if(file.exists(alt.path)) my.path <- alt.path;
   }
   print(my.path)

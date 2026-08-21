@@ -657,14 +657,31 @@ GetDiagnosticSummary<- function(type){
 
 plotEig <- function(nclust=3, eig.vec){
   nkeig <- as.numeric(nclust)
-  eig <- eig.vec
+  # eig.vec can be NULL / non-numeric for a clustering result that didn't populate its
+  # eigen / variance-explained field (e.g. the spectrum branch's eigensystem$values is
+  # absent → NULL[1:10] = NULL). A bare barplot(NULL) throws "'height' must be a vector",
+  # and because PlotDiagnostic opened the Cairo device BEFORE calling this and has no
+  # tryCatch around it, the error aborts before dev.off() → the PNG is never finalized and
+  # the dashboard 404s on diagnostic_components. Coerce, and degrade to a placeholder so the
+  # device still closes cleanly and an image is always written.
+  eig <- suppressWarnings(as.numeric(unlist(eig.vec)))
+  eig <- eig[is.finite(eig)]
+  if(length(eig) == 0){
+    plot.new()
+    text(0.5, 0.5, "Diagnostic components are unavailable for this clustering result.", cex=0.9)
+    return(invisible())
+  }
   proe <- eig/sum(eig)
   par(mar=c(3, 4, 1, 4))
   neig <- length(eig)
+  # Clamp: if the chosen cluster number exceeds the number of eigenvalues, rep("gray",
+  # neig-nkeig) would be a negative count and error. Keep the highlighted count in [0, neig].
+  if(is.na(nkeig)) nkeig <- 0
+  nkeig <- max(0, min(nkeig, neig))
   po <- barplot(eig, plot=FALSE)
   barplot(eig,names.arg= 1:neig, col=c(rep("cyan", nkeig), rep("gray", neig-nkeig)), xlab="", ylab="Eigen Value")
-  
-  par(new=T) 
+
+  par(new=T)
   plot(cbind(po, proe), frame.plot=FALSE, pch=20, axes=FALSE, xlab="Eigen Vector", ylab="")
   points(x=po, y=proe, pch=20)
   lines(x=po, y=proe)
