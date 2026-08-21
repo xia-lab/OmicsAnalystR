@@ -457,14 +457,14 @@ UpdateUploadedSampleItems <- function(){
   rdtSet <- .get.rdt.set();
 
   if(!exists("smpl.nm.vec")){
-    msg.vec <<- "Cannot find the sample names to keep!";
+    current.msg <<- "Cannot find the sample names to keep!";
     return(0);
   }
 
   meta.full <- rdtSet$dataSet.origin$meta.info;
   keep <- intersect(rownames(meta.full), smpl.nm.vec);
   if(length(keep) < 3){
-    msg.vec <<- "At least three samples must remain for analysis.";
+    current.msg <<- "At least three samples must remain for analysis.";
     return(0);
   }
 
@@ -490,7 +490,7 @@ UpdateUploadedSampleItems <- function(){
   }
 
   excluded <- setdiff(rownames(meta.full), keep);
-  msg.vec <<- paste0(length(keep), " samples kept; ", length(excluded), " excluded.");
+  current.msg <<- paste0(length(keep), " samples kept; ", length(excluded), " excluded.");
   .set.rdt.set(rdtSet);
   return(1);
 }
