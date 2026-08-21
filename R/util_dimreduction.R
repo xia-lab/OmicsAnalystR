@@ -1304,3 +1304,30 @@ PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
   saveSet(infoSet)
   return(1)
 }
+
+#'Variance explained per component, as a report-ready table
+#'@description The variance figures show the shape of the decomposition; this publishes the
+#'numbers behind them so a reader can state how much of each layer a component actually
+#'captures instead of estimating it off a bar. Same column contract as the MMP module's
+#'function of the same name, so the two tools' reports read alike.
+#'@param alg one of "mcia", "mofa", "diablo"
+#'@export
+GetDimRedVarExpTable <- function(alg = "mcia"){
+  empty <- data.frame(Component = character(0), stringsAsFactors = FALSE);
+  reductionSet <- tryCatch(.get.rdt.set(), error = function(e) NULL);
+  if(is.null(reductionSet)) return(empty);
+  v <- reductionSet[[alg]]$var.exp;
+  if(is.null(v) || length(dim(v)) != 2 || nrow(v) == 0) return(empty);
+  v <- as.matrix(v);
+  layers <- colnames(v);
+  if(is.null(layers)) layers <- paste0("Layer", seq_len(ncol(v)));
+  comps <- rownames(v);
+  if(is.null(comps)) comps <- paste0("Factor", seq_len(nrow(v)));
+  df <- data.frame(Component = comps, stringsAsFactors = FALSE);
+  for(i in seq_along(layers)){
+    df[[paste0(layers[i], " (%)")]] <- round(as.numeric(v[, i]) * 100, 2);
+  }
+  df[["Total (%)"]] <- round(rowSums(v, na.rm = TRUE) * 100, 2);
+  rownames(df) <- NULL;
+  df
+}
