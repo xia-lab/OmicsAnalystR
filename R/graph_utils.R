@@ -638,6 +638,15 @@ convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
         source("../../rscripts/OmicsAnalystR/R/general_load_libs.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/data_utils.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/misc_utils.R", local = FALSE)
+        # helper_functions.R defines rsclient_isolated_exec, which FindCommunities
+        # (called by my.convert.igraph -> graph_utils.R:547) invokes as a nested
+        # isolated run. Before the .Rc-compiled bundle was replaced by per-file
+        # source()ing (commit 14f6308), every function was available in the
+        # subprocess; the new source list omitted this file, so the nested call
+        # died with 'could not find function "rsclient_isolated_exec"' and the whole
+        # conversion returned 0 -> the UI's "Failed to generate network!". Pure
+        # function defs, no side effects, safe to source here.
+        source("../../rscripts/OmicsAnalystR/R/helper_functions.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/graph_utils.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/util_graph.R", local = FALSE)
 
