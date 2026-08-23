@@ -35,6 +35,14 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   featureNms <- vector();
   uniqFeats <- vector();
 
+  # Feature-importance (VIP) carriers. A branch may supply RAW loadings and a
+  # per-component weight vector when the values it stores in loading.pos.xyz are
+  # unsuitable for a VIP (DIABLO min-max scales its loadings to [0,1], which
+  # destroys sign/magnitude). Left NULL, the common tail computes the score from
+  # loading.pos.xyz weighted by var.exp. See .oa_feature_vip().
+  loading.raw <- NULL;
+  vip.weights <- NULL;
+
   # Per-layer BLOCK LABELS for integration. data.list / the DIABLO design matrix / the MOFA
   # views are keyed by this label, so it MUST be unique per layer: two layers sharing a type
   # string (e.g. two metabolomics platforms both "met_t", or two generic tables) would
@@ -344,9 +352,17 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
             # Get loadings
             loading.list <- vector("list", length(omics.type))
+            loading.raw.list <- vector("list", length(omics.type))
             for (i in 1:length(omics.type)) {
               temp.mat <- as.data.frame(model[["loadings"]][[i]])
               rnms <- rownames(temp.mat)
+              # RAW (unscaled, signed) loadings — kept for the VIP score. The scaled
+              # copy below drives the 3D-ordination positions but is unusable for VIP:
+              # min-max scaling maps a large negative loading to 0 ("unimportant").
+              raw.mat <- as.data.frame(model[["loadings"]][[i]])
+              raw.mat$ids <- rnms
+              raw.mat$type <- omics.type[i]
+              loading.raw.list[[i]] <- raw.mat
               temp.mat <- as.data.frame(apply(temp.mat, 2, function(x) {
                 x_range <- max(x) - min(x)
                 if (x_range == 0) return(rep(0, length(x)))
@@ -359,6 +375,12 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
             }
             loading.pos.xyz <- do.call(rbind, loading.list)
             colnames(loading.pos.xyz) <- c(paste0("Factor", 1:ncomps), "ids", "type")
+            loading.raw <- do.call(rbind, loading.raw.list)
+            colnames(loading.raw) <- c(paste0("Factor", 1:ncomps), "ids", "type")
+
+            # Proportion of OUTCOME (Y) variance per component — the SSY weight of a
+            # genuine supervised VIP. Captured BEFORE dropping Y from var.exp below.
+            yvar <- tryCatch(as.numeric(model$prop_expl_var$Y), error = function(e) NULL)
 
             var.exp <- model$prop_expl_var
             var.exp$Y <- NULL
@@ -556,6 +578,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
             gc(verbose = FALSE, full = TRUE)
             return(list(
               pos.xyz = pos.xyz, loading.pos.xyz = loading.pos.xyz, var.exp = var.exp,
+              loading.raw = loading.raw, yvar = yvar,
               ber_img = ber_img, loading_img = loading_img, opt.comp = opt.comp, ber_table = ber_table
             ))
           },
@@ -574,6 +597,9 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       pos.xyz <- diablo_result$pos.xyz
       loading.pos.xyz <- diablo_result$loading.pos.xyz
       var.exp <- diablo_result$var.exp
+      # RAW loadings + Y-variance weight for the supervised DIABLO VIP (see tail).
+      loading.raw <- diablo_result$loading.raw
+      vip.weights <- diablo_result$yvar
 
       # Register pre-generated BER/Loading images
       if (!is.null(diablo_result$ber_img)) {
@@ -661,6 +687,37 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet[[reductionOpt]]$pos.xyz <- pos.xyz;
   reductionSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   reductionSet[[reductionOpt]]$var.exp <- var.exp;
+
+  # Per-feature importance score. DIABLO (supervised) -> genuine VIP: RAW loadings
+  # weighted by the proportion of OUTCOME variance per component. MCIA / MOFA / other
+  # (unsupervised) -> variance-weighted-loading analog: their loading.pos.xyz is already
+  # raw, weighted by the per-component variance/covariance captured (rowSums of var.exp).
+  #
+  # Normalized SEPARATELY WITHIN EACH OMICS LAYER. Cross-block loading budgets are not
+  # comparable — each block's loadings carry a fixed total norm per component, so a block
+  # with fewer features gets systematically larger per-feature loadings and a pooled
+  # ranking is dominated by the smallest layer. Per-layer normalization makes "VIP > 1"
+  # mean "above average FOR ITS OWN LAYER" and keeps the score comparable across layers.
+  reductionSet[[reductionOpt]]$vip <- tryCatch({
+    base <- if (!is.null(loading.raw)) as.data.frame(loading.raw) else loading.pos.xyz;
+    key.base <- paste0(base$ids, "_", base$type);
+    key.lp   <- paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type);
+    base <- base[match(key.lp, key.base), , drop = FALSE];
+    Lmat <- as.matrix(base[, seq_len(ncomps), drop = FALSE]);
+    wts  <- if (!is.null(vip.weights)) as.numeric(vip.weights) else {
+              ve <- as.matrix(var.exp);
+              if (ncol(ve) > 1L) rowSums(ve, na.rm = TRUE) else as.numeric(ve) };
+    types  <- loading.pos.xyz$type;
+    vipvec <- rep(NA_real_, nrow(Lmat));
+    for (ty in unique(types)) {
+      ii <- which(types == ty);
+      vipvec[ii] <- .oa_feature_vip(Lmat[ii, , drop = FALSE], wts);
+    }
+    data.frame(ids = loading.pos.xyz$ids, type = loading.pos.xyz$type,
+               label = loading.pos.xyz$label, VIP = round(as.numeric(vipvec), 4),
+               stringsAsFactors = FALSE, row.names = rownames(loading.pos.xyz));
+  }, error = function(e) { message("[oa/vip] ", reductionOpt, ": ", conditionMessage(e)); NULL });
+
   fileNm <- paste0("loading_result_", reductionOpt);
   reductionSet[[reductionOpt]]$loading.file.nm <- fileNm;
   infoSet$imgSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
@@ -701,9 +758,37 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
 
 #used to get MOFA results
 GetRdtQs <- function(){
-    res <- ov_qs_read("rdt.set.qs");    
+    res <- ov_qs_read("rdt.set.qs");
 #    rdt.set <<- res;
     return(1);
+}
+
+# Per-feature importance from a RAW loadings matrix and per-component weights.
+# Uses the standard PLS VIP normalization so mean(VIP^2) == 1 (hence the familiar
+# "VIP > 1 is important" reading): each component's squared loadings are L2-normalized
+# (making the score scale-invariant across methods that store loadings differently),
+# weighted by that component's weight, then scaled by the feature count.
+#
+#   VIP_j = sqrt( p * sum_a [ (L_aj^2 / sum_k L_ak^2) * w_a ] / sum_a w_a )
+#
+# For DIABLO w_a is the proportion of OUTCOME variance per component (true supervised
+# VIP); for MCIA/MOFA it is the per-component variance/covariance captured (an
+# unsupervised, variance-weighted-loading analog). Returns a per-feature numeric vector.
+.oa_feature_vip <- function(loadings, weights) {
+  L <- as.matrix(loadings)
+  storage.mode(L) <- "double"
+  L[is.na(L)] <- 0
+  w <- as.numeric(weights)
+  w[is.na(w) | w < 0] <- 0
+  if (nrow(L) == 0L || ncol(L) == 0L || sum(w) == 0) return(rep(NA_real_, nrow(L)))
+  # align weight length to the loading columns
+  if (length(w) != ncol(L)) w <- rep_len(w, ncol(L))
+  ss <- colSums(L^2); ss[ss == 0] <- 1                 # avoid divide-by-zero
+  L2 <- sweep(L^2, 2, ss, "/")                          # each column sums to 1
+  wn <- w / sum(w)
+  vip <- sqrt(nrow(L) * as.vector(L2 %*% wn))
+  names(vip) <- rownames(L)
+  vip
 }
 
 run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
@@ -870,6 +955,97 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   infoSet$imgSet[[paste0("cumr2_", reductionSet$reductionOpt)]] <- imgNm
   saveSet(infoSet)
   return(1)
+}
+
+# Human label for the importance score: DIABLO is supervised sPLS-DA so the score is a
+# genuine VIP; the unsupervised methods get a variance-weighted-loading analog.
+.oa_vip_label <- function(opt){
+  if (identical(opt, "diablo")) "VIP" else "Importance"
+}
+
+# Per-omics-layer top-N feature importance: within EACH layer, the n features with the
+# highest (layer-normalized) VIP, plus a within-layer rank (LayerRank) and display Layer.
+# Grouped by layer, ordered by score within layer. Reads reductionSet[[opt]]$vip.
+.oa_featimp_per_layer <- function(opt = NULL, n = 10L){
+  reductionSet <- .get.rdt.set();
+  if (is.null(opt) || opt == "") opt <- reductionSet$reductionOpt;
+  vip <- reductionSet[[opt]]$vip;
+  if (is.null(vip) || nrow(vip) == 0L) return(NULL);
+  vip <- vip[!is.na(vip$VIP), , drop = FALSE];
+  if (nrow(vip) == 0L) return(NULL);
+  sel.nms <- names(mdata.all)[mdata.all == 1];
+  vip$Layer <- .oa_layer_display_labels(vip$type, reductionSet, sel.nms);
+  vip$Feature <- ifelse(is.na(vip$label) | vip$label == "", vip$ids, vip$label);
+  parts <- lapply(split(vip, vip$Layer), function(d){
+    d <- d[order(d$VIP, decreasing = TRUE), , drop = FALSE];
+    d <- utils::head(d, as.integer(n));
+    d$LayerRank <- seq_len(nrow(d));
+    d;
+  });
+  do.call(rbind, parts);
+}
+
+# Faceted bar chart: within each omics layer, the top-N features by importance. One facet
+# per layer (independent y axis) so the smaller layer is not crowded out by the larger.
+# Replayable/refinable (records its call, reads persisted state). Draws for whichever
+# method reductionSet$reductionOpt names.
+PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
+  try(RecordRCommand(paste0("PlotFeatureImportance(\"", imgNm, "\")")), silent = TRUE)
+  infoSet <- readSet(infoSet, "infoSet");
+  load_cairo(); load_ggplot();
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
+
+  reductionSet <- .get.rdt.set();
+  opt <- reductionSet$reductionOpt;
+  if (is.null(opt) || is.null(reductionSet[[opt]])) {
+    AddErrMsg("Dimension reduction results not available. Please run the analysis first."); return(0)
+  }
+  top <- .oa_featimp_per_layer(opt, 10L);
+  if (is.null(top)) { AddErrMsg("No feature-importance scores available for this method."); return(0) }
+  lab <- .oa_vip_label(opt);
+  # A composite factor keyed by Layer+Feature keeps levels unique even if a feature name
+  # recurs across layers; ordered ascending so coord_flip puts the top feature at the top.
+  top <- top[order(top$Layer, top$VIP), , drop = FALSE];
+  top$FeatKey <- factor(paste(top$Layer, top$Feature, sep = ":::"),
+                        levels = paste(top$Layer, top$Feature, sep = ":::"));
+  feat.labels <- setNames(as.character(top$Feature), as.character(top$FeatKey));
+  if (exists("WfSaveFigureData"))
+    tryCatch(WfSaveFigureData(paste0("oa_featimp_", opt), top), error = function(e) NULL)
+
+  n.layers <- length(unique(top$Layer));
+  # Categorical mapped to y (no coord_flip) so facet scales="free_y" gives each layer its
+  # OWN features; the shared x (score) axis keeps the layers visually comparable.
+  p <- ggplot(top, aes(x = VIP, y = FeatKey, fill = Layer)) +
+    geom_col(width = 0.7) +
+    facet_wrap(~ Layer, scales = "free_y", ncol = 1) +
+    scale_y_discrete(labels = feat.labels) +
+    scale_fill_okabeito() +
+    labs(y = "", x = if (identical(opt, "diablo")) "VIP score" else "Importance (variance-weighted loading)",
+         title = paste0("Top features by ", lab, ", per omics layer")) +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(hjust = 0.5, size = 14), legend.position = "none",
+          strip.text = element_text(face = "bold"), panel.grid.major.y = element_blank())
+
+  Cairo(file = imgNm, unit = "in", dpi = dpi, width = 8, height = max(5, 3.2 * n.layers),
+        type = format, bg = "white")
+  print(p); dev.off()
+  infoSet$imgSet[[paste0("featimp_", opt)]] <- imgNm
+  saveSet(infoSet)
+  return(1)
+}
+
+# Delimited per-layer top-N feature-importance table for the JSF DimRedSummary tab. One
+# string, rows joined by "||", columns by tab: LayerRank, Feature, Layer, Score. Grouped
+# by layer. Empty string when unavailable. (Delimited-string transport avoids the Java-21
+# List-serialization pitfall; the bean splits it.)
+GetFeatImpTableStr <- function(method = NULL, n = 10L){
+  tryCatch({
+    top <- .oa_featimp_per_layer(method, as.integer(n));
+    if (is.null(top)) return("");
+    rows <- paste(top$LayerRank, top$Feature, top$Layer, sprintf("%.4f", top$VIP), sep = "\t");
+    paste(rows, collapse = "||");
+  }, error = function(e) "")
 }
 
 PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="png"){
