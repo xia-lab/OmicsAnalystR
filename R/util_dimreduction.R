@@ -708,7 +708,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
     base <- base[match(key.lp, key.base), , drop = FALSE];
     Lmat <- as.matrix(base[, seq_len(ncomps), drop = FALSE]);
     types  <- loading.pos.xyz$type;
-    vipvec <- if (reductionOpt %in% c("diablo", "mcia", "mofa")) {
+    is.loading.method <- reductionOpt %in% c("diablo", "mcia", "mofa");
+    vipvec <- if (is.loading.method) {
       # Native importance: signed loading/weight on each feature's dominant component.
       .oa_dominant_loading(Lmat)
     } else {
@@ -719,8 +720,15 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
       for (ty in unique(types)) { ii <- which(types == ty); v[ii] <- .oa_feature_vip(Lmat[ii, , drop = FALSE], wts); }
       v
     };
+    # The component (axis/factor) whose loading the score comes from — same argmax|.| as
+    # .oa_dominant_loading, labeled per method (MOFA "Factor k", MCIA "Axis k", DIABLO
+    # "Component k"). Names the sign so a signed loading is interpretable. NA for the
+    # variance-weighted fallback, which aggregates across components (no single dominant one).
+    comp <- if (is.loading.method) .oa_component_label(reductionOpt, .oa_dominant_component(Lmat))
+            else rep(NA_character_, nrow(Lmat));
     data.frame(ids = loading.pos.xyz$ids, type = loading.pos.xyz$type,
                label = loading.pos.xyz$label, VIP = round(as.numeric(vipvec), 4),
+               Component = comp,
                stringsAsFactors = FALSE, row.names = rownames(loading.pos.xyz));
   }, error = function(e) { message("[oa/vip] ", reductionOpt, ": ", conditionMessage(e)); NULL });
 
@@ -805,6 +813,21 @@ GetRdtQs <- function(){
   if (nrow(L) == 0L || ncol(L) == 0L) return(rep(NA_real_, nrow(L)))
   v <- apply(L, 1L, function(r){ if (all(is.na(r))) return(NA_real_); r[which.max(abs(r))] })
   names(v) <- rownames(L); v
+}
+
+# Companion to .oa_dominant_loading: the 1-based index of the dominant component (same
+# which.max(abs(.)) tie-break), NA when a feature's whole row is NA. So the reported score
+# and its component always refer to the same axis/factor.
+.oa_dominant_component <- function(loadings){
+  L <- as.matrix(loadings); storage.mode(L) <- "double"
+  if (nrow(L) == 0L || ncol(L) == 0L) return(rep(NA_integer_, nrow(L)))
+  vapply(seq_len(nrow(L)), function(i){ r <- L[i, ]; if (all(is.na(r))) NA_integer_ else which.max(abs(r)) }, integer(1))
+}
+
+# Human label for a dominant-component index, named per method's own idiom.
+.oa_component_label <- function(opt, idx){
+  pfx <- switch(opt, mofa = "Factor", mcia = "Axis", diablo = "Component", "Component")
+  ifelse(is.na(idx), NA_character_, paste(pfx, idx))
 }
 
 run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
@@ -1064,14 +1087,16 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
 }
 
 # Delimited per-layer top-N feature-importance table for the JSF DimRedSummary tab. One
-# string, rows joined by "||", columns by tab: LayerRank, Feature, Layer, Score. Grouped
-# by layer. Empty string when unavailable. (Delimited-string transport avoids the Java-21
-# List-serialization pitfall; the bean splits it.)
+# string, rows joined by "||", columns by tab: LayerRank, Feature, Layer, Score, Component.
+# Component names the axis/factor the (signed) score comes from — empty for the fallback.
+# Grouped by layer. Empty string when unavailable. (Delimited-string transport avoids the
+# Java-21 List-serialization pitfall; the bean splits it.)
 GetFeatImpTableStr <- function(method = NULL, n = 10L){
   tryCatch({
     top <- .oa_featimp_per_layer(method, as.integer(n));
     if (is.null(top)) return("");
-    rows <- paste(top$LayerRank, top$Feature, top$Layer, sprintf("%.4f", top$VIP), sep = "\t");
+    comp <- if (!is.null(top$Component)) ifelse(is.na(top$Component), "", top$Component) else rep("", nrow(top));
+    rows <- paste(top$LayerRank, top$Feature, top$Layer, sprintf("%.4f", top$VIP), comp, sep = "\t");
     paste(rows, collapse = "||");
   }, error = function(e) "")
 }
