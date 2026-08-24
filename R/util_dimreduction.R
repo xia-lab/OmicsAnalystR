@@ -688,31 +688,37 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   reductionSet[[reductionOpt]]$loading.pos.xyz <- loading.pos.xyz;
   reductionSet[[reductionOpt]]$var.exp <- var.exp;
 
-  # Per-feature importance score. DIABLO (supervised) -> genuine VIP: RAW loadings
-  # weighted by the proportion of OUTCOME variance per component. MCIA / MOFA / other
-  # (unsupervised) -> variance-weighted-loading analog: their loading.pos.xyz is already
-  # raw, weighted by the per-component variance/covariance captured (rowSums of var.exp).
-  #
-  # Normalized SEPARATELY WITHIN EACH OMICS LAYER. Cross-block loading budgets are not
-  # comparable — each block's loadings carry a fixed total norm per component, so a block
-  # with fewer features gets systematically larger per-feature loadings and a pooled
-  # ranking is dominated by the smallest layer. Per-layer normalization makes "VIP > 1"
-  # mean "above average FOR ITS OWN LAYER" and keeps the score comparable across layers.
+  # Per-feature importance score = the method's OWN native loading/weight, reported as the
+  # SIGNED value on each feature's DOMINANT component (the one where |loading| is largest).
+  # This is the quantity each method's users expect:
+  #   * MCIA   -> axis coordinate (mcoa$Tco)   — cf. omicade4 loadings plot
+  #   * MOFA   -> factor weight   (get_weights) — cf. MOFA plotTopWeights
+  #   * DIABLO -> block loading                 — mixOmics defines no VIP for block models
+  # The sign encodes direction along that axis/factor; ranking is by magnitude, done
+  # SEPARATELY WITHIN EACH OMICS LAYER (a layer's loadings share a fixed per-component
+  # norm, so a smaller layer's raw loadings run systematically larger — a pooled ranking
+  # would be dominated by it; the per-layer top-N in .oa_featimp_per_layer keeps layers
+  # comparable). This replaces the earlier variance-weighted-loading VIP analog that
+  # MCIA/MOFA used; any FUTURE unsupervised method with no native scalar importance still
+  # falls back to that analog (.oa_feature_vip) via the else branch below.
   reductionSet[[reductionOpt]]$vip <- tryCatch({
     base <- if (!is.null(loading.raw)) as.data.frame(loading.raw) else loading.pos.xyz;
     key.base <- paste0(base$ids, "_", base$type);
     key.lp   <- paste0(loading.pos.xyz$ids, "_", loading.pos.xyz$type);
     base <- base[match(key.lp, key.base), , drop = FALSE];
     Lmat <- as.matrix(base[, seq_len(ncomps), drop = FALSE]);
-    wts  <- if (!is.null(vip.weights)) as.numeric(vip.weights) else {
-              ve <- as.matrix(var.exp);
-              if (ncol(ve) > 1L) rowSums(ve, na.rm = TRUE) else as.numeric(ve) };
     types  <- loading.pos.xyz$type;
-    vipvec <- rep(NA_real_, nrow(Lmat));
-    for (ty in unique(types)) {
-      ii <- which(types == ty);
-      vipvec[ii] <- .oa_feature_vip(Lmat[ii, , drop = FALSE], wts);
-    }
+    vipvec <- if (reductionOpt %in% c("diablo", "mcia", "mofa")) {
+      # Native importance: signed loading/weight on each feature's dominant component.
+      .oa_dominant_loading(Lmat)
+    } else {
+      wts <- if (!is.null(vip.weights)) as.numeric(vip.weights) else {
+               ve <- as.matrix(var.exp);
+               if (ncol(ve) > 1L) rowSums(ve, na.rm = TRUE) else as.numeric(ve) };
+      v <- rep(NA_real_, nrow(Lmat));
+      for (ty in unique(types)) { ii <- which(types == ty); v[ii] <- .oa_feature_vip(Lmat[ii, , drop = FALSE], wts); }
+      v
+    };
     data.frame(ids = loading.pos.xyz$ids, type = loading.pos.xyz$type,
                label = loading.pos.xyz$label, VIP = round(as.numeric(vipvec), 4),
                stringsAsFactors = FALSE, row.names = rownames(loading.pos.xyz));
@@ -789,6 +795,16 @@ GetRdtQs <- function(){
   vip <- sqrt(nrow(L) * as.vector(L2 %*% wn))
   names(vip) <- rownames(L)
   vip
+}
+
+# DIABLO feature importance = the feature's SIGNED loading on its dominant component (the one
+# with the largest |loading|). This is DIABLO's own importance signal (mixOmics defines no VIP
+# for block models); the sign encodes discriminant direction. Returns a per-feature vector.
+.oa_dominant_loading <- function(loadings){
+  L <- as.matrix(loadings); storage.mode(L) <- "double"
+  if (nrow(L) == 0L || ncol(L) == 0L) return(rep(NA_real_, nrow(L)))
+  v <- apply(L, 1L, function(r){ if (all(is.na(r))) return(NA_real_); r[which.max(abs(r))] })
+  names(v) <- rownames(L); v
 }
 
 run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
@@ -957,10 +973,11 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   return(1)
 }
 
-# Human label for the importance score: DIABLO is supervised sPLS-DA so the score is a
-# genuine VIP; the unsupervised methods get a variance-weighted-loading analog.
+# Column/axis label for the score. MCIA/MOFA/DIABLO all report the feature's own native
+# (signed) loading/weight on its dominant component ("Loading"); a fallback method with no
+# native scalar importance would report the variance-weighted-loading "Importance".
 .oa_vip_label <- function(opt){
-  if (identical(opt, "diablo")) "VIP" else "Importance"
+  if (opt %in% c("diablo", "mcia", "mofa")) "Loading" else "Importance"
 }
 
 # Per-omics-layer top-N feature importance: within EACH layer, the n features with the
@@ -976,8 +993,9 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   sel.nms <- names(mdata.all)[mdata.all == 1];
   vip$Layer <- .oa_layer_display_labels(vip$type, reductionSet, sel.nms);
   vip$Feature <- ifelse(is.na(vip$label) | vip$label == "", vip$ids, vip$label);
+  # Rank by MAGNITUDE (DIABLO's loading score is signed; the analog is non-negative).
   parts <- lapply(split(vip, vip$Layer), function(d){
-    d <- d[order(d$VIP, decreasing = TRUE), , drop = FALSE];
+    d <- d[order(abs(d$VIP), decreasing = TRUE), , drop = FALSE];
     d <- utils::head(d, as.integer(n));
     d$LayerRank <- seq_len(nrow(d));
     d;
@@ -1003,10 +1021,17 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
   }
   top <- .oa_featimp_per_layer(opt, 10L);
   if (is.null(top)) { AddErrMsg("No feature-importance scores available for this method."); return(0) }
-  lab <- .oa_vip_label(opt);
-  # A composite factor keyed by Layer+Feature keeps levels unique even if a feature name
-  # recurs across layers; ordered ascending so coord_flip puts the top feature at the top.
-  top <- top[order(top$Layer, top$VIP), , drop = FALSE];
+  # mcia/mofa/diablo all report a native SIGNED loading (bars diverge by direction); a
+  # fallback method would report the non-negative variance-weighted analog.
+  is.loading <- opt %in% c("diablo", "mcia", "mofa");
+  x.lab <- switch(opt,
+                  diablo = "DIABLO loading (signed)",
+                  mcia   = "MCIA loading (signed)",
+                  mofa   = "MOFA weight (signed)",
+                  "Importance (variance-weighted loading)");
+  # Composite factor keeps y-levels unique across layers; order by MAGNITUDE ascending so the
+  # strongest feature sits at the top of each facet (the score itself may be signed for DIABLO).
+  top <- top[order(top$Layer, abs(top$VIP)), , drop = FALSE];
   top$FeatKey <- factor(paste(top$Layer, top$Feature, sep = ":::"),
                         levels = paste(top$Layer, top$Feature, sep = ":::"));
   feat.labels <- setNames(as.character(top$Feature), as.character(top$FeatKey));
@@ -1014,18 +1039,21 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
     tryCatch(WfSaveFigureData(paste0("oa_featimp_", opt), top), error = function(e) NULL)
 
   n.layers <- length(unique(top$Layer));
-  # Categorical mapped to y (no coord_flip) so facet scales="free_y" gives each layer its
-  # OWN features; the shared x (score) axis keeps the layers visually comparable.
+  # Categorical mapped to y (no coord_flip) so facet scales="free_y" gives each layer its own
+  # features. Loading-based methods (mcia/mofa/diablo) draw the SIGNED loading (bars diverge
+  # left/right = direction along the axis/factor); the variance-weighted analog is non-negative.
   p <- ggplot(top, aes(x = VIP, y = FeatKey, fill = Layer)) +
     geom_col(width = 0.7) +
     facet_wrap(~ Layer, scales = "free_y", ncol = 1) +
     scale_y_discrete(labels = feat.labels) +
     scale_fill_okabeito() +
-    labs(y = "", x = if (identical(opt, "diablo")) "VIP score" else "Importance (variance-weighted loading)",
-         title = paste0("Top features by ", lab, ", per omics layer")) +
+    labs(y = "", x = x.lab,
+         title = if (is.loading) "Top features by loading, per omics layer"
+                 else "Top features by Importance, per omics layer") +
     theme_minimal(base_size = 13) +
     theme(plot.title = element_text(hjust = 0.5, size = 14), legend.position = "none",
           strip.text = element_text(face = "bold"), panel.grid.major.y = element_blank())
+  if (is.loading) p <- p + geom_vline(xintercept = 0, colour = "grey60", linewidth = 0.4)
 
   Cairo(file = imgNm, unit = "in", dpi = dpi, width = 8, height = max(5, 3.2 * n.layers),
         type = format, bg = "white")
