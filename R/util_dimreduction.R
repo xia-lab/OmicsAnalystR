@@ -26,6 +26,23 @@
   out
 }
 
+# Shared text-size convention for the MOFA/MCIA/DIABLO dimensionality-reduction figure
+# family (PlotDimredVarexp, PlotCumR2, PlotFeatureImportance, PlotDimredFactors) that
+# render together in the same report section. Each was tuned independently over time
+# (theme_minimal(base_size = 15/12/13/15), plus ad hoc per-element size overrides on
+# top of that -- e.g. PlotDimredFactors hardcoding axis.text at 13 for no plot-specific
+# reason), which is why the same report shows what reads as several different figure
+# styles side by side. Callers add their OWN structural theme() tweaks (legend.position,
+# panel.grid removal, strip.text, ...) on top of this -- only the text-size baseline is
+# shared here.
+.oa_dimred_theme <- function() {
+  ggplot2::theme_minimal(base_size = 15) +
+    ggplot2::theme(
+      plot.title  = ggplot2::element_text(hjust = 0.5, size = 16),
+      legend.text = ggplot2::element_text(size = 16)
+    )
+}
+
 reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
   infoSet <- readSet(infoSet, "infoSet");
   ncomps = 5;
@@ -466,9 +483,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
                     ggplot2::geom_line(ggplot2::aes(color = Metric), linewidth = 2) +
                     see::scale_fill_okabeito() + see::scale_color_okabeito() +
                     ggplot2::labs(x = "Component #", y = "Error Rate", title = "") +
-                    ggplot2::theme_minimal(base_size = 15) +
-                    ggplot2::theme(legend.text = ggplot2::element_text(size = 16),
-                                   legend.position = c(0.9, 0.95),
+                    .oa_dimred_theme() +
+                    ggplot2::theme(legend.position = c(0.9, 0.95),
                                    legend.title = ggplot2::element_text(size = 0))
                   Cairo::Cairo(file = tmp_ber, width = 8, height = 7, type = "png", bg = "white", unit = "in", dpi = 150)
                   print(p1)
@@ -930,8 +946,8 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
     geom_line(aes(color=Dataset),linewidth=2) +
     scale_fill_okabeito() +
     scale_color_okabeito() +
-    labs(x="Component #", y="Var. (%)", title="") + theme_minimal(base_size=15) +
-    theme(legend.text=element_text(size=16), legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
+    labs(x="Component #", y="Var. (%)", title="") + .oa_dimred_theme() +
+    theme(legend.position = c(0.9, 0.95), legend.title=element_text(size=0));
 
   
   Cairo(file=imgNm, width=8, height=7, type=format, bg="white", unit="in", dpi=dpi);
@@ -983,10 +999,10 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
     geom_point(data=df, aes(x=Factor, y=Cumulative),
                inherit.aes=FALSE, size=3, color="black") +
     geom_text(data=df, aes(x=Factor, y=Cumulative, label=sprintf("%.1f%%", Cumulative)),
-              inherit.aes=FALSE, vjust=-0.8, size=3.5) +
+              inherit.aes=FALSE, vjust=-0.8, size=5) +
     labs(x="", y="Variance Explained (%)", title="Cumulative Variance Explained") +
-    theme_minimal(base_size=12) +
-    theme(plot.title=element_text(hjust=0.5, size=13), panel.grid.major.x=element_blank())
+    .oa_dimred_theme() +
+    theme(panel.grid.major.x=element_blank())
 
   Cairo(file=imgNm, unit="in", dpi=dpi, width=8, height=6, type=format, bg="white")
   print(p)
@@ -1073,8 +1089,8 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
     labs(y = "", x = x.lab,
          title = if (is.loading) "Top features by loading, per omics layer"
                  else "Top features by Importance, per omics layer") +
-    theme_minimal(base_size = 13) +
-    theme(plot.title = element_text(hjust = 0.5, size = 14), legend.position = "none",
+    .oa_dimred_theme() +
+    theme(legend.position = "none",
           strip.text = element_text(face = "bold"), panel.grid.major.y = element_blank())
   if (is.loading) p <- p + geom_vline(xintercept = 0, colour = "grey60", linewidth = 0.4)
 
@@ -1146,16 +1162,11 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
 
     p1 <- ggplot(df_long, aes(x = Factor, y = View, fill = Variance)) +
       geom_tile(color = "grey30", linewidth = 0.8) +
-      geom_text(aes(label = sprintf("%.2f%%", Variance)), size = 4, color = "black") +
+      geom_text(aes(label = sprintf("%.2f%%", Variance)), size = 5, color = "black") +
       scale_fill_gradient(low = "white", high = "#C0392B", name = "Var. (%)") +
       labs(x = "", y = "", title = "Variance Explained per Factor") +
-      theme_minimal(base_size = 15) +
-      theme(
-        axis.text.x = element_text(angle = 0, hjust = 0.5, size = 13),
-        axis.text.y = element_text(size = 13),
-        plot.title = element_text(hjust = 0.5, size = 16),
-        panel.grid = element_blank()
-      )
+      .oa_dimred_theme() +
+      theme(panel.grid = element_blank())
 
     Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
     print(p1)
