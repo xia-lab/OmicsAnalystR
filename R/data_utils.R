@@ -829,7 +829,7 @@ FilteringData <- function(dataName, countOpt="pct",count="2", var="15"){
   }
     msg <- paste(msg, "Filtered ",rmSum, " genes with low counts.", collapse=" ");
     filter.val <- apply(data, 1, IQR, na.rm=T);
-    nm <- "Interquantile Range";
+    nm <- "Interquartile Range";
     rk <- rank(-filter.val, ties.method='random');
     kp.pct <- (100 - var.thresh)/100;
     remain <- rk < nrow(data)*kp.pct;
