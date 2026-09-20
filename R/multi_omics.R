@@ -328,10 +328,16 @@ FilterByPrevalence <- function(data, min.prev = 0.2, min.count = 2, min.keep = 1
 
 # edgeR::filterByExpr for sequencing counts. Defaults keep genes with >= 10 reads in
 # >= 70% of samples (min.count = 10, min.prop = 0.7). Never reduces below `min.keep`.
-.FilterByExpr <- function(data, min.keep = 10L){
+# `group` is the primary factor: edgeR sizes its "expressed in enough samples" rule on the
+# SMALLEST group, and without it assumes one group of every sample ("No group or design set.
+# Assuming all samples belong to one group." in the Rserve log, 19 Sep 2026) — a count row
+# present in one condition only (18 of 36) then fails the rule and is dropped before the DE
+# that exists to find it (a synthetic check: 28 kept without the group, 161 with it).
+.FilterByExpr <- function(data, group = NULL, min.keep = 10L){
   data <- as.matrix(data)
   if(nrow(data) <= min.keep || !requireNamespace("edgeR", quietly = TRUE)) return(data)
-  keep <- tryCatch(edgeR::filterByExpr(data), error = function(e) rep(TRUE, nrow(data)))
+  if(!is.null(group) && (length(group) != ncol(data) || length(unique(group)) < 2L)) group <- NULL
+  keep <- tryCatch(edgeR::filterByExpr(data, group = group), error = function(e) rep(TRUE, nrow(data)))
   if(sum(keep) >= min.keep) data[keep, , drop = FALSE] else data
 }
 
@@ -383,7 +389,8 @@ PrefilterOmicsByType <- function(dataName){
       } else if(grepl("mic", .ot)){
         int.mat <- .PrevalenceFilterMic(int.mat)                 # >0.01% in >=10% of samples
       } else if(grepl("rna|mirna|seq|count|gene", .ot)){
-        int.mat <- .FilterByExpr(int.mat)                        # edgeR filterByExpr
+        grp <- tryCatch(.OmicsPrimaryGroup(dataSet), error = function(e) NULL)
+        int.mat <- .FilterByExpr(int.mat, group = grp)           # edgeR filterByExpr, per group
       } else if(grepl("met", .ot)){
         grp <- tryCatch(.OmicsPrimaryGroup(dataSet), error = function(e) NULL)
         int.mat <- .Rule80Filter(int.mat, group = grp)           # 80% rule (metabolomics)
@@ -423,14 +430,34 @@ PrefilterOmicsByType <- function(dataName){
 
 # Best-effort primary grouping vector for a dataset (metabolomics 80% rule). Tries the
 # per-dataset analysis variable, then a shared primary metadata factor; NULL -> global rule.
+# The primary group of a layer's samples, for the per-group prefilters. The metadata is not
+# on the layer's dataSet at prefilter time — ReadOmicsMetaData puts it on the reduction set
+# (rdtSet$dataSet$meta.info) — so the two dataSet fields below were always NULL and every
+# per-group filter ran groupless (19 Sep 2026). Rows are aligned to the layer's samples by
+# name; the column is the first metadata column (the primary factor by the upload
+# convention), or the one an AI run named in .OmicsVerse.primaryFactor when that is set.
 .OmicsPrimaryGroup <- function(dataSet){
   g <- tryCatch(dataSet$analysis.var, error = function(e) NULL)
   if(!is.null(g) && length(g) == ncol(dataSet$data.proc)) return(as.character(g))
   meta <- tryCatch(dataSet$meta.info, error = function(e) NULL)
   if(is.null(meta)) meta <- tryCatch(dataSet$meta, error = function(e) NULL)
-  if(!is.null(meta) && is.data.frame(meta) && ncol(meta) >= 1L &&
-     nrow(meta) == ncol(dataSet$data.proc)) return(as.character(meta[[1]]))
-  NULL
+  if(is.null(meta)) meta <- tryCatch(.get.rdt.set()$dataSet$meta.info, error = function(e) NULL)
+  if(is.null(meta) || !is.data.frame(meta) || ncol(meta) < 1L) return(NULL)
+  col <- colnames(meta)[1]
+  if(exists(".OmicsVerse.primaryFactor", envir = .GlobalEnv)){
+    pf <- get(".OmicsVerse.primaryFactor", envir = .GlobalEnv)
+    if(is.character(pf) && length(pf) == 1L && pf %in% colnames(meta)) col <- pf
+  }
+  smpls <- colnames(dataSet$data.proc)
+  if(!is.null(smpls) && !is.null(rownames(meta)) && all(smpls %in% rownames(meta))) meta <- meta[smpls, , drop = FALSE]
+  else if(nrow(meta) != length(smpls)) return(NULL)
+  g <- meta[[col]]
+  # A continuous factor (Age, Hours) is not a grouping: edgeR would size its rule on groups of
+  # one sample and keep everything. Groupless (the global rule) is the right fallback then.
+  types <- tryCatch(.get.rdt.set()$dataSet$meta.types, error = function(e) NULL)
+  if(!is.null(types) && identical(unname(types[col]), "cont")) return(NULL)
+  if(is.numeric(g) && length(unique(g)) > max(2L, length(g) %/% 3L)) return(NULL)
+  as.character(g)
 }
 
 # Per-feature IQR (Q3 - Q1) for a features x samples matrix, using the vectorized
