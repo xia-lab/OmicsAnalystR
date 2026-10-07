@@ -69,6 +69,9 @@ doGeneIDMapping <- function(q.vec, org, type){
     })
   }
 
+  # Guard in the MAIN session (the shared helper is not shipped into the isolated
+  # subprocess below) so a missing gene DB stops with actionable guidance here.
+  if (exists("ov_require_ref_sqlite", mode = "function")) ov_require_ref_sqlite(paste0(sqlite_path_local, org, "_genes.sqlite"));
   result <- tryCatch({
     rsclient_isolated_exec(
       func_body = isolated_func,
