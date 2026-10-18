@@ -3,7 +3,7 @@
 #'@param rdtSet Input the name of the created rdtSet (see InitDataObjects)
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 PrepareROCData <- function(sel.meta="NA",factor1,factor2){
@@ -146,7 +146,7 @@ if(length(which(stt<10))==2){
 #'@param clust.num Numeric, input the number of clusters for cluster-analysis
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 CalculateFeatureRanking <- function(clust.num=5){
@@ -289,7 +289,7 @@ mem.univ <<- memoise(.perform.fast.univ.tests);
 #'@param cls Input class labels
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 
 GetROCTtestP <- function(data, cls){
   if(nrow(data) < 1000){
@@ -1802,7 +1802,7 @@ SetCustomData <- function(rdtSet=NA, selected.cmpds, selected.smpls){
 #'@param nRuns Input the number of MCCV runs, by default it is 100 
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 
 PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, nRuns=100){
@@ -1985,7 +1985,7 @@ PerformCV.test <- function(rdtSet=NA, method='svm', lvNum=2, propTraining=2/3, n
 #'@param cutoff Input the threshold to limit the calculation of the ROC curve, the number must be between 0 and 1.
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export 
 
 PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=150, mdl.inx, avg.method, show.conf, show.holdout, focus="fpr", cutoff = 1.0){
@@ -2169,7 +2169,7 @@ PlotROCTest<-function(rdtSet=NA, imgName, format="png", dpi=150, mdl.inx, avg.me
 #'@param showPred Show predicted samples
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 
 PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=150, mdl.inx, show, showPred) {
@@ -2288,7 +2288,7 @@ PlotProbViewTest <- function(rdtSet=NA, imgName, format="png", dpi=150, mdl.inx,
 #'the default dpi is 72. It is suggested that for high-resolution images, select a dpi of 300.  
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 
 PlotTestAccuracy<-function(rdtSet=NA, imgName, format="png", dpi=150){
@@ -2345,7 +2345,7 @@ GetAccuracyInfo<-function(rdtSet=NA){
 #'@param propTraining Numeric, input the fraction of samples to set aside for training. Default is set to 2/3.
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 #'
 Perform.Permut<-function(rdtSet=NA, perf.measure, perm.num, propTraining = 2/3){

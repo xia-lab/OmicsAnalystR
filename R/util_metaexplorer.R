@@ -5,7 +5,7 @@
 #'@param viewOpt high-level summary or plotting the names inside cell
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 
 PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
@@ -150,7 +150,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
 #'@param viewOpt high-level summary or plotting the names inside cell
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 
 PlotStaticMetaHeatmap <- function(rdtSet=NA, viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",includeRowNames=T, imgName, format="png", dpi=150, width=NA){

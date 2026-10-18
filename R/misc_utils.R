@@ -966,7 +966,7 @@ readSet <- function(obj=NA, set=""){
 #'@param bdata Input matrix to clean numbers
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'
 CleanNumber <-function(bdata){
   if(sum(bdata==Inf)>0){

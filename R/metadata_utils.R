@@ -671,7 +671,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 #'@param cor.opt Meethod for computing correlation coefficient
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT
 #'@export
 
 PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient="", imgName="", dpi=150, imgFormat="png", interactive=F){
