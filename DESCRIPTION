@@ -16,7 +16,6 @@ Imports: Rcpp, BiocManager, data.table, metap, ks, fgsea,
     pryr, readr, metagenomeSeq, ggpubr, cluster, Spectrum, PINSPlus, SNFtool, Rtsne,
     mogsa, mixOmics, vegan, cowplot, grid, gridExtra, tidyverse, factoextra
 VignetteBuilder: knitr
-LinkingTo: Rcpp
 BugReports: https://github.com/xia-lab/OmicsAnalystR/issues/new
 URL: https://github.com/xia-lab/OmicsAnalystR
 Encoding: UTF-8
