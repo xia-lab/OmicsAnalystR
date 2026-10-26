@@ -355,9 +355,9 @@ UpdateSampleBasedOnLoading<-function(filenm, gene.id, omicstype){
   sink();
 }
 
-DoDimensionReductionIntegrative <- function(reductionOpt, diabloMeta, diabloPar){
+DoDimensionReductionIntegrative <- function(reductionOpt, diabloMeta, diabloPar, ncomps=5){
 
-    dr.res <- reduce.dimension(reductionOpt, diabloMeta, diabloPar);
+    dr.res <- reduce.dimension(reductionOpt, diabloMeta, diabloPar, ncomps);
     return(dr.res)
 }
 

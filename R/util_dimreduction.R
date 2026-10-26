@@ -43,9 +43,9 @@
     )
 }
 
-reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
+reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=5){
   infoSet <- readSet(infoSet, "infoSet");
-  ncomps = 5;
+  ncomps <- as.integer(ncomps);
   sel.nms <- names(mdata.all)[mdata.all==1];
   data.list = list();
   omics.type = vector();
@@ -360,7 +360,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2){
               }
               df
             })
-            pos.xyz <- lapply(c(Factor1 = 'comp1', Factor2 = 'comp2', Factor3 = 'comp3', Factor4 = 'comp4', Factor5 = 'comp5'), function(w) {
+            pos.xyz <- lapply(setNames(paste0('comp', 1:ncomps), paste0('Factor', 1:ncomps)), function(w) {
               xORy <- lapply(variates, function(v) v[, w, drop = FALSE])
               xORy <- Reduce(x = xORy, f = cbind)
               rowMeans(xORy)
