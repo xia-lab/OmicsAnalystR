@@ -302,6 +302,19 @@ run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
 }
 
 
+# Offers the data a figure is drawn from, and the call that draws it from that data alone, to an optional hook (option
+# "ov.plot_data_hook"). Without a hook this does nothing, so the package stands on its own.
+#   img    the figure's name without "dpi<N>" and the extension
+#   data   everything the drawing function reads
+#   draw   NAME of the function Draw<X>(pd, imgNm, dpi, format, ...) that draws from `data` alone
+#   args   further named literal arguments of that call
+#   export named list of tables behind the figure, offered as downloads
+.ov_plot_data <- function(img, data, draw, args = list(), export = NULL) {
+  h <- getOption("ov.plot_data_hook")
+  if (is.function(h)) tryCatch(if (is.null(export)) h(img, data, draw, args) else h(img, data, draw, args, export), error = function(e) NULL)
+  invisible(NULL)
+}
+
 #' Execute heavy package function in isolated RSclient fork
 #' @param func_body Function(input_data) to run in child
 #' @param input_data List serialized via qs to child

@@ -1013,8 +1013,15 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
   pd <- ov_qs_read(pdPath)
-  imgPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+  # what the figure reads: the fractions / scores / coordinates RunVpa computed for it (vpa_plotdata.qs holds all four figures')
+  vd <- pd$venn
+  .ov_plot_data(imgName, vd, "DrawVpaVenn", list(dpi = as.integer(dpi), format = format))
+  DrawVpaVenn(vd, file.path(homeDir, imgName), dpi, format)
+}
 
+# Draws the VPA venn figure from pd = the "venn" element of vpa_plotdata.qs; it draws in its own subprocess and returns the file it wrote
+DrawVpaVenn <- function(pd, imgNm, dpi = 150L, format = "png") {
+  imgPath <- paste0(imgNm, "dpi", dpi, ".", format)
   rsclient_isolated_exec(
     func_body = function(inp) {
       v <- inp$venn; dpi <- inp$dpi; fmt <- inp$format; imgPath <- inp$imgPath
@@ -1057,7 +1064,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
       dev.off()
       list(ok=TRUE)
     },
-    input_data = list(venn=pd$venn, dpi=as.integer(dpi), format=format, imgPath=imgPath),
+    input_data = list(venn=pd, dpi=as.integer(dpi), format=format, imgPath=imgPath),
     packages = c("Cairo"),
     timeout  = 120L
   )
@@ -1072,8 +1079,15 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
   pd <- ov_qs_read(pdPath)
-  barPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+  # what the figure reads: the fractions / scores / coordinates RunVpa computed for it (vpa_plotdata.qs holds all four figures')
+  vd <- pd$bar
+  .ov_plot_data(imgName, vd, "DrawVpaBar", list(dpi = as.integer(dpi), format = format))
+  DrawVpaBar(vd, file.path(homeDir, imgName), dpi, format)
+}
 
+# Draws the VPA bar figure from pd = the "bar" element of vpa_plotdata.qs; it draws in its own subprocess and returns the file it wrote
+DrawVpaBar <- function(pd, imgNm, dpi = 150L, format = "png") {
+  barPath <- paste0(imgNm, "dpi", dpi, ".", format)
   rsclient_isolated_exec(
     func_body = function(inp) {
       b <- inp$bar; dpi <- inp$dpi; fmt <- inp$format; barPath <- inp$barPath
@@ -1100,7 +1114,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
       dev.off()
       list(ok=TRUE)
     },
-    input_data = list(bar=pd$bar, dpi=as.integer(dpi), format=format, barPath=barPath),
+    input_data = list(bar=pd, dpi=as.integer(dpi), format=format, barPath=barPath),
     packages = c("Cairo"),
     timeout  = 120L
   )
@@ -1115,8 +1129,15 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
   pd <- ov_qs_read(pdPath)
-  rdaPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+  # what the figure reads: the fractions / scores / coordinates RunVpa computed for it (vpa_plotdata.qs holds all four figures')
+  vd <- pd$rda
+  .ov_plot_data(imgName, vd, "DrawVpaRda", list(dpi = as.integer(dpi), format = format))
+  DrawVpaRda(vd, file.path(homeDir, imgName), dpi, format)
+}
 
+# Draws the VPA rda figure from pd = the "rda" element of vpa_plotdata.qs; it draws in its own subprocess and returns the file it wrote
+DrawVpaRda <- function(pd, imgNm, dpi = 150L, format = "png") {
+  rdaPath <- paste0(imgNm, "dpi", dpi, ".", format)
   rsclient_isolated_exec(
     func_body = function(inp) {
       r <- inp$rda; dpi <- inp$dpi; fmt <- inp$format; rdaPath <- inp$rdaPath
@@ -1166,7 +1187,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
       print(p); dev.off()
       list(ok=TRUE)
     },
-    input_data = list(rda=pd$rda, dpi=as.integer(dpi), format=format, rdaPath=rdaPath),
+    input_data = list(rda=pd, dpi=as.integer(dpi), format=format, rdaPath=rdaPath),
     packages = c("Cairo", "ggplot2", "vegan"),
     timeout  = 120L
   )
@@ -1181,8 +1202,15 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
   pdPath  <- file.path(homeDir, "vpa_plotdata.qs")
   if (!file.exists(pdPath)) return(NULL)
   pd <- ov_qs_read(pdPath)
-  corrPath <- file.path(homeDir, paste0(imgName, "dpi", dpi, ".", format))
+  # what the figure reads: the fractions / scores / coordinates RunVpa computed for it (vpa_plotdata.qs holds all four figures')
+  vd <- pd$corr
+  .ov_plot_data(imgName, vd, "DrawVpaCorr", list(dpi = as.integer(dpi), format = format))
+  DrawVpaCorr(vd, file.path(homeDir, imgName), dpi, format)
+}
 
+# Draws the VPA corr figure from pd = the "corr" element of vpa_plotdata.qs; it draws in its own subprocess and returns the file it wrote
+DrawVpaCorr <- function(pd, imgNm, dpi = 150L, format = "png") {
+  corrPath <- paste0(imgNm, "dpi", dpi, ".", format)
   rsclient_isolated_exec(
     func_body = function(inp) {
       cc <- inp$corr; dpi <- inp$dpi; fmt <- inp$format; corrPath <- inp$corrPath
@@ -1212,7 +1240,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
       print(p); dev.off()
       list(ok=TRUE)
     },
-    input_data = list(corr=pd$corr, dpi=as.integer(dpi), format=format, corrPath=corrPath),
+    input_data = list(corr=pd, dpi=as.integer(dpi), format=format, corrPath=corrPath),
     packages = c("Cairo", "ggplot2"),
     timeout  = 120L
   )

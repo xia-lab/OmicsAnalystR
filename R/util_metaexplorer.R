@@ -10,6 +10,7 @@
 
 PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
   plotjs <- paste0(imgName, ".json");
+  stem <- imgName;
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
 
@@ -72,9 +73,9 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
   infoSet$imgSet$heatmap <- imgName;
   saveSet(infoSet);
 
-  data_for_rsclient <- list(
+  # what the heatmap reads: the metadata grid (scaled by column), its colours and the clustering options
+  pd <- list(
     met = met,
-    metaData = metaData,
     viewOpt = viewOpt,
     clustSelOpt = clustSelOpt,
     smplDist = smplDist,
@@ -83,13 +84,20 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
     includeRowNames = includeRowNames,
     rowBool = rowBool,
     colBool = colBool,
-    imgName = imgName,
-    format = format,
-    dpi = dpi,
     width = width,
-    colors = colors,
-    lib_paths = .libPaths()
+    colors = colors
   )
+  .ov_plot_data(stem, pd, "DrawMetaHeatmap", list(dpi = dpi, format = format))
+  DrawMetaHeatmap(pd, stem, dpi, format)
+
+  return(.set.rdt.set(rdtSet));
+}
+
+# Draws the metadata heatmap from pd = list(met = <samples x factors grid, scaled by column>, colors, rowBool, colBool, smplDist,
+# clstDist, includeRowNames, ...); it draws in its own subprocess
+DrawMetaHeatmap <- function(pd, imgNm, dpi=150, format="png"){
+  imgName = paste(imgNm, "dpi", dpi, ".", format, sep="");
+  data_for_rsclient <- c(pd, list(imgName = imgName, format = format, dpi = dpi, lib_paths = .libPaths()))
 
   isolated_func <- function(input_data) {
     if (!is.null(input_data$lib_paths)) {
@@ -140,8 +148,7 @@ PlotMetaHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pe
     message(sprintf("PlotMetaHeatmap failed: %s", e$message))
   })
   # plot/write failure is non-fatal
-
-  return(.set.rdt.set(rdtSet));
+  invisible(imgName)
 }
 
 #'Create high resolution static HeatMap for download only

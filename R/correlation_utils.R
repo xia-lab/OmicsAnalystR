@@ -832,185 +832,213 @@ DoOmicsCorrelation <- function(cor.method="univariate",cor.stat="pearson",ifAll=
 PlotCorrViolin <- function(imgNm, dpi=150, format="png", corNetOpt="default"){
   try(RecordRCommand(paste0("PlotCorrViolin(\"", imgNm, "\")")), silent = TRUE)
   dpi<-as.numeric(dpi)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
   reductionSet <- .get.rdt.set();
 
-  # ggpubr/ggplot2/Cairo/igraph in subprocess
-  # Prepare data for subprocess
-    if (corNetOpt == "intLim") {
-      intLim_filtres <- reductionSet$intLim_filtres
-      intLim_sigmat <- reductionSet$intLim_sigmat
-      intLim_pvalcutoff <- reductionSet$intLim$pvalcutoff
-      graphs <- NULL
-      threshold_inter <- NULL
-      threshold_intra <- NULL
+  # what the figure reads: the correlation (coefficient) of every edge in each panel, with its cutoff(s)
+  if (corNetOpt == "intLim") {
+    intLim_filtres <- reductionSet$intLim_filtres
+    intLim_sigmat <- reductionSet$intLim_sigmat
+    df_res <- intLim_filtres[, c(1, 2, 3, 5)]
+    colnames(df_res) <- c("source", "target", "correlation", "pval")
+    df_res <- df_res[rownames(df_res) %in% rownames(intLim_sigmat), ]
+    df_res$type <- "Between-omics coefficient"
+    pd <- list(mode = "intLim", panels = list(list(df = df_res)), pvalcutoff = reductionSet$intLim$pvalcutoff)
+  } else {
+    if (!is.null(reductionSet$corr.graph.path) && file.exists(reductionSet$corr.graph.path)) {
+      graphs <- ov_qs_read(reductionSet$corr.graph.path)
     } else {
-      intLim_filtres <- NULL
-      intLim_sigmat <- NULL
-      intLim_pvalcutoff <- NULL
-      if (!is.null(reductionSet$corr.graph.path) && file.exists(reductionSet$corr.graph.path)) {
-        graphs <- ov_qs_read(reductionSet$corr.graph.path)
-      } else {
-        msg.vec <<- "No correlation graph available for violin plot"
-        return(0)
-      }
-      threshold_inter <- reductionSet$threshold.inter
-      threshold_intra <- reductionSet$threshold.intra
+      msg.vec <<- "No correlation graph available for violin plot"
+      return(0)
     }
+    panels <- list()
+    for (i in 1:2) {
+      if (i == 1) {
+        g <- graphs$corr.graph.inter
+        titleText <- "Between-omics correlation"
+        threshold <- reductionSet$threshold.inter
+      } else {
+        g <- graphs$corr.graph.intra
+        titleText <- "Intra-omics correlation"
+        threshold <- reductionSet$threshold.intra
+      }
+      df_res <- data.frame(igraph::as_edgelist(g), as.numeric(igraph::E(g)$correlation))
+      df_res <- df_res[!duplicated(df_res), ]
+      colnames(df_res) <- c("source", "target", "correlation")
+      df_res$type <- titleText
+      panels[[i]] <- list(df = df_res, title = titleText, threshold = threshold)
+    }
+    pd <- list(mode = "default", panels = panels)
+  }
 
-    plot_result <- tryCatch({
-      rsclient_isolated_exec(
-        func_body = function(input_data) {
-          require(ggpubr)
-          require(ggplot2)
-          require(Cairo)
-          require(scales)
-          require(igraph)
+  plot_result <- tryCatch({
+    .ov_plot_data(stem, pd, "DrawCorrViolin", list(dpi = dpi, format = format))
+    DrawCorrViolin(pd, stem, dpi, format)
+  }, error = function(e) {
+    msg.vec <<- paste("PlotCorrViolin failed:", e$message)
+    NULL
+  })
+  if (is.list(plot_result) && isFALSE(plot_result$success)) { AddErrMsg(plot_result$message); return(0) }
 
-          imgNm <- input_data$imgNm
-          dpi <- input_data$dpi
-          format <- input_data$format
-          corNetOpt <- input_data$corNetOpt
-          intLim_filtres <- input_data$intLim_filtres
-          intLim_sigmat <- input_data$intLim_sigmat
-          intLim_pvalcutoff <- input_data$intLim_pvalcutoff
-          graphs <- input_data$graphs
-          threshold_inter <- input_data$threshold_inter
-          threshold_intra <- input_data$threshold_intra
+  if (is.null(plot_result)) return(0)
 
-          fig.list <- list()
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$correlation_distribution <- plot_result$imgNm;
+  saveSet(infoSet);
+  return(plot_result$success);
+}
 
-          if (corNetOpt == "intLim") {
-            df_res <- intLim_filtres[, c(1, 2, 3, 5)]
-            colnames(df_res) <- c("source", "target", "correlation", "pval")
-            df_res <- df_res[rownames(df_res) %in% rownames(intLim_sigmat), ]
-            df_res$type <- "Between-omics coefficient"
-            threshold1 <- min(df_res$correlation[df_res$correlation > 0])
-            threshold2 <- max(df_res$correlation[df_res$correlation < 0])
-            sig.pos <- scales::oob_censor(df_res$correlation, c(threshold1, max(df_res$correlation)))
-            sig.neg <- scales::oob_censor(df_res$correlation, c(min(df_res$correlation), threshold2))
-            sig.pos.num <- length(na.omit(sig.pos))
-            sig.neg.num <- length(na.omit(sig.neg))
+# Draws the correlation violins from pd = list(mode = "intLim" | "default", panels = <list of list(df = <data frame: source, target,
+# correlation, type>, title, threshold)>, pvalcutoff = <IntLim p-value cutoff, intLim only>); it draws in its own subprocess
+DrawCorrViolin <- function(pd, imgNm, dpi=150, format="png"){
+  dpi<-as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
-            fig.list[[1]] <- ggplot2::ggplot(df_res, ggplot2::aes(x = type, y = correlation, fill = type)) +
-              ggplot2::geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) +
-              ggplot2::labs(x = "Between-omics coefficient") +
-              ggplot2::labs(y = paste0("coefficient (p-value <", intLim_pvalcutoff, ")")) +
-              ggplot2::geom_jitter(height = 0, width = 0.05, alpha = 0, show.legend = FALSE) +
-              ggplot2::theme(legend.position = "none") +
-              ggplot2::scale_x_discrete(labels = NULL) +
-              ggplot2::scale_y_continuous(limits = c(min(df_res$correlation), max(df_res$correlation))) +
-              ggplot2::geom_hline(yintercept = threshold1, linetype = "dashed", color = "red", size = 0.5) +
-              ggplot2::annotate("text", x = 0.5, y = threshold1, label = sig.pos.num, vjust = -1) +
-              ggplot2::geom_hline(yintercept = threshold2, linetype = "dashed", color = "red", size = 0.5) +
-              ggplot2::annotate("text", x = 0.5, y = threshold2, label = sig.neg.num, vjust = 1.5) +
-              ggplot2::theme_bw() +
-              ggplot2::theme(text = ggplot2::element_text(size = 13),
-                             plot.title = ggplot2::element_text(size = 11, hjust = 0.5),
-                             panel.grid.minor = ggplot2::element_blank(),
-                             panel.grid.major = ggplot2::element_blank())
-            fig.list[[2]] <- ggplot2::ggplot() + ggplot2::theme_void()
+  rsclient_isolated_exec(
+    func_body = function(input_data) {
+      require(ggpubr)
+      require(ggplot2)
+      require(Cairo)
+      require(scales)
 
-          } else {
-            for (i in 1:2) {
-              if (i == 1) {
-                g <- graphs$corr.graph.inter
-                titleText <- "Between-omics correlation"
-                threshold <- threshold_inter
-              } else {
-                g <- graphs$corr.graph.intra
-                titleText <- "Intra-omics correlation"
-                threshold <- threshold_intra
-              }
+      imgNm <- input_data$imgNm
+      dpi <- input_data$dpi
+      pd <- input_data$pd
 
-              df_res <- data.frame(igraph::as_edgelist(g), as.numeric(igraph::E(g)$correlation))
-              df_res <- df_res[!duplicated(df_res), ]
-              colnames(df_res) <- c("source", "target", "correlation")
-              df_res$type <- titleText
+      fig.list <- list()
 
-              sig.pos <- scales::oob_censor(df_res$correlation, c(threshold, 1))
-              sig.neg <- scales::oob_censor(df_res$correlation, c(-1, -threshold))
-              sig.pos.num <- length(na.omit(sig.pos))
-              sig.neg.num <- length(na.omit(sig.neg))
+      if (pd$mode == "intLim") {
+        df_res <- pd$panels[[1]]$df
+        intLim_pvalcutoff <- pd$pvalcutoff
+        threshold1 <- min(df_res$correlation[df_res$correlation > 0])
+        threshold2 <- max(df_res$correlation[df_res$correlation < 0])
+        sig.pos <- scales::oob_censor(df_res$correlation, c(threshold1, max(df_res$correlation)))
+        sig.neg <- scales::oob_censor(df_res$correlation, c(min(df_res$correlation), threshold2))
+        sig.pos.num <- length(na.omit(sig.pos))
+        sig.neg.num <- length(na.omit(sig.neg))
 
-              fig.list[[i]] <- ggplot2::ggplot(df_res, ggplot2::aes(x = type, y = correlation, fill = type)) +
-                ggplot2::geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) +
-                ggplot2::labs(x = titleText) +
-                ggplot2::geom_jitter(height = 0, width = 0.05, alpha = 0, show.legend = FALSE) +
-                ggplot2::theme(legend.position = "none") +
-                ggplot2::scale_x_discrete(labels = NULL) +
-                ggplot2::scale_y_continuous(limits = c(-1, 1)) +
-                ggplot2::geom_hline(yintercept = threshold, linetype = "dashed", color = "red", size = 0.5) +
-                ggplot2::annotate("text", x = 0.5, y = threshold, label = sig.pos.num, vjust = -1) +
-                ggplot2::geom_hline(yintercept = -threshold, linetype = "dashed", color = "red", size = 0.5) +
-                ggplot2::annotate("text", x = 0.5, y = -threshold, label = sig.neg.num, vjust = 1.5) +
-                ggplot2::theme_bw() +
-                ggplot2::theme(text = ggplot2::element_text(size = 13),
-                               plot.title = ggplot2::element_text(size = 11, hjust = 0.5),
-                               panel.grid.minor = ggplot2::element_blank(),
-                               panel.grid.major = ggplot2::element_blank())
-            }
-          }
+        fig.list[[1]] <- ggplot2::ggplot(df_res, ggplot2::aes(x = type, y = correlation, fill = type)) +
+          ggplot2::geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) +
+          ggplot2::labs(x = "Between-omics coefficient") +
+          ggplot2::labs(y = paste0("coefficient (p-value <", intLim_pvalcutoff, ")")) +
+          ggplot2::geom_jitter(height = 0, width = 0.05, alpha = 0, show.legend = FALSE) +
+          ggplot2::theme(legend.position = "none") +
+          ggplot2::scale_x_discrete(labels = NULL) +
+          ggplot2::scale_y_continuous(limits = c(min(df_res$correlation), max(df_res$correlation))) +
+          ggplot2::geom_hline(yintercept = threshold1, linetype = "dashed", color = "red", size = 0.5) +
+          ggplot2::annotate("text", x = 0.5, y = threshold1, label = sig.pos.num, vjust = -1) +
+          ggplot2::geom_hline(yintercept = threshold2, linetype = "dashed", color = "red", size = 0.5) +
+          ggplot2::annotate("text", x = 0.5, y = threshold2, label = sig.neg.num, vjust = 1.5) +
+          ggplot2::theme_bw() +
+          ggplot2::theme(text = ggplot2::element_text(size = 13),
+                         plot.title = ggplot2::element_text(size = 11, hjust = 0.5),
+                         panel.grid.minor = ggplot2::element_blank(),
+                         panel.grid.major = ggplot2::element_blank())
+        fig.list[[2]] <- ggplot2::ggplot() + ggplot2::theme_void()
 
-          Cairo::Cairo(file = imgNm, width = 10, height = 8, unit = "in", type = "png", bg = "white", dpi = dpi)
-          p1 <- ggpubr::ggarrange(plotlist = fig.list, ncol = 2)
-          print(p1)
-          dev.off()
+      } else {
+        for (i in 1:2) {
+          df_res <- pd$panels[[i]]$df
+          titleText <- pd$panels[[i]]$title
+          threshold <- pd$panels[[i]]$threshold
 
-          gc(verbose = FALSE, full = TRUE)
-          list(imgNm = imgNm, success = 1)
-        },
-        input_data = list(
-          imgNm = imgNm,
-          dpi = dpi,
-          format = format,
-          corNetOpt = corNetOpt,
-          intLim_filtres = intLim_filtres,
-          intLim_sigmat = intLim_sigmat,
-          intLim_pvalcutoff = intLim_pvalcutoff,
-          graphs = graphs,
-          threshold_inter = threshold_inter,
-          threshold_intra = threshold_intra
-        ),
-        packages = c("ggpubr", "ggplot2", "Cairo", "scales", "igraph"),
-        timeout = 300
-      )
-    }, error = function(e) {
-      msg.vec <<- paste("PlotCorrViolin failed:", e$message)
-      NULL
-    })
-    if (is.list(plot_result) && isFALSE(plot_result$success)) { AddErrMsg(plot_result$message); return(0) }
+          sig.pos <- scales::oob_censor(df_res$correlation, c(threshold, 1))
+          sig.neg <- scales::oob_censor(df_res$correlation, c(-1, -threshold))
+          sig.pos.num <- length(na.omit(sig.pos))
+          sig.neg.num <- length(na.omit(sig.neg))
 
-    if (is.null(plot_result)) return(0)
+          fig.list[[i]] <- ggplot2::ggplot(df_res, ggplot2::aes(x = type, y = correlation, fill = type)) +
+            ggplot2::geom_violin(trim = FALSE, fill = "#d3d3d3", show.legend = FALSE) +
+            ggplot2::labs(x = titleText) +
+            ggplot2::geom_jitter(height = 0, width = 0.05, alpha = 0, show.legend = FALSE) +
+            ggplot2::theme(legend.position = "none") +
+            ggplot2::scale_x_discrete(labels = NULL) +
+            ggplot2::scale_y_continuous(limits = c(-1, 1)) +
+            ggplot2::geom_hline(yintercept = threshold, linetype = "dashed", color = "red", size = 0.5) +
+            ggplot2::annotate("text", x = 0.5, y = threshold, label = sig.pos.num, vjust = -1) +
+            ggplot2::geom_hline(yintercept = -threshold, linetype = "dashed", color = "red", size = 0.5) +
+            ggplot2::annotate("text", x = 0.5, y = -threshold, label = sig.neg.num, vjust = 1.5) +
+            ggplot2::theme_bw() +
+            ggplot2::theme(text = ggplot2::element_text(size = 13),
+                           plot.title = ggplot2::element_text(size = 11, hjust = 0.5),
+                           panel.grid.minor = ggplot2::element_blank(),
+                           panel.grid.major = ggplot2::element_blank())
+        }
+      }
 
-    infoSet <- readSet(infoSet, "infoSet");
-    infoSet$imgSet$correlation_distribution <- plot_result$imgNm;
-    saveSet(infoSet);
-    return(plot_result$success);
+      fmt <- input_data$format
+      Cairo::Cairo(file = imgNm, width = 10, height = 8, unit = "in", type = fmt, bg = "white", dpi = dpi)
+      p1 <- ggpubr::ggarrange(plotlist = fig.list, ncol = 2)
+      print(p1)
+      dev.off()
+
+      gc(verbose = FALSE, full = TRUE)
+      list(imgNm = imgNm, success = 1)
+    },
+    input_data = list(imgNm = imgNm, dpi = dpi, format = format, pd = pd),
+    packages = c("ggpubr", "ggplot2", "Cairo", "scales"),
+    timeout = 300
+  )
 }
 
 
 PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
   dpi<-as.numeric(dpi)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
-  # igraph degree + ggplot in subprocess
+  # igraph degree in subprocess
   graph_to_plot <- overall.graph;
     input_data <- list(
-      graph = graph_to_plot,
-      imgNm = imgNm
+      graph = graph_to_plot
     )
     isolated_func <- function(input_data) {
       library(igraph)
-      library(ggplot2)
-      library(Cairo)
       graph <- input_data$graph
-      imgNm <- input_data$imgNm
-      Cairo(file=imgNm, width=400, height=400, type="png", bg="white")
       G.degrees <- igraph::degree(graph)
       G.degree.histogram <- as.data.frame(table(G.degrees))
       G.degree.histogram[,1] <- as.numeric(G.degree.histogram[,1])
+      return(list(success = 1, hist = G.degree.histogram))
+    }
+    res <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = input_data,
+        packages = c("igraph"),
+        timeout = 300
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("PlotDegreeHistogram failed:", e$message))
+      return(0)
+    })
+    # what the figure reads: how many nodes have each degree
+    if (is.list(res) && is.data.frame(res$hist)) {
+      pd <- list(hist = res$hist)
+      .ov_plot_data(stem, pd, "DrawDegreeHistogram", list(dpi = dpi, format = format))
+      tryCatch(DrawDegreeHistogram(pd, stem, dpi, format), error = function(e) AddErrMsg(paste("PlotDegreeHistogram failed:", e$message)))
+    }
+    # plot/write failure is non-fatal
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$degree_distribution <- imgNm;
+  saveSet(infoSet);
+}
+
+# Draws the degree distribution (log-log) from pd = list(hist = <data frame: G.degrees (degree), Freq (number of nodes)>);
+# it draws in its own subprocess
+DrawDegreeHistogram <- function(pd, imgNm, dpi=150, format="png"){
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  rsclient_isolated_exec(
+    func_body = function(input_data) {
+      library(ggplot2)
+      library(Cairo)
+      G.degree.histogram <- input_data$hist
+      fmt <- input_data$format
+      if (identical(fmt, "png")) Cairo(file=input_data$imgNm, width=400, height=400, type="png", bg="white")
+      else Cairo(file=input_data$imgNm, width=4, height=4, unit="in", type=fmt, bg="white")
       p <- ggplot(G.degree.histogram, aes(x = G.degrees, y = Freq)) +
         geom_point() +
         scale_x_continuous("Degree\n(nodes containing that amount of connections)",
@@ -1025,27 +1053,17 @@ PlotDegreeHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
       print(p)
       dev.off()
       return(list(success = 1))
-    }
-    tryCatch({
-      rsclient_isolated_exec(
-        func_body = isolated_func,
-        input_data = input_data,
-        packages = c("igraph", "ggplot2", "Cairo"),
-        timeout = 300
-      )
-    }, error = function(e) {
-      AddErrMsg(paste("PlotDegreeHistogram failed:", e$message))
-      return(0)
-    })
-    # plot/write failure is non-fatal
-
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$degree_distribution <- imgNm;
-  saveSet(infoSet);
+    },
+    input_data = list(hist = pd$hist, imgNm = imgNm, format = format),
+    packages = c("ggplot2", "Cairo"),
+    timeout = 300
+  )
+  invisible(imgNm)
 }
 
 PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png"){
   dpi<-as.numeric(dpi)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
   if(netNm != "NA"){
@@ -1054,21 +1072,55 @@ PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png")
     graph_to_plot <- overall.graph;
   }
 
-  # igraph betweenness + ggplot in subprocess
+  # igraph betweenness in subprocess
   input_data <- list(
-      graph = graph_to_plot,
-      imgNm = imgNm
+      graph = graph_to_plot
     )
     isolated_func <- function(input_data) {
       library(igraph)
-      library(ggplot2)
-      library(Cairo)
       graph <- input_data$graph
-      imgNm <- input_data$imgNm
-      Cairo(file=imgNm, width=400, height=400, type="png", bg="white")
       G.degrees <- igraph::betweenness(graph)
       G.degree.histogram <- as.data.frame(table(G.degrees))
       G.degree.histogram[,1] <- as.numeric(G.degree.histogram[,1])
+      return(list(success = 1, hist = G.degree.histogram))
+    }
+    res <- tryCatch({
+      rsclient_isolated_exec(
+        func_body = isolated_func,
+        input_data = input_data,
+        packages = c("igraph"),
+        timeout = 300
+      )
+    }, error = function(e) {
+      AddErrMsg(paste("PlotBetweennessHistogram failed:", e$message))
+      return(0)
+    })
+    # what the figure reads: how many nodes have each betweenness
+    if (is.list(res) && is.data.frame(res$hist)) {
+      pd <- list(hist = res$hist)
+      .ov_plot_data(stem, pd, "DrawBetweennessHistogram", list(dpi = dpi, format = format))
+      tryCatch(DrawBetweennessHistogram(pd, stem, dpi, format), error = function(e) AddErrMsg(paste("PlotBetweennessHistogram failed:", e$message)))
+    }
+    # plot/write failure is non-fatal
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$betweenness_distribution <- imgNm;
+  saveSet(infoSet);
+}
+
+# Draws the betweenness distribution (log-log) from pd = list(hist = <data frame: G.degrees (betweenness), Freq (number of nodes)>);
+# it draws in its own subprocess
+DrawBetweennessHistogram <- function(pd, imgNm, dpi=150, format="png"){
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  rsclient_isolated_exec(
+    func_body = function(input_data) {
+      library(ggplot2)
+      library(Cairo)
+      G.degree.histogram <- input_data$hist
+      fmt <- input_data$format
+      if (identical(fmt, "png")) Cairo(file=input_data$imgNm, width=400, height=400, type="png", bg="white")
+      else Cairo(file=input_data$imgNm, width=4, height=4, unit="in", type=fmt, bg="white")
       p <- ggplot(G.degree.histogram, aes(x = G.degrees, y = Freq)) +
         geom_point() +
         scale_x_continuous("Betweenness\n(nodes with that amount of betweenness)",
@@ -1083,23 +1135,12 @@ PlotBetweennessHistogram <- function(imgNm, netNm = "NA", dpi=150, format="png")
       print(p)
       dev.off()
       return(list(success = 1))
-    }
-    tryCatch({
-      rsclient_isolated_exec(
-        func_body = isolated_func,
-        input_data = input_data,
-        packages = c("igraph", "ggplot2", "Cairo"),
-        timeout = 300
-      )
-    }, error = function(e) {
-      AddErrMsg(paste("PlotBetweennessHistogram failed:", e$message))
-      return(0)
-    })
-    # plot/write failure is non-fatal
-
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$betweenness_distribution <- imgNm;
-  saveSet(infoSet);
+    },
+    input_data = list(hist = pd$hist, imgNm = imgNm, format = format),
+    packages = c("ggplot2", "Cairo"),
+    timeout = 300
+  )
+  invisible(imgNm)
 }
 
 GetNetworkTopology <- function(netnm){

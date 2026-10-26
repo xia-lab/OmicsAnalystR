@@ -915,6 +915,7 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
  
   sel.nms <- names(mdata.all)[sel.inx]
   dpi<-as.numeric(dpi)
+  stem <- imgNm;
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
  
   reductionSet <- .get.rdt.set();
@@ -935,10 +936,25 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
   df$Component <- gsub("Factor","", df$Component);
   # Layer display names: dataset name disambiguates two same-type layers (see helper).
   df$Dataset <- .oa_layer_display_labels(df$Dataset, reductionSet, sel.nms);
-  # Method-standard: persist the per-component variance-explained data behind the figure.
-  if (exists("WfSaveFigureData"))
-    tryCatch(WfSaveFigureData(paste0("oa_dimred_varexp_", reductionSet$reductionOpt), df),
-             error = function(e) NULL)
+  # what the figure reads: the variance (%) of every layer on every component
+  pd <- list(df = df)
+  # the same numbers are also offered as the download oa_dimred_varexp_<method>_data.csv
+  .ov_plot_data(stem, pd, "DrawDimredVarexp", list(dpi = dpi, format = format),
+                export = stats::setNames(list(df), paste0("oa_dimred_varexp_", reductionSet$reductionOpt)))
+  DrawDimredVarexp(pd, stem, dpi, format)
+
+  infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
+  saveSet(infoSet);
+}
+
+# Draws the variance-per-component lines from pd = list(df = <data frame: Component, Dataset (layer label), value (% of that layer's variance)>)
+DrawDimredVarexp <- function(pd, imgNm, dpi=150, format="png"){
+  load_cairo();
+  library(see)
+  load_ggplot();
+  dpi<-as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  df <- pd$df
   min_r2 = 0
   max_r2 = max(df$value)
   
@@ -953,9 +969,7 @@ PlotDimredVarexp <- function(imgNm, dpi=150, format="png"){
   Cairo(file=imgNm, width=8, height=7, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
-
-  infoSet$imgSet[[paste0("dimred_varexp_", reductionSet$reductionOpt)]]<- imgNm;
-  saveSet(infoSet);
+  invisible(imgNm)
 }
 
 # Cumulative R-squared plot for MOFA/MCIA — stacked bar chart with cumulative line
@@ -965,6 +979,7 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   load_cairo(); load_ggplot();
   library(data.table)
   dpi <- as.numeric(dpi)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
 
   reductionSet <- .get.rdt.set()
@@ -987,10 +1002,26 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   df_long <- melt(as.data.table(df[, c("Factor", view.cols), drop=FALSE]),
                   id.vars="Factor", variable.name="View", value.name="Variance")
   df_long$Factor <- factor(df_long$Factor, levels=df$Factor)
-  # Method-standard: persist the cumulative-variance data behind the figure.
-  if (exists("WfSaveFigureData"))
-    tryCatch(WfSaveFigureData(paste0("oa_cumr2_", reductionSet$reductionOpt), df),
-             error = function(e) NULL)
+  # what the figure reads: each factor's total and cumulative variance (df), and the variance each layer holds of it (df_long)
+  pd <- list(df = df, long = df_long)
+  # the per-factor table is also offered as the download oa_cumr2_<method>_data.csv
+  .ov_plot_data(stem, pd, "DrawCumR2", list(dpi = dpi, format = format),
+                export = stats::setNames(list(df), paste0("oa_cumr2_", reductionSet$reductionOpt)))
+  DrawCumR2(pd, stem, dpi, format)
+  infoSet$imgSet[[paste0("cumr2_", reductionSet$reductionOpt)]] <- imgNm
+  saveSet(infoSet)
+  return(1)
+}
+
+# Draws the stacked variance bars with the cumulative line from pd = list(df = <data frame: Factor, one column per layer, Total,
+# Cumulative>, long = <data table: Factor (factor), View (layer), Variance (%)>)
+DrawCumR2 <- function(pd, imgNm, dpi=150, format="png") {
+  load_cairo(); load_ggplot();
+  library(data.table)
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
+  df <- pd$df
+  df_long <- pd$long
 
   p <- ggplot(df_long, aes(x=Factor, y=Variance, fill=View)) +
     geom_bar(stat="identity", width=0.6) +
@@ -1007,9 +1038,7 @@ PlotCumR2 <- function(imgNm, dpi=150, format="png") {
   Cairo(file=imgNm, unit="in", dpi=dpi, width=8, height=6, type=format, bg="white")
   print(p)
   dev.off()
-  infoSet$imgSet[[paste0("cumr2_", reductionSet$reductionOpt)]] <- imgNm
-  saveSet(infoSet)
-  return(1)
+  invisible(imgNm)
 }
 
 # Column/axis label for the score. MCIA/MOFA/DIABLO all report the feature's own native
@@ -1051,6 +1080,7 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
   infoSet <- readSet(infoSet, "infoSet");
   load_cairo(); load_ggplot();
   dpi <- as.numeric(dpi)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
 
   reductionSet <- .get.rdt.set();
@@ -1060,6 +1090,30 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
   }
   top <- .oa_featimp_per_layer(opt, 10L);
   if (is.null(top)) { AddErrMsg("No feature-importance scores available for this method."); return(0) }
+  # Composite factor keeps y-levels unique across layers; order by MAGNITUDE ascending so the
+  # strongest feature sits at the top of each facet (the score itself may be signed for DIABLO).
+  top <- top[order(top$Layer, abs(top$VIP)), , drop = FALSE];
+  top$FeatKey <- factor(paste(top$Layer, top$Feature, sep = ":::"),
+                        levels = paste(top$Layer, top$Feature, sep = ":::"));
+  # what the figure reads: each layer's top features with their score (VIP) and the method that scored them
+  pd <- list(top = top, opt = opt)
+  # the table is also offered as the download oa_featimp_<method>_data.csv
+  .ov_plot_data(stem, pd, "DrawFeatureImportance", list(dpi = dpi, format = format),
+                export = stats::setNames(list(top), paste0("oa_featimp_", opt)))
+  DrawFeatureImportance(pd, stem, dpi, format)
+  infoSet$imgSet[[paste0("featimp_", opt)]] <- imgNm
+  saveSet(infoSet)
+  return(1)
+}
+
+# Draws the per-layer top-feature bars from pd = list(top = <data frame: Layer, Feature, FeatKey (factor), VIP (score), ...>,
+# opt = <"mcia" | "mofa" | "diablo" | other: the method that scored them>)
+DrawFeatureImportance <- function(pd, imgNm, dpi=150, format="png"){
+  load_cairo(); load_ggplot();
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
+  top <- pd$top
+  opt <- pd$opt
   # mcia/mofa/diablo all report a native SIGNED loading (bars diverge by direction); a
   # fallback method would report the non-negative variance-weighted analog.
   is.loading <- opt %in% c("diablo", "mcia", "mofa");
@@ -1068,14 +1122,7 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
                   mcia   = "MCIA loading (signed)",
                   mofa   = "MOFA weight (signed)",
                   "Importance (variance-weighted loading)");
-  # Composite factor keeps y-levels unique across layers; order by MAGNITUDE ascending so the
-  # strongest feature sits at the top of each facet (the score itself may be signed for DIABLO).
-  top <- top[order(top$Layer, abs(top$VIP)), , drop = FALSE];
-  top$FeatKey <- factor(paste(top$Layer, top$Feature, sep = ":::"),
-                        levels = paste(top$Layer, top$Feature, sep = ":::"));
   feat.labels <- setNames(as.character(top$Feature), as.character(top$FeatKey));
-  if (exists("WfSaveFigureData"))
-    tryCatch(WfSaveFigureData(paste0("oa_featimp_", opt), top), error = function(e) NULL)
 
   n.layers <- length(unique(top$Layer));
   # Categorical mapped to y (no coord_flip) so facet scales="free_y" gives each layer its own
@@ -1097,9 +1144,7 @@ PlotFeatureImportance <- function(imgNm, dpi=150, format="png"){
   Cairo(file = imgNm, unit = "in", dpi = dpi, width = 8, height = max(5, 3.2 * n.layers),
         type = format, bg = "white")
   print(p); dev.off()
-  infoSet$imgSet[[paste0("featimp_", opt)]] <- imgNm
-  saveSet(infoSet)
-  return(1)
+  invisible(imgNm)
 }
 
 # Delimited per-layer top-N feature-importance table for the JSF DimRedSummary tab. One
@@ -1130,6 +1175,7 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
   library(see)
 
   dpi<-as.numeric(dpi)
+  stem <- imgNm;
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
   reductionSet <- .get.rdt.set();
@@ -1155,22 +1201,12 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
     df_long <- as.data.frame(melt(as.data.table(df), id.vars = "Factor", variable.name = "View", value.name = "Variance"))
     df_long$Variance <- df_long$Variance * 100
     df_long$Factor <- gsub("Factor", "Factor ", df_long$Factor)
-    # Method-standard: persist the per-factor variance-explained data behind the figure.
-    if (exists("WfSaveFigureData"))
-      tryCatch(WfSaveFigureData(paste0("oa_dimred_factors_", reductionSet$reductionOpt), df_long),
-               error = function(e) NULL)
-
-    p1 <- ggplot(df_long, aes(x = Factor, y = View, fill = Variance)) +
-      geom_tile(color = "grey30", linewidth = 0.8) +
-      geom_text(aes(label = sprintf("%.2f%%", Variance)), size = 5, color = "black") +
-      scale_fill_gradient(low = "white", high = "#C0392B", name = "Var. (%)") +
-      labs(x = "", y = "", title = "Variance Explained per Factor") +
-      .oa_dimred_theme() +
-      theme(panel.grid = element_blank())
-
-    Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
-    print(p1)
-    dev.off()
+    # what the figure reads: the % of each layer's variance every factor explains
+    pd <- list(df = df_long)
+    # the same numbers are also offered as the download oa_dimred_factors_<method>_data.csv
+    .ov_plot_data(stem, pd, "DrawDimredFactors", list(dpi = dpi, format = format),
+                  export = stats::setNames(list(df_long), paste0("oa_dimred_factors_", reductionSet$reductionOpt)))
+    DrawDimredFactors(pd, stem, dpi, format)
 
     infoSet$imgSet[[paste0("dimred_factors_", reductionSet$reductionOpt)]] <- imgNm
     saveSet(infoSet)
@@ -1285,6 +1321,30 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
 
   infoSet$imgSet[[paste0("dimred_factors_", reductionSet$reductionOpt)]]<- imgNm;
   saveSet(infoSet);
+}
+
+# Draws the variance-per-factor tiles of a MOFA / MCIA / DIABLO result from pd = list(df = <data frame: Factor, View (layer label),
+# Variance (% of that layer's variance)>)
+DrawDimredFactors <- function(pd, imgNm, dpi=150, format="png"){
+  load_cairo();
+  load_ggplot();
+  library(see)
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  df_long <- pd$df
+
+  p1 <- ggplot(df_long, aes(x = Factor, y = View, fill = Variance)) +
+    geom_tile(color = "grey30", linewidth = 0.8) +
+    geom_text(aes(label = sprintf("%.2f%%", Variance)), size = 5, color = "black") +
+    scale_fill_gradient(low = "white", high = "#C0392B", name = "Var. (%)") +
+    labs(x = "", y = "", title = "Variance Explained per Factor") +
+    .oa_dimred_theme() +
+    theme(panel.grid = element_blank())
+
+  Cairo::Cairo(file = imgNm, width = 8, height = 7, type = format, bg = "white", unit = "in", dpi = dpi)
+  print(p1)
+  dev.off()
+  invisible(imgNm)
 }
 
 # Extract BER table from perf() result - handles multiple mixOmics output formats
@@ -1464,6 +1524,7 @@ PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
   infoSet <- readSet(infoSet, "infoSet")
   dpi <- as.numeric(dpi)
   cutoff <- as.numeric(cutoff)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
 
   # Read from diablo_circos.json (same data as web chord diagram)
@@ -1477,72 +1538,84 @@ PlotDiabloCircos <- function(imgNm, dpi=150, format="png", cutoff=0.7) {
   )
 
   tryCatch({
-    require(circlize)
     if (is.null(edges) || length(edges) == 0) {
       AddErrMsg("[PlotDiabloCircos] No edges in circos JSON")
     } else {
-      sources <- data.frame(name = edges$source, type = edges$type1, stringsAsFactors = FALSE)
-      targets <- data.frame(name = edges$target, type = edges$type2, stringsAsFactors = FALSE)
-      nodes <- unique(rbind(sources, targets))
-      nodes <- nodes[order(nodes$type, nodes$name), ]
-
-      type_colors <- c("#ED7D31", "#70AD47", "#FFC000", "#9B59B6")
-      type_names <- unique(nodes$type)
-      sector_colors <- setNames(
-        type_colors[match(nodes$type, type_names)],
-        nodes$name
-      )
-
-      link_colors <- ifelse(as.numeric(edges$corr) > 0,
-                            rgb(255, 80, 80, alpha = 153, maxColorValue = 255),
-                            rgb(80, 80, 255, alpha = 153, maxColorValue = 255))
-
-      Cairo::Cairo(file = imgNm, width = 10, height = 10,
-                   type = format, bg = "white", unit = "in", dpi = dpi)
-
-      circos.clear()
-      n_nodes <- nrow(nodes)
-      gap_size <- if (n_nodes > 80) 0.2 else if (n_nodes > 40) 0.5 else 1
-      type_gap <- if (n_nodes > 80) 2 else if (n_nodes > 40) 4 else 8
-      # Add larger gap between data types
-      type_boundaries <- which(diff(match(nodes$type, type_names)) != 0)
-      gap_vec <- rep(gap_size, n_nodes)
-      if (length(type_boundaries) > 0) gap_vec[type_boundaries] <- type_gap
-      gap_vec[n_nodes] <- type_gap
-      circos.par(gap.after = gap_vec, start.degree = 90, cell.padding = c(0, 0, 0, 0))
-      circos.initialize(factors = factor(nodes$name, levels = nodes$name),
-                        xlim = c(0, 1))
-
-      label_cex <- if (n_nodes > 80) 0.35 else if (n_nodes > 40) 0.45 else 0.6
-      circos.track(ylim = c(0, 1), panel.fun = function(x, y) {
-        sector.name <- CELL_META$sector.index
-        circos.text(CELL_META$xcenter, CELL_META$ycenter,
-                    sector.name, facing = "clockwise", niceFacing = TRUE,
-                    adj = c(0, 0.5), cex = label_cex)
-      }, bg.col = sector_colors, bg.border = "grey50",
-      track.height = 0.05)
-
-      for (i in seq_len(nrow(edges))) {
-        circos.link(edges$source[i], c(0.2, 0.8),
-                    edges$target[i], c(0.2, 0.8),
-                    col = link_colors[i], border = NA)
-      }
-
-      legend("bottomleft", legend = type_names, fill = type_colors[1:length(type_names)],
-             title = "Data Type", bty = "n", cex = 0.9)
-      legend("bottomright", legend = c("Positive", "Negative"),
-             fill = c(rgb(255, 80, 80, alpha = 153, maxColorValue = 255),
-                      rgb(80, 80, 255, alpha = 153, maxColorValue = 255)),
-             title = "Correlation", bty = "n", cex = 0.9)
-
-      circos.clear()
-      dev.off()
+      # what the figure reads: the cross-layer correlations above the cutoff (source, target, their layers, corr)
+      pd <- list(edges = edges)
+      .ov_plot_data(stem, pd, "DrawDiabloCircos", list(dpi = dpi, format = format))
+      DrawDiabloCircos(pd, stem, dpi, format)
     }
   }, error = function(e) { AddErrMsg(paste("[PlotDiabloCircos]", e$message)) })
 
   infoSet$imgSet[["diablo_circos"]] <- imgNm
   saveSet(infoSet)
   return(1)
+}
+
+# Draws the DIABLO circos from pd = list(edges = <data frame: source, target, type1, type2, corr>)
+DrawDiabloCircos <- function(pd, imgNm, dpi=150, format="png") {
+  require(circlize)
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="")
+  edges <- pd$edges
+  sources <- data.frame(name = edges$source, type = edges$type1, stringsAsFactors = FALSE)
+  targets <- data.frame(name = edges$target, type = edges$type2, stringsAsFactors = FALSE)
+  nodes <- unique(rbind(sources, targets))
+  nodes <- nodes[order(nodes$type, nodes$name), ]
+
+  type_colors <- c("#ED7D31", "#70AD47", "#FFC000", "#9B59B6")
+  type_names <- unique(nodes$type)
+  sector_colors <- setNames(
+    type_colors[match(nodes$type, type_names)],
+    nodes$name
+  )
+
+  link_colors <- ifelse(as.numeric(edges$corr) > 0,
+                        rgb(255, 80, 80, alpha = 153, maxColorValue = 255),
+                        rgb(80, 80, 255, alpha = 153, maxColorValue = 255))
+
+  Cairo::Cairo(file = imgNm, width = 10, height = 10,
+               type = format, bg = "white", unit = "in", dpi = dpi)
+
+  circos.clear()
+  n_nodes <- nrow(nodes)
+  gap_size <- if (n_nodes > 80) 0.2 else if (n_nodes > 40) 0.5 else 1
+  type_gap <- if (n_nodes > 80) 2 else if (n_nodes > 40) 4 else 8
+  # Add larger gap between data types
+  type_boundaries <- which(diff(match(nodes$type, type_names)) != 0)
+  gap_vec <- rep(gap_size, n_nodes)
+  if (length(type_boundaries) > 0) gap_vec[type_boundaries] <- type_gap
+  gap_vec[n_nodes] <- type_gap
+  circos.par(gap.after = gap_vec, start.degree = 90, cell.padding = c(0, 0, 0, 0))
+  circos.initialize(factors = factor(nodes$name, levels = nodes$name),
+                    xlim = c(0, 1))
+
+  label_cex <- if (n_nodes > 80) 0.35 else if (n_nodes > 40) 0.45 else 0.6
+  circos.track(ylim = c(0, 1), panel.fun = function(x, y) {
+    sector.name <- CELL_META$sector.index
+    circos.text(CELL_META$xcenter, CELL_META$ycenter,
+                sector.name, facing = "clockwise", niceFacing = TRUE,
+                adj = c(0, 0.5), cex = label_cex)
+  }, bg.col = sector_colors, bg.border = "grey50",
+  track.height = 0.05)
+
+  for (i in seq_len(nrow(edges))) {
+    circos.link(edges$source[i], c(0.2, 0.8),
+                edges$target[i], c(0.2, 0.8),
+                col = link_colors[i], border = NA)
+  }
+
+  legend("bottomleft", legend = type_names, fill = type_colors[1:length(type_names)],
+         title = "Data Type", bty = "n", cex = 0.9)
+  legend("bottomright", legend = c("Positive", "Negative"),
+         fill = c(rgb(255, 80, 80, alpha = 153, maxColorValue = 255),
+                  rgb(80, 80, 255, alpha = 153, maxColorValue = 255)),
+         title = "Correlation", bty = "n", cex = 0.9)
+
+  circos.clear()
+  dev.off()
+  invisible(imgNm)
 }
 
 #'Variance explained per component, as a report-ready table

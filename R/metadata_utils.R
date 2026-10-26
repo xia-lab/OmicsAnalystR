@@ -676,6 +676,7 @@ UpdatePrimaryMeta <- function(primaryMeta){
 
 PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorGradient="", imgName="", dpi=150, imgFormat="png", interactive=F){
   try(RecordRCommand(paste0("PlotMetaCorrHeatmap(imgName = \"", imgName, "\")")), silent = TRUE)
+  stem <- imgName;
   imgName <- paste(imgName, "dpi", dpi, ".", imgFormat, sep="");
   dpi <- as.numeric(dpi);
   rdtSet <- .get.rdt.set();
@@ -709,6 +710,63 @@ PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorG
   library(scales);
 
 
+  metaData[metaData == "NA"] <- NA;
+  for(i in c(1:length(disc.inx))){
+    metaData[,disc.inx[i]] <- as.integer(metaData[,disc.inx[i]], na.rm = TRUE);
+  }
+
+if(length(cont.inx)>0){
+  for(i in c(1:length(cont.inx))){
+    metaData[,cont.inx[i]] <- as.numeric(as.character(metaData[,cont.inx[i]], na.rm = TRUE));
+  }
+}
+ 
+ 
+  if(cor.method=="univariate"){
+  cormat <- round(cor(metaData, method=cor.opt, use="pairwise.complete.obs"),3);
+
+  }else{
+ library(ppcor);
+     res <- pcor(metaData, method=cor.opt);
+    cormat <- res$estimate;
+    rownames(cormat) <-  colnames(cormat) <- colnames(metaData)
+}
+
+  upper_tri <- get_upper_tri(cormat);
+  melted_cormat <- melt(upper_tri, na.rm = TRUE);
+  melted_cormat$value = signif(melted_cormat$value,3)
+
+  # what the figure reads: the correlation of each pair of metadata factors (upper triangle), its colour scale and size
+  pd <- list(melted = melted_cormat, colorGradient = colorGradient, textSize = textSize, w = w, h = h)
+
+  if(interactive){
+    return(DrawMetaCorrHeatmap(pd, stem, dpi, imgFormat, interactive = TRUE));
+  }else{
+  .ov_plot_data(stem, pd, "DrawMetaCorrHeatmap", list(dpi = dpi, format = imgFormat));
+  DrawMetaCorrHeatmap(pd, stem, dpi, imgFormat);
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$metadata_heatmap <- imgName;
+  saveSet(infoSet);
+  return(1);
+
+  }
+}
+
+# Draws the metadata correlation heatmap from pd = list(melted = <data frame: Var1, Var2, value (correlation)>, colorGradient,
+# textSize, w, h (inches))
+DrawMetaCorrHeatmap <- function(pd, imgNm, dpi=150, format="png", interactive=F){
+  imgName <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  dpi <- as.numeric(dpi);
+  melted_cormat <- pd$melted
+  colorGradient <- pd$colorGradient
+  textSize <- pd$textSize
+  w <- pd$w
+  h <- pd$h
+
+  library(reshape2)
+  load_ggplot();
+  library(scales);
+
  color_scale <- if(colorGradient=="gbr"){
    scale_fill_gradient2(low =  "green", mid="black", high = "red", midpoint = 0,
                          limit = c(-1,1), space = "Lab", name="Correlation") 
@@ -740,32 +798,7 @@ PlotMetaCorrHeatmap <- function(cor.method="univariate",cor.opt="pearson",colorG
 
  
   
-  metaData[metaData == "NA"] <- NA;
-  for(i in c(1:length(disc.inx))){
-    metaData[,disc.inx[i]] <- as.integer(metaData[,disc.inx[i]], na.rm = TRUE);
-  }
 
-if(length(cont.inx)>0){
-  for(i in c(1:length(cont.inx))){
-    metaData[,cont.inx[i]] <- as.numeric(as.character(metaData[,cont.inx[i]], na.rm = TRUE));
-  }
-}
- 
- 
-  if(cor.method=="univariate"){
-  cormat <- round(cor(metaData, method=cor.opt, use="pairwise.complete.obs"),3);
-
-  }else{
- library(ppcor);
-     res <- pcor(metaData, method=cor.opt);
-    cormat <- res$estimate;
-    rownames(cormat) <-  colnames(cormat) <- colnames(metaData)
-}
-
-  upper_tri <- get_upper_tri(cormat);
-  melted_cormat <- melt(upper_tri, na.rm = TRUE);
-  melted_cormat$value = signif(melted_cormat$value,3)
- 
   ggheatmap <- ggplot2::ggplot(data = melted_cormat, aes(Var2, Var1, fill = value)) +
     geom_tile(color = "white")+ scale_y_discrete("Var1", position="right") +
      color_scale + theme_minimal()+ 
@@ -788,14 +821,10 @@ if(length(cont.inx)>0){
     ggp_build <- layout(ggplotly(ggheatmap), autosize = FALSE, width = 800, height = 600, margin = m)
     return(ggp_build);
   }else{
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$metadata_heatmap <- imgName;
-  saveSet(infoSet);
-  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=imgFormat, bg="white");
+  Cairo::Cairo(file = imgName, unit="in", dpi=dpi, width=w, height=h, type=format, bg="white");
   print(ggheatmap);
   dev.off();
-  return(1);
-
+  invisible(imgName)
   }
 }
 

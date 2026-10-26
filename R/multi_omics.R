@@ -621,6 +621,7 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
   load_cairo();
   load_ggplot();
   dpi<-as.numeric(dpi)
+  stem <- imgNm;
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   
   sel.nms <- names(mdata.all)
@@ -705,19 +706,38 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
   #p1 <- ggarrange(plotlist=fig.list, ncol = 2, nrow = round(length(fig.list)/2))
   combined_data <- do.call(rbind, all_data)
 
-  # Method-standard: persist the per-sample PCA coordinates behind this figure so
-  # Refine can re-plot from data and the scores are portable to any tool.
-  if (exists("WfSaveFigureData"))
-    tryCatch(WfSaveFigureData("oa_multi_pca", combined_data), error = function(e) NULL)
-
+  # what the figure reads: every layer's sample scores with the factor colouring them, and the factor's name
   if (!exists(".factor.label")) .factor.label <- "Group"
+  pd <- list(df = combined_data, label = .factor.label)
+
+  if(interactive){
+    return(DrawMultiPCA(pd, stem, dpi, format, interactive = TRUE));
+  }else{
+  # the scores are also offered as the download oa_multi_pca_data.csv (the method cards name it)
+  .ov_plot_data(stem, pd, "DrawMultiPCA", list(dpi = dpi, format = format), export = list(oa_multi_pca = combined_data));
+  DrawMultiPCA(pd, stem, dpi, format);
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$qc_multi_pca <- imgNm;
+  saveSet(infoSet);
+  }
+}
+
+# Draws the multi-omics sample PCA from pd = list(df = <data frame: PC1, PC2, Conditions, names, dataset (panel label)>,
+# label = <name of the factor colouring the samples>)
+DrawMultiPCA <- function(pd, imgNm, dpi=150, format="png", interactive=F){
+  load_cairo();
+  load_ggplot();
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  combined_data <- pd$df
+  .factor.label <- pd$label
+  h<-6
   p1 <- ggplot(combined_data, aes(x=PC1, y=PC2, color=Conditions)) +
     geom_point(size=3, alpha=0.7) +
     facet_wrap(~ dataset, scales = "free") + # Use facet_wrap or facet_grid
     labs(color = .factor.label, title = paste0("Sample PCA - coloured by ", .factor.label)) +
     theme_bw() +
     theme(text=element_text(size=13), plot.title = element_text(hjust = 0.5))
-
 
   if(interactive){
     library(plotly);
@@ -735,9 +755,7 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
   Cairo(file=imgNm, width=14, height=h, type=format, bg="white", unit="in", dpi=dpi);
   print(p1)
   dev.off();
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$qc_multi_pca <- imgNm;
-  saveSet(infoSet);
+  invisible(imgNm)
   }
 }
 
@@ -747,6 +765,7 @@ PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactiv
   load_ggplot();
   dpi <- as.numeric(dpi)
   factor <- as.numeric(factor)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   sel.nms <- names(mdata.all)
   fig.list <- list()
@@ -766,18 +785,33 @@ PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactiv
   
   type<-merged.df$type
   merged.df$ind <- paste0(merged.df$ind, "_", merged.df$type)
-  # Method-standard: persist the plotted density data so the AI "Refine" control can
-  # re-plot from data and users can regenerate it in any tool (key on the figure stem,
-  # since this fn draws several stable-named densities: raw / norm / scaled / qc).
-  if (exists("WfSaveFigureData"))
-    tryCatch(WfSaveFigureData(sub("_dpi.*$", "", basename(imgNm)), merged.df), error = function(e) NULL)
+  # what the figure reads: every value of every layer with its sample (ind) and layer (Dataset)
+  pd <- list(df = merged.df)
+
+  if(interactive){
+    return(DrawMultiDensity(pd, stem, dpi, format, interactive = TRUE));
+  }else{
+  # the values are also offered as the download <figure>_data.csv (the method cards name it)
+  .ov_plot_data(stem, pd, "DrawMultiDensity", list(dpi = dpi, format = format), export = stats::setNames(list(merged.df), sub("_dpi.*$", "", basename(imgNm))));
+  DrawMultiDensity(pd, stem, dpi, format);
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$qc_multi_density <- imgNm;
+  saveSet(infoSet);
+  }
+} 
+
+# Draws the density of every sample, coloured by layer, from pd = list(df = <data frame: values, ind (sample), Dataset (layer)>)
+DrawMultiDensity <- function(pd, imgNm, dpi=150, format="png", interactive=F){
+  load_cairo();
+  load_ggplot();
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  merged.df <- pd$df
     g =ggplot(merged.df, aes(x=values)) +
     geom_line(aes(color=Dataset, group=ind), stat="density", alpha=0.1) + 
     geom_line(aes(color=Dataset), stat="density", alpha=0.7, size=3) +
     theme_bw() +
     theme(text=element_text(size=13))
-
-
 
   if(interactive){
     library(plotly);
@@ -795,11 +829,9 @@ PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactiv
   Cairo(file=imgNm, width=10, height=6, type=format, bg="white", dpi=dpi, unit="in");
   print(g)
   dev.off();
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$qc_multi_density <- imgNm;
-  saveSet(infoSet);
+  invisible(imgNm)
   }
-} 
+}
 
 # Harmonization sanity check: per-layer boxplot of the (final, scaled) data.proc. After
 # harmonization every layer should sit near zero with a comparable spread — a layer that
@@ -809,6 +841,7 @@ PlotMultiBoxplot <- function(imgNm, dpi=150, format="png", factor="1", interacti
   load_cairo();
   load_ggplot();
   dpi <- as.numeric(dpi)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
   sel.nms <- names(Filter(function(x) isTRUE(x == 1L), mdata.all))
   if(length(sel.nms) == 0L) sel.nms <- names(mdata.all)
@@ -822,8 +855,27 @@ PlotMultiBoxplot <- function(imgNm, dpi=150, format="png", factor="1", interacti
     df.list[[i]] <- st
   }
   merged.df <- do.call(rbind, df.list)
-  if (exists("WfSaveFigureData"))
-    tryCatch(WfSaveFigureData(sub("_dpi.*$", "", basename(imgNm)), merged.df), error = function(e) NULL)
+  # what the figure reads: every scaled value of every layer with its sample (ind) and layer (Dataset)
+  pd <- list(df = merged.df)
+  if(interactive){
+    return(DrawMultiBoxplot(pd, stem, dpi, format, interactive = TRUE));
+  }else{
+    # the values are also offered as the download <figure>_data.csv (the method cards name it)
+    .ov_plot_data(stem, pd, "DrawMultiBoxplot", list(dpi = dpi, format = format), export = stats::setNames(list(merged.df), sub("_dpi.*$", "", basename(imgNm))));
+    DrawMultiBoxplot(pd, stem, dpi, format);
+    infoSet <- readSet(infoSet, "infoSet");
+    infoSet$imgSet$qc_multi_boxplot <- imgNm;
+    saveSet(infoSet);
+  }
+}
+
+# Draws one box per layer from pd = list(df = <data frame: values, ind (sample), Dataset (layer)>)
+DrawMultiBoxplot <- function(pd, imgNm, dpi=150, format="png", interactive=F){
+  load_cairo();
+  load_ggplot();
+  dpi <- as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  merged.df <- pd$df
   g <- ggplot(merged.df, aes(x=Dataset, y=values, fill=Dataset)) +
        geom_hline(yintercept=0, linetype="dashed", colour="grey50") +
        geom_boxplot(outlier.size=0.3, alpha=0.85) +
@@ -838,9 +890,7 @@ PlotMultiBoxplot <- function(imgNm, dpi=150, format="png", factor="1", interacti
     Cairo(file=imgNm, width=8, height=6, type=format, bg="white", dpi=dpi, unit="in");
     print(g)
     dev.off();
-    infoSet <- readSet(infoSet, "infoSet");
-    infoSet$imgSet$qc_multi_boxplot <- imgNm;
-    saveSet(infoSet);
+    invisible(imgNm)
   }
 }
 

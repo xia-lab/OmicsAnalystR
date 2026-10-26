@@ -941,19 +941,57 @@ ComputeSilhouette <-function(type){
 
 PlotDiagnostic <- function(alg, imgName, dpi=150, format="png"){
   dpi <- as.numeric(dpi);
+  stem <- imgName;
   imgNm <- paste(imgName, "dpi", dpi, ".", format, sep="");
-  h <- 8;
   sel.inx <- vapply(mdata.all, function(x) isTRUE(x == 1), logical(1));
   sel.nms <- names(mdata.all)[sel.inx];
   reductionSet<-.get.rdt.set();
 
+  # what the figure reads: the AUC curve of each of the two layers (perturbation), or the eigen values / variance fractions with the
+  # number of clusters highlighted (spectrum, snf, kmeans)
+  if (alg == "perturbation") {
+    res <- reductionSet$clustRes
+    pd <- list(alg = alg,
+               auc1 = res$dataTypeResult[[1]]$Discrepancy$AUC[-1],
+               auc2 = res$dataTypeResult[[2]]$Discrepancy$AUC[-1],
+               sel_nm1 = sel.nms[[1]], sel_nm2 = sel.nms[[2]],
+               n_clust = length(unique(res$cluster1)))
+  } else {
+    vals <- NULL
+    if(alg == "spectrum"){
+      vals <- if(!is.null(reductionSet$clustRes$eigenvector_analysis)){
+        reductionSet$clustRes$eigenvector_analysis[,2]
+      }else{
+        reductionSet$clustRes$eigensystem$values[1:10]
+      }
+    }else if(alg == "snf"){
+      vals <- reductionSet$clustRes[[5]]
+    }else if(alg == "kmeans"){
+      vals <- reductionSet$clustRes$frac_explained
+    }
+    pd <- list(alg = alg, k = length(unique(reductionSet$clustVec)), values = vals)
+  }
+
+  .ov_plot_data(stem, pd, "DrawDiagnostic", list(dpi = dpi, format = format))
+  DrawDiagnostic(pd, stem, dpi, format)
+
+  infoSet <- readSet(infoSet, "infoSet");
+  infoSet$imgSet$diagnostic_components <- imgNm;
+  saveSet(infoSet);
+  return(1);
+}
+
+# Draws the clustering diagnostic from pd = list(alg, ...): "perturbation" (auc1, auc2, sel_nm1, sel_nm2, n_clust: the AUC of each layer
+# against the number of clusters, drawn in its own subprocess) or "spectrum" / "snf" / "kmeans" (values: eigen values or variance
+# fractions, k: the number of clusters to highlight)
+DrawDiagnostic <- function(pd, imgNm, dpi=150, format="png"){
+  dpi <- as.numeric(dpi);
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+  h <- 8;
+  alg <- pd$alg
+
   if (alg == "perturbation") {
     # Perturbation branch uses ggpubr/tidyverse - isolate
-    res <- reductionSet$clustRes
-    auc1 <- res$dataTypeResult[[1]]$Discrepancy$AUC[-1]
-    auc2 <- res$dataTypeResult[[2]]$Discrepancy$AUC[-1]
-    n_clust <- length(unique(res$cluster1))
-
     tryCatch({
       rsclient_isolated_exec(
         func_body = function(input_data) {
@@ -976,14 +1014,14 @@ PlotDiagnostic <- function(alg, imgName, dpi=150, format="png"){
             ggplot2::theme_bw()
 
           Cairo::Cairo(file = input_data$imgNm, width = 10, height = 8,
-                       type = "png", unit = "in", bg = "white", dpi = input_data$dpi)
+                       type = input_data$format, unit = "in", bg = "white", dpi = input_data$dpi)
           print(p1)
           dev.off()
           return(1)
         },
-        input_data = list(auc1 = auc1, auc2 = auc2, sel_nm1 = sel.nms[[1]],
-                          sel_nm2 = sel.nms[[2]], n_clust = n_clust,
-                          imgNm = imgNm, dpi = dpi),
+        input_data = list(auc1 = pd$auc1, auc2 = pd$auc2, sel_nm1 = pd$sel_nm1,
+                          sel_nm2 = pd$sel_nm2, n_clust = pd$n_clust,
+                          imgNm = imgNm, dpi = dpi, format = format),
         packages = c("ggplot2", "Cairo", "tidyr", "qs"),
         timeout = 300
       )
@@ -995,58 +1033,20 @@ PlotDiagnostic <- function(alg, imgName, dpi=150, format="png"){
   } else {
     # Standard path or non-perturbation algorithms (base R plotting)
     load_cairo();
-    if(alg %in% c("snf", "spectrum","kmeans") ){
-      fig.list <- list()
-      library(ggpubr);
-    }
-
-    Cairo(file=imgNm, width=10, height=h, type="png",unit="in", bg="white", dpi=dpi);
-    if(alg == "spectrum"){
-      if(!is.null(reductionSet$clustRes$eigenvector_analysis)){
-        plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigenvector_analysis[,2]);
-      }else{
-        plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$eigensystem$values[1:10]);
-      }
-    }else if(alg == "perturbation"){
-      res <- reductionSet$clustRes
-      library(ggpubr)
-      load_ggplot();
-      xlabel="Number of clusters"
-      ylabel="AUC"
-      auc1 <- res$dataTypeResult[[1]]$Discrepancy$AUC[-1]
-      auc.df1 <- data.frame(K=seq.int(length(auc1))+1, evals=auc1)
-      auc2 <- res$dataTypeResult[[2]]$Discrepancy$AUC[-1]
-      auc.df2 <- data.frame(K=seq.int(length(auc2))+1, evals=auc2)
-      auc.df1$evals2 = auc.df2$evals
-      colnames(auc.df1) = c("K", sel.nms[[1]], sel.nms[[2]])
-      library("tidyverse")
-      df <- auc.df1 %>%
-        select(K,  sel.nms[[1]], sel.nms[[2]]) %>%
-        gather(key = "variable", value = "value", -K)
-      p1 <- ggplot(df, aes(x = K, y = value)) +
-        geom_point(aes(color = variable), size=2) +
-        geom_line(aes(color = variable)) +
-        geom_vline(xintercept = length(unique(res$cluster1)),linetype="dashed")+ xlab(xlabel) +
-        ylab(ylabel) +
-        theme_bw()
-      print(p1)
-    }else if(alg == "snf"){
-      plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes[[5]])
-    }else if(alg == "kmeans"){
-      plotEig(length(unique(reductionSet$clustVec)), reductionSet$clustRes$frac_explained)
+    fmt <- format
+    Cairo(file=imgNm, width=10, height=h, type=fmt, unit="in", bg="white", dpi=dpi);
+    if(alg %in% c("spectrum", "snf", "kmeans")){
+      plotEig(pd$k, pd$values)
     }
     dev.off();
   }
-
-  infoSet <- readSet(infoSet, "infoSet");
-  infoSet$imgSet$diagnostic_components <- imgNm;
-  saveSet(infoSet);
-  return(1);
+  invisible(imgNm)
 }
 
 
 PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum"){
   dpi<-as.numeric(dpi)
+  stem <- imgNm
   imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
 
   sel.nms <- names(mdata.all)
@@ -1060,6 +1060,41 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
   reductionSet <- .get.rdt.set();
   clust <- reductionSet$clustVec
 
+  # what the figure reads: for each layer the first two PCA scores of its samples with their cluster and class, the axis labels and limits
+  panels <- list()
+  for (i in seq_along(sel.nms)) {
+    x <- data.list[[sel.nms[i]]]
+    pca <- prcomp(t(na.omit(x)))
+    imp.pca <- summary(pca)$importance
+    xlabel <- paste0("PC1", " (", 100 * round(imp.pca[2, ][1], 3), "%)")
+    ylabel <- paste0("PC2", " (", 100 * round(imp.pca[2, ][2], 3), "%)")
+    pca.res <- as.data.frame(pca$x)
+    pca.res <- pca.res[, c(1, 2)]
+
+    xlim <- range(pca.res$PC1)
+    xlim <- xlim + c(-1, 1) * diff(xlim) * 0.1
+    ylim <- range(pca.res$PC2)
+    ylim <- ylim + c(-1, 1) * diff(ylim) * 0.1
+
+    Factor <- as.factor(clust)
+    pca.rest <- pca.res
+    pca.rest$Cluster <- Factor
+    pca.rest$names <- rownames(pca.res)
+    Conditions <- as.factor(cls.list[[sel.nms[i]]])
+    pca.rest$Conditions <- Conditions
+    panels[[i]] <- list(df = pca.rest, xlim = xlim, ylim = ylim, xlabel = xlabel, ylabel = ylabel)
+  }
+  pd <- list(sel.nms = sel.nms, panels = panels)
+  .ov_plot_data(stem, pd, "DrawHeatmapDiagnosticPca", list(dpi = dpi, format = format))
+  DrawHeatmapDiagnosticPca(pd, stem, dpi, format)
+}
+
+# Draws one PCA per layer coloured by cluster from pd = list(sel.nms = <layer names>, panels = <list of list(df = <data frame: PC1, PC2,
+# Cluster, names, Conditions>, xlim, ylim, xlabel, ylabel)>); it draws in its own subprocess
+DrawHeatmapDiagnosticPca <- function(pd, imgNm, dpi=150, format="png"){
+  dpi<-as.numeric(dpi)
+  imgNm <- paste(imgNm, "dpi", dpi, ".", format, sep="");
+
   tryCatch({
     rsclient_isolated_exec(
       func_body = function(input_data) {
@@ -1068,35 +1103,14 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
         require(Cairo)
 
         sel.nms <- input_data$sel.nms
-        data.list <- input_data$data.list
-        cls.list <- input_data$cls.list
-        clust <- input_data$clust
+        panels <- input_data$panels
 
         fig.list <- list()
         for (i in seq_along(sel.nms)) {
-          x <- data.list[[sel.nms[i]]]
-          pca <- prcomp(t(na.omit(x)))
-          imp.pca <- summary(pca)$importance
-          xlabel <- paste0("PC1", " (", 100 * round(imp.pca[2, ][1], 3), "%)")
-          ylabel <- paste0("PC2", " (", 100 * round(imp.pca[2, ][2], 3), "%)")
-          pca.res <- as.data.frame(pca$x)
-          pca.res <- pca.res[, c(1, 2)]
-
-          xlim <- range(pca.res$PC1)
-          xlim <- xlim + c(-1, 1) * diff(xlim) * 0.1
-          ylim <- range(pca.res$PC2)
-          ylim <- ylim + c(-1, 1) * diff(ylim) * 0.1
-
-          Factor <- as.factor(clust)
-          pca.rest <- pca.res
-          pca.rest$Cluster <- Factor
-          pca.rest$names <- rownames(pca.res)
-          Conditions <- as.factor(cls.list[[sel.nms[i]]])
-          pca.rest$Conditions <- Conditions
-
-          pcafig <- ggplot2::ggplot(pca.rest, ggplot2::aes(x = PC1, y = PC2, color = Cluster, shape = Conditions)) +
+          pa <- panels[[i]]
+          pcafig <- ggplot2::ggplot(pa$df, ggplot2::aes(x = PC1, y = PC2, color = Cluster, shape = Conditions)) +
             ggplot2::geom_point(size = 3, alpha = 0.5) +
-            ggplot2::xlim(xlim) + ggplot2::ylim(ylim) + ggplot2::xlab(xlabel) + ggplot2::ylab(ylabel) +
+            ggplot2::xlim(pa$xlim) + ggplot2::ylim(pa$ylim) + ggplot2::xlab(pa$xlabel) + ggplot2::ylab(pa$ylabel) +
             ggplot2::theme_bw()
           fig.list[[i]] <- pcafig
         }
@@ -1110,8 +1124,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
         dev.off()
         return(1)
       },
-      input_data = list(sel.nms = sel.nms, data.list = data.list, cls.list = cls.list,
-                        clust = clust, imgNm = imgNm, dpi = dpi, format = format),
+      input_data = list(sel.nms = pd$sel.nms, panels = pd$panels, imgNm = imgNm, dpi = dpi, format = format),
       packages = c("ggpubr", "ggplot2", "Cairo", "qs"),
       timeout = 300
     )
@@ -1126,6 +1139,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
 PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist="pearson", clstDist="average", colorGradient="bwm",drawBorder=F, includeRowNames=T,imgName, format="png", dpi=150,width=NA){
   try(RecordRCommand(paste0("PlotClusterHeatmap(imgName = \"", imgName, "\")")), silent = TRUE)
 
+  stem <- imgName;
   imgName = paste(imgName, "dpi", dpi, ".", format, sep="");
   rdtSet <- .get.rdt.set();
 
@@ -1134,10 +1148,8 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
     return(.set.rdt.set(rdtSet));
   }
 
-  # Method-standard: persist the per-sample cluster + metadata table behind the
-  # clustered heatmap so Refine can re-plot from data and it is portable.
-  if (exists("WfSaveFigureData"))
-    tryCatch(WfSaveFigureData("oa_cluster_heatmap", metaData), error = function(e) NULL)
+  # the per-sample cluster + metadata table behind the clustered heatmap, as it is also offered for download
+  clustTable <- metaData;
 
   rdtSet$imgSet$clusterHeat <- imgName;
 
@@ -1173,8 +1185,8 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
   n_clust <- sum(clustColMask)
   gapsRow <- which(diff(as.integer(metaData[[.ord.col]])) != 0)
 
-  data_for_rsclient <- list(
-    metaData = metaData,
+  # what the heatmap reads: the cluster / metadata grid and the text in its cells, the row gaps and the clustering options
+  pd <- list(
     met = met,
     labelMat = labelMat,
     n_clust = n_clust,
@@ -1185,12 +1197,20 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
     clstDist = clstDist,
     colorGradient = colorGradient,
     includeRowNames = includeRowNames,
-    imgName = imgName,
-    format = format,
-    dpi = dpi,
-    width = width,
-    lib_paths = .libPaths()
+    width = width
   )
+  # the table is also offered as the download oa_cluster_heatmap_data.csv
+  .ov_plot_data(stem, pd, "DrawClusterHeatmap", list(dpi = dpi, format = format), export = list(oa_cluster_heatmap = clustTable))
+  DrawClusterHeatmap(pd, stem, dpi, format)
+
+  return(.set.rdt.set(rdtSet));
+}
+
+# Draws the cluster membership heatmap from pd = list(met = <samples x (cluster + metadata) integer grid>, labelMat = <text in each cell>,
+# n_clust = <number of cluster columns>, gapsRow = <row gaps>, clustSelOpt, smplDist, clstDist, includeRowNames, ...); it draws in its own subprocess
+DrawClusterHeatmap <- function(pd, imgNm, dpi=150, format="png"){
+  imgName = paste(imgNm, "dpi", dpi, ".", format, sep="");
+  data_for_rsclient <- c(pd, list(imgName = imgName, format = format, dpi = dpi, lib_paths = .libPaths()))
 
   isolated_func <- function(input_data) {
     if (!is.null(input_data$lib_paths)) {
@@ -1271,6 +1291,6 @@ PlotClusterHeatmap <- function(viewOpt="detailed", clustSelOpt="both", smplDist=
     message(sprintf("PlotClusterHeatmap failed: %s", e$message))
   })
   # plot/write failure is non-fatal
-
-  return(.set.rdt.set(rdtSet));
+  invisible(imgName)
 }
+
