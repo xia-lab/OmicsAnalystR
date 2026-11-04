@@ -610,8 +610,8 @@ ReadMetaData <- function(metafilename){
     }
 
     # now remove extra meta if present, and order them
-    nm.hits2 <- which(smpl.nms %in% data.smpl.nms);
-    metadata1 <- metadata[nm.hits2,];
+    # Put the rows in the same order as the data's samples, so each sample keeps its own group.
+    metadata1 <- metadata[match(data.smpl.nms, smpl.nms),];
     metadata1 <- metadata1[,-1];
 
     if(!is.data.frame(metadata1)){
