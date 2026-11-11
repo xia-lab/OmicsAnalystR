@@ -819,11 +819,15 @@ FilteringData <- function(dataName, countOpt="pct",count="2", var="15"){
     inx <- order(sum.counts)
     data <- data[inx,]
     rm.inx <- round(count.thresh/100 * nrow(data))
-    data <- data[-c(1:rm.inx),];
+    # 0% removes nothing: 1:0 is c(1, 0), so the feature with the lowest sum was removed
+    if(rm.inx > 0){
+      data <- data[-c(1:rm.inx),];
+    }
     rmSum <- rm.inx
   }else{
     sum.counts <- rowSums(data, na.rm=TRUE);
-    rm.inx <- sum.counts < count.thresh;
+    # a cutoff of 0 removes nothing: on a centred or z-scored table about half of the features have a negative sum, and "< 0" removed them all
+    rm.inx <- if(count.thresh > 0) sum.counts < count.thresh else rep(FALSE, length(sum.counts));
     data <- data[!rm.inx,];
     rmSum <- sum(rm.inx)
   }
