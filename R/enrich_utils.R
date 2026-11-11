@@ -438,7 +438,8 @@ PerformEnrichAnalysisKegg <- function(file.nm, fun.type, ora.vec){
 
 SaveSingleOmicsEnr <- function(file.nm,res.mat){
   inx = res.mat[,3]>0
-  res.mat <- res.mat[inx,];
+  # one set with a hit is a result too: without drop=FALSE the one row became a vector and the function stopped
+  res.mat <- res.mat[inx,,drop=FALSE];
   hits.query <- hits.query[inx];
   if(nrow(res.mat)> 1){
     # order by p value
