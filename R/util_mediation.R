@@ -21,8 +21,9 @@ Mediation.Anal <- function(method="causal",predictor="7805",mediator="51606",out
   predictor <- unlist(strsplit(predictor,";"))
   mediator <- unlist(strsplit(mediator,";"))
   
-  predictor_matrix <- dataSetList[[1]]$data.proc[rownames(dataSetList[[1]]$data.proc) %in% predictor, ]
-  mediator_matrix <- dataSetList[[2]]$data.proc[rownames(dataSetList[[2]]$data.proc) %in% mediator, ]
+  predictor_all <- .OmicsScaledData(dataSetList[[1]]); mediator_all <- .OmicsScaledData(dataSetList[[2]])
+  predictor_matrix <- predictor_all[rownames(predictor_all) %in% predictor, ]
+  mediator_matrix <- mediator_all[rownames(mediator_all) %in% mediator, ]
   
   input_data <- data.frame(t(rbind(predictor_matrix,mediator_matrix)))
   input_data$meta <- rdtSet$dataSet$meta.info[[outcome]][match(rownames(input_data),rownames(rdtSet$dataSet$meta.info))]

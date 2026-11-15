@@ -35,7 +35,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
     for(i in 1:length(sel.nms)){
       dataName = sel.nms[i];
       dataSet <- readDataset(dataName);
-      data.list[[i]] <- dataSet$data.proc
+      data.list[[i]] <- .OmicsScaledData(dataSet)
       dataset.list[[i]] <- dataSet  # Store entire dataset for later use
       type.vec[i] <- dataSet$type
 
@@ -75,7 +75,8 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
             
       if(exists("m2m",dataSet)){ 
         
-        all.mat.taxa <- dataSet$data.proc.taxa
+        taxa.scaled <- .OmicsScaledTaxa(dataSet)
+        all.mat.taxa <- taxa.scaled
 
         if(type == "default"){
           sig.mat.taxa <- dataSet$sig.mat.tax
@@ -88,9 +89,9 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
         labels.taxa <- list()
         for(j in 1:length(all.mat.taxa)){
           inxAll[[j]] = which(rownames(all.mat.taxa[[j]]) %in% rownames(sig.mat.taxa[[j]]));
-          inx[[j]] = which(rownames(dataSet$data.proc.taxa[[j]]) %in% rownames(sig.mat.taxa[[j]]));
+          inx[[j]] = which(rownames(taxa.scaled[[j]]) %in% rownames(sig.mat.taxa[[j]]));
           all.mat.taxa[[j]] <- all.mat.taxa[[i]][inxAll[[j]], ]
-          sel.dats.taxa[[j]] <- dataSet$data.proc.taxa[[j]][inx[[j]], ]
+          sel.dats.taxa[[j]] <- taxa.scaled[[j]][inx[[j]], ]
           
         }
         names(sel.dats.taxa)<- colnames(dataSet$taxa_table)
@@ -139,7 +140,7 @@ DoFeatSelectionForCorr <- function(type="default", retainedNumber=20, retainedCo
         toKeep <- substring(toKeep, 2, nchar(toKeep))
       }
       print(type)
-      dat <- dataSet$data.proc
+      dat <- .OmicsScaledData(dataSet)
     if(type=="mofa"){
      rownames(dat) <- paste0(rownames(dat),"_",dataSet$type)
        toKeep <- paste0(toKeep, "_", dataSet$type)

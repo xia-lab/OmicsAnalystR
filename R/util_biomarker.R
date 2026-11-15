@@ -40,6 +40,8 @@ PrepareROCData <- function(sel.meta="NA",factor1,factor2){
   #print( sel.nms)
   for(i in 1:length(sel.nms)){
     dataSet = readDataset(sel.nms[i])
+    # the layers go to one classifier side by side: rows on a common scale (this local copy is not registered)
+    dataSet$data.proc <- .OmicsScaledData(dataSet)
     
     # Sanitize row names
     sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dataSet$data.proc), perl = TRUE)

@@ -10,7 +10,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
   labels <- vector();
   for(i in 1:length(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
-    dat <- dataSet$data.proc
+    dat <- .OmicsScaledData(dataSet)
     df <- data.frame(dat, stringsAsFactors = FALSE)
     df <- t(df)
     data[[sel.nms[i]]] <- df
@@ -85,6 +85,11 @@ NormalizeDataWrapper <-function (nm, opt, colNorm){
   return(1)
 }
 
+# The SCALING of a layer is a setting of the methods that put layers side by side, not a rewrite of the layer. data.proc stays the normalized layer on its
+# analysis scale for every reader that tests or plots its values (differential tests, fold changes, per-feature plots, variance partitioning); this step records the
+# scaling chosen (dataSet$scale.opt) and the methods that need rows on a common scale (dimension reduction, clustering, correlation, the multi-layer QC plots)
+# ask .OmicsScaledData() for them. The scaled matrix is a function of data.proc and the option, so a sample taken out or a layer normalized again after this step
+# is scaled again, never left behind as a stale copy. (It used to replace data.proc: limma on rows that all had unit variance estimates an infinite prior df.)
 ScaleDataWrapper <-function (nm, scaleNorm){
   if(nm == "NA"){
     sel.nms <- names(mdata.all)
@@ -93,17 +98,30 @@ ScaleDataWrapper <-function (nm, scaleNorm){
   }
   for(i in 1:length(sel.nms)){
     dataSet = readDataset(sel.nms[i])
-    data <- NormalizingDataOmics(dataSet$data.proc, "NA", "NA", scaleNorm)
-    dataSet$data.proc <- data;
-    if(exists("m2m",dataSet)){
-      data.norm.taxa <- lapply(dataSet$dataSet$data.proc.taxa, function(x) {
-        NormalizingDataOmics(x, "NA", "NA", scaleNorm)
-      })
-      dataSet$data.proc.taxa <- data.norm.taxa
-    }
+    dataSet$scale.opt <- scaleNorm
     RegisterData(dataSet)
   }
   return(1);
+}
+
+# The layer as the methods that put layers side by side read it: data.proc scaled by the option ScaleDataWrapper recorded (data.proc itself when none was
+# chosen or "NA"). Features the scaling cannot define (constant rows) are left out, as the scaling step always did. The message the normalization leaves in
+# msg.vec is not this call's to change.
+.OmicsScaledData <- function(dataSet){
+  .OmicsScaleView(dataSet$data.proc, dataSet$scale.opt)
+}
+
+# The same for the taxa-level matrices of a microbiome layer (a list, one matrix per level).
+.OmicsScaledTaxa <- function(dataSet){
+  lapply(dataSet$data.proc.taxa, function(x) .OmicsScaleView(x, dataSet$scale.opt))
+}
+
+.OmicsScaleView <- function(mat, scaleNorm){
+  if(is.null(mat) || is.null(scaleNorm) || length(scaleNorm) != 1L || is.na(scaleNorm) || scaleNorm %in% c("", "NA")) return(mat)
+  had <- exists("msg.vec", envir = .GlobalEnv, inherits = FALSE)
+  old <- if(had) get("msg.vec", envir = .GlobalEnv) else NULL
+  on.exit(if(had) assign("msg.vec", old, envir = .GlobalEnv) else if(exists("msg.vec", envir = .GlobalEnv, inherits = FALSE)) rm("msg.vec", envir = .GlobalEnv), add = TRUE)
+  NormalizingDataOmics(mat, "NA", "NA", scaleNorm)
 }
 
 # Per-dataset normalization for multi-omics harmonization. Reads data.proc and writes
@@ -634,7 +652,7 @@ PlotMultiPCA <- function(imgNm, dpi=150, format="png",factor="1", interactive=F)
   for(i in 1:length(sel.nms)){
     print(i)
     dataSet = readDataset(sel.nms[i])
-    x <- dataSet$data.proc
+    x <- .OmicsScaledData(dataSet)
    
     pca <- prcomp(t(na.omit(x)), center=T, scale=T);
     imp.pca<-summary(pca)$importance;
@@ -774,7 +792,7 @@ PlotMultiDensity <- function(imgNm, dpi=150, format="png",factor="1", interactiv
 
   for(i in 1:length(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
-    dat <- dataSet$data.proc
+    dat <- .OmicsScaledData(dataSet)
     st <- stack(as.data.frame(dat))
     st$Dataset <- rep(sel.nms[i], nrow(dat))
     df.list[[i]] <- st  # Store in list instead of sequential rbind
@@ -848,7 +866,7 @@ PlotMultiBoxplot <- function(imgNm, dpi=150, format="png", factor="1", interacti
   df.list <- vector("list", length(sel.nms))
   for(i in 1:length(sel.nms)){
     dataSet <- readDataset(sel.nms[i])
-    dat <- tryCatch(as.matrix(dataSet$data.proc), error = function(e) NULL)
+    dat <- tryCatch(as.matrix(.OmicsScaledData(dataSet)), error = function(e) NULL)
     if(is.null(dat)) next
     st <- utils::stack(as.data.frame(dat))
     st$Dataset <- sel.nms[i]
@@ -956,7 +974,7 @@ PlotMultiTsne <- function(imgNm, dpi=150, format="png",factor="1"){
   meta_list <- list()
   for (i in 1:length(sel.nms)) {
     dataSet <- readDataset(sel.nms[i])
-    data_list[[sel.nms[i]]] <- dataSet$data.proc
+    data_list[[sel.nms[i]]] <- .OmicsScaledData(dataSet)
     meta_list[[sel.nms[i]]] <- dataSet$meta
   }
 

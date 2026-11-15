@@ -14,7 +14,7 @@ PerformOrdination <- function(method,predictor,dataName) {
   rdtSet  <- .get.rdt.set()
   
   # Feature table, transposed, etc.
-  feature_table <- t(dataSet$data.proc)
+  feature_table <- t(.OmicsScaledData(dataSet))
   colnames(feature_table) <- names(dataSet$enrich_ids)[
     match(colnames(feature_table), dataSet$enrich_ids)
   ]

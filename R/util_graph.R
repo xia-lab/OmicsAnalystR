@@ -15,7 +15,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
       
       micidx <-reductionSet$micidx 
       dataSet = readDataset(sel.nms[micidx])
-      dat1 = dataSet$data.proc.taxa[[reductionSet$taxlvl]]
+      dat1 = .OmicsScaledTaxa(dataSet)[[reductionSet$taxlvl]]
       meta1 = dataSet$meta
       comp.res1 = dataSet$comp.res.taxa[[reductionSet$taxlvl]]
       enrich.nms1 = unique(dataSet$taxa_table[,reductionSet$taxlvl])
@@ -29,7 +29,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
       
       residx <-reductionSet$residx
       dataSet2 = readDataset(sel.nms[residx])
-      dat2 = dataSet2$data.proc
+      dat2 = .OmicsScaledData(dataSet2)
       meta2 = dataSet2$meta
       # OPTIMIZED: Direct rbind for 2 datasets instead of growing
       comp.res1 = rbind(comp.res1, dataSet2$comp.res)
@@ -48,7 +48,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
       for(i in 1:length(sel.nms)){
         if(i == 1){
           dataSet = readDataset(sel.nms[i]);
-          dat1 = dataSet$data.proc;
+          dat1 = .OmicsScaledData(dataSet);
           meta1 = dataSet$meta;
           comp.res1 = dataSet$comp.res;
           enrich.nms1 = dataSet$enrich_ids;
@@ -62,7 +62,7 @@ my.convert.igraph <- function(net.nm, fileNm, idType="NA"){
           fileNms <- dataSet$name;
         }else{
           dataSet2 = readDataset(sel.nms[i]);
-          dat2 = dataSet2$data.proc;
+          dat2 = .OmicsScaledData(dataSet2);
           meta2 = dataSet2$meta;
           comp.res1 = rbind(comp.res1, dataSet2$comp.res);
           enrich.nms2 = dataSet2$enrich_ids;

@@ -63,9 +63,9 @@ IntLim.Anal <- function(imgName="NA", imgFormat="png",
       covariates.vec <- c()
     }
   } 
-dt1 = as.matrix(dataSet1$data.proc)
+dt1 = as.matrix(.OmicsScaledData(dataSet1))
 dt1 <- dt1[rownames(dt1) %in% dataSet1[["sig.mat"]][["ids"]],,drop=FALSE]
-dt2 = as.matrix(dataSet2$data.proc)
+dt2 = as.matrix(.OmicsScaledData(dataSet2))
 dt2 <- dt2[rownames(dt2) %in% dataSet2[["sig.mat"]][["ids"]],,drop=FALSE]
 
 rownames(dt1) <- paste0(rownames(dt1),"_",dataSet1$type)

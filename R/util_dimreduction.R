@@ -77,16 +77,17 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
 
     dataSet = readDataset(sel.nms[i])
     omics.type <- c(omics.type, layer.labels[i])
-    sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dataSet$data.proc), perl = TRUE)
-    rownames(dataSet$data.proc) <- sanitized_names;
-    data.list[[layer.labels[i]]] <- dataSet$data.proc
+    dat.scaled <- .OmicsScaledData(dataSet)   # the methods below put the layers side by side: rows on a common scale
+    sanitized_names <- gsub("[[:cntrl:]]|[^[:ascii:]]", "_", rownames(dat.scaled), perl = TRUE)
+    rownames(dat.scaled) <- sanitized_names;
+    data.list[[layer.labels[i]]] <- dat.scaled
  
     # A layer can legitimately have NO comparison result (no covariate analysis run,
     # or no significant features) — its dataSet$comp.res is then NULL. Build a
     # per-feature coefficient frame aligned to ALL features of this layer (placeholder
     # 0 when absent) so the integration never crashes on nrow(NULL) and comp.res stays
     # aligned with featureNms downstream.
-    feats.i <- rownames(dataSet$data.proc)
+    feats.i <- rownames(dat.scaled)
     cres.i  <- dataSet$comp.res
     if (is.null(cres.i) || nrow(cres.i) == 0L) {
       coef.i <- rep(0, length(feats.i))
@@ -1218,7 +1219,7 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
   data.list <- list()
   for(i in 1:length(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
+    data.list[[i]] <- .OmicsScaledData(dat)
   }
 
   pclabels <- paste0("Component ", 1:pc.num);

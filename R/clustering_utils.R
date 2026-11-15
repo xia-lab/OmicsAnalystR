@@ -376,7 +376,7 @@ ComputeKmeans <- function(clusterNum="-1"){
   data.list <- list()
   for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
+    data.list[[i]] <- .OmicsScaledData(dat)
   }
   reductionSet <- .get.rdt.set();
   reductionSet$omicstype <- sel.nms
@@ -452,7 +452,7 @@ ComputeKmeansPP <- function(clusterNum="-1"){
   data.list <- list()
   for(i in seq_along(sel.nms)){
     dat <- readDataset(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
+    data.list[[i]] <- .OmicsScaledData(dat)
   }
   combined_data <-  do.call(rbind, data.list); 
  
@@ -504,7 +504,7 @@ ComputeSpectrum <- function(method="1", clusterNum="-1"){
   data.list <- list()
   for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
+    data.list[[i]] <- .OmicsScaledData(dat)
   }
   reductionSet <- .get.rdt.set();
   reductionSet$omicstype <- sel.nms
@@ -577,7 +577,7 @@ ComputePins <- function(method="kmeans", clusterNum="auto"){
   data.list <- list()
   for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[i]] <- t(dat$data.proc)
+    data.list[[i]] <- t(.OmicsScaledData(dat))
   }
   reductionSet <- .get.rdt.set();
   reductionSet$omicstype <- sel.nms
@@ -803,7 +803,7 @@ ComputeSNF <- function(method="1", clusterNum="auto"){
   data.list <- list()
   for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
+    data.list[[i]] <- .OmicsScaledData(dat)
   }
   reductionSet <- .get.rdt.set();
   reductionSet$omicstype <- sel.nms
@@ -904,7 +904,7 @@ ComputeSilhouette <-function(type){
   data.list <- list()
   for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[i]] <- dat$data.proc
+    data.list[[i]] <- .OmicsScaledData(dat)
   }
   
   reductionSet <- .get.rdt.set();
@@ -1054,7 +1054,7 @@ PlotHeatmapDiagnosticPca <- function(imgNm, dpi=150, format="png",type="spectrum
   cls.list <- list()
   for(i in seq_along(sel.nms)){
     dat = readDataset(sel.nms[i])
-    data.list[[sel.nms[i]]] <- dat$data.proc
+    data.list[[sel.nms[i]]] <- .OmicsScaledData(dat)
     cls.list[[sel.nms[i]]] <- dat$cls
   }
   reductionSet <- .get.rdt.set();
