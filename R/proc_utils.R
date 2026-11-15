@@ -935,7 +935,7 @@ PerformFeatureFilter <- function(int.mat, filter, filter.cutoff, anal.type, priv
     }
     
     # get the rank of the filtered variables
-    rk <- rank(-filter.val, ties.method='random');
+    rk <- rank(-filter.val, ties.method = "first");
 
     remain.num <- ncol(int.mat)*(1-(filter.cutoff/100));
     remain <- rk <= remain.num;
