@@ -1209,10 +1209,10 @@ GenerateChordGram <- function(thresh=0.5,maxN,pval,imgName = "chordgram", format
 
   dataSetList <- lapply(sel.nms, readDataset);
  
-corr.mat$Var1 <- gsub(paste0("_", dataSetList[[1]]$type), "", corr.mat$Var1);
+corr.mat$Var1 <- .strip_type_suffix(corr.mat$Var1, dataSetList[[1]]$type);
 corr.mat$Var1 <- names(dataSetList[[1]]$enrich_ids)[match(corr.mat$Var1,dataSetList[[1]]$enrich_ids)]
 
-corr.mat$Var2 <- gsub(paste0("_", dataSetList[[2]]$type), "", corr.mat$Var2);
+corr.mat$Var2 <- .strip_type_suffix(corr.mat$Var2, dataSetList[[2]]$type);
 corr.mat$Var2 <- names(dataSetList[[2]]$enrich_ids)[match(corr.mat$Var2,dataSetList[[2]]$enrich_ids)]
 
 

@@ -1260,3 +1260,18 @@ replace_extension_with_qs <- function(data_name) {
   result <- gsub("\\.csv$|\\.txt$", ".qs", data_name)
   return(result)
 }
+
+
+# A feature's name with the "_<omics type>" that was added to keep the layers apart taken off again, and nothing else:
+# an underscore is part of many names ("d__Bacteria;p__Firmicutes_A", "537.3275__13.09", "HLA_DRB1"), so a name is
+# never cut at an underscore and the type is never matched inside it (16 Nov 2026: MOFA2 lost every loading that way).
+.strip_type_suffix <- function(x, type) {
+  x <- as.character(x)
+  for (ty in unique(as.character(type))) {
+    if (is.na(ty) || !nzchar(ty)) next
+    suf <- paste0("_", ty)
+    hit <- !is.na(x) & endsWith(x, suf)
+    x[hit] <- substr(x[hit], 1L, nchar(x[hit]) - nchar(suf))
+  }
+  x
+}

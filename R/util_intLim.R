@@ -97,9 +97,9 @@ rownames(dt2) <- paste0(rownames(dt2),"_",dataSet2$type)
   print(covariates.vec)
   myres <- RunIntLim(inputData, stype= analysis.var,  covar=covariates.vec, 
                      continuous=continuous,  save.covar.pvals = F, suppressWarnings = TRUE)
-  myres$label1 <- names(dataSet1$enrich_ids)[match(gsub(paste0("_",dataSet1$type),"",rownames(myres[["interaction.pvalues"]])),dataSet1$enrich_ids)]
+  myres$label1 <- names(dataSet1$enrich_ids)[match(.strip_type_suffix(rownames(myres[["interaction.pvalues"]]), dataSet1$type),dataSet1$enrich_ids)]
   names(myres$label1) <- rownames(myres[["interaction.pvalues"]])
-  myres$label2 <- names(dataSet2$enrich_ids)[match(gsub(paste0("_",dataSet2$type),"",colnames(myres[["interaction.pvalues"]])),dataSet2$enrich_ids)]
+  myres$label2 <- names(dataSet2$enrich_ids)[match(.strip_type_suffix(colnames(myres[["interaction.pvalues"]]), dataSet2$type),dataSet2$enrich_ids)]
   names(myres$label2) <- colnames(myres[["interaction.pvalues"]])
 myres$pattern <- c(dataSet1$type,dataSet2$type)
  if(!is.list(myres)){

@@ -53,8 +53,8 @@ AnnotateMicrobiomeData <- function(dataName,org,feattype){
   idx <- names(which(apply(mic.vec, 2, function(x) length(which(is.na(x))))==nrow(mic.vec)))
   mic.vec[,idx] <- NULL
   
-  mic.vec <- apply(mic.vec,2, function(x) gsub("[a-z]__","",x))
-  mic.vec <- apply(mic.vec,2, function(x) gsub("[a-z]_","",x))
+  # only the rank prefix at the START of a name ("g__", "g_") is taken off: matched anywhere, "Firmicutes_A" became "FirmicuteA"
+  mic.vec <- apply(mic.vec,2, function(x) sub("^[a-z]__?","",x))
   
   mic.vec[which(is.na(mic.vec)|mic.vec=="NA"|mic.vec=="")] <- "Not_Assigned"
   
