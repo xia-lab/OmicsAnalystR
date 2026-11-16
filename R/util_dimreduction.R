@@ -238,13 +238,20 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
             loading.pos.xyz <- reshape2::dcast(weights, feature ~ factor, value.var = "value")
             loading.pos.xyz$ids <- as.character(loading.pos.xyz$feature)
             loading.pos.xyz <- loading.pos.xyz[, -1]
-            loading.pos.xyz$ids <- gsub("_.*", "", loading.pos.xyz$ids)
+            # Take off only the "_<omics type>" that was added above. Cutting at the FIRST underscore left "d" for
+            # "d__Bacteria;p__..." and "537.327506" for the peak "537.327506__13.098564", so no loading matched a
+            # feature and the whole integration was thrown away (owner's cd_2019 tables, 16 Nov 2026).
+            for (ty in unique(input_data$omics_type)) {
+              suf <- paste0("_", ty)
+              hit <- endsWith(loading.pos.xyz$ids, suf)
+              loading.pos.xyz$ids[hit] <- substr(loading.pos.xyz$ids[hit], 1L, nchar(loading.pos.xyz$ids[hit]) - nchar(suf))
+            }
             var.exp <- model@cache[["variance_explained"]][["r2_per_factor"]][[1]] / 100
             var.exp <- round(var.exp, digits = 3)
             gc(verbose = FALSE, full = TRUE)
             return(list(pos.xyz = pos.xyz, loading.pos.xyz = loading.pos.xyz, var.exp = var.exp))
           },
-          input_data = list(data_obj = data.list.mofa, num_factors = ncomps),
+          input_data = list(data_obj = data.list.mofa, num_factors = ncomps, omics_type = omics.type),
           packages = c("MOFA2", "reshape2", "basilisk", "qs"),
           timeout = 600,
           output_type = "qs"
