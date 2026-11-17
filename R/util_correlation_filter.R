@@ -107,8 +107,8 @@ my.correlation.filter <- function(corSign="both", crossOmicsOnly="false", networ
            dplyr::mutate(pval = value)
       cor_edge_list$value =NULL 
 
-      cor_edge_list$label1 <- gsub(paste(paste0("_",toMatch,"$"), collapse = "|"), "", cor_edge_list$source )
-      cor_edge_list$label2 <- gsub(paste(paste0("_",toMatch,"$"), collapse = "|"), "", cor_edge_list$target )
+      cor_edge_list$label1 <- .strip_type_suffix(cor_edge_list$source, toMatch)
+      cor_edge_list$label2 <- .strip_type_suffix(cor_edge_list$target, toMatch)
       cor_edge_list$label1 <- names(reductionSet$labels)[match( cor_edge_list$label1,reductionSet$labels)]
       cor_edge_list$label2 <- names(reductionSet$labels)[match( cor_edge_list$label2,reductionSet$labels)]
        reductionSet$corNet <- cor_edge_list;

@@ -313,8 +313,8 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
                   dplyr::mutate(pval = value)
                 cor_edge_list$value <- NULL
 
-                cor_edge_list$label1 <- gsub(paste(paste0("_", toMatch, "$"), collapse = "|"), "", cor_edge_list$source)
-                cor_edge_list$label2 <- gsub(paste(paste0("_", toMatch, "$"), collapse = "|"), "", cor_edge_list$target)
+                cor_edge_list$label1 <- .strip_type_suffix(cor_edge_list$source, toMatch)
+                cor_edge_list$label2 <- .strip_type_suffix(cor_edge_list$target, toMatch)
                 cor_edge_list$label1 <- names(labels)[match(cor_edge_list$label1, labels)]
                 cor_edge_list$label2 <- names(labels)[match(cor_edge_list$label2, labels)]
 
@@ -1375,8 +1375,8 @@ corr.mat.ls <- lapply(corr.mat.ls,function(x){
    df=x
    df$type1 = type1
    df$type2 = type2
-   df$label1 = gsub(paste0("_",type1,"$"),"",df$source)
-   df$label2 = gsub(paste0("_",type2,"$"),"",df$target)
+   df$label1 = .strip_type_suffix(df$source, type1)
+   df$label2 = .strip_type_suffix(df$target, type2)
    df$label1 = names(dataSetList[[1]]$enrich_ids)[match(df$label1,dataSetList[[1]]$enrich_ids)]
    df$label2 = names(dataSetList[[2]]$enrich_ids)[match(df$label2,dataSetList[[2]]$enrich_ids)]
    df <- df[order(-df$weight,df$pval),]
