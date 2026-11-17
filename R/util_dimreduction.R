@@ -240,7 +240,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
             loading.pos.xyz <- loading.pos.xyz[, -1]
             # Take off only the "_<omics type>" that was added above. Cutting at the FIRST underscore left "d" for
             # "d__Bacteria;p__..." and "537.327506" for the peak "537.327506__13.098564", so no loading matched a
-            # feature and the whole integration was thrown away (owner's cd_2019 tables, 16 Nov 2026).
+            # feature and the whole integration was thrown away.
             for (ty in unique(input_data$omics_type)) {
               suf <- paste0("_", ty)
               hit <- endsWith(loading.pos.xyz$ids, suf)
