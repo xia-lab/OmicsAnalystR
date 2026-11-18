@@ -547,7 +547,7 @@ FindCommunities <- function(method="walktrap", use.weight=FALSE){
     result <- rsclient_isolated_exec(
       func_body = isolated_func,
       input_data = input_data,
-      packages = c("igraph", "qs"),
+      packages = c("igraph", "qs2"),
       timeout = 300,
       output_type = "qs"
     )
@@ -668,7 +668,7 @@ convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
       rsclient_isolated_exec(
         func_body = isolated_func,
         input_data = input_data,
-        packages = c("igraph", "rjson", "RColorBrewer", "Cairo", "pheatmap", "compiler", "qs"),
+        packages = c("igraph", "rjson", "RColorBrewer", "Cairo", "pheatmap", "compiler", "qs2"),
         timeout = 300,
         output_type = "qs"
       )

@@ -252,7 +252,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
             return(list(pos.xyz = pos.xyz, loading.pos.xyz = loading.pos.xyz, var.exp = var.exp))
           },
           input_data = list(data_obj = data.list.mofa, num_factors = ncomps, omics_type = omics.type),
-          packages = c("MOFA2", "reshape2", "basilisk", "qs"),
+          packages = c("MOFA2", "reshape2", "basilisk", "qs2"),
           timeout = 600,
           output_type = "qs"
         )
@@ -607,7 +607,7 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
             ))
           },
           input_data = rsclient_input,
-          packages = c("mixOmics", "qs", "Cairo", "grid", "gridExtra", "cowplot", "ggplot2", "see", "data.table"),
+          packages = c("mixOmics", "qs2", "Cairo", "grid", "gridExtra", "cowplot", "ggplot2", "see", "data.table"),
           timeout = 300,
           output_type = "qs"
         )
@@ -900,7 +900,7 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
           mcia_script_path = mcia_script_path,
           mcia_script_rc = mcia_script_rc
         ),
-        packages = c("ade4", "qs"),
+        packages = c("ade4", "qs2"),
         timeout = 180,
         output_type = "qs"
       )
@@ -1316,7 +1316,7 @@ PlotDimredFactors <- function(meta = NULL, pc.num = 5, imgNm, dpi=150, format="p
           data = data, cls = cls, cls.type = cls.type, pclabels = pclabels,
           imgNm = imgNm, dpi = dpi, format = format, pc.num = pc.num
         ),
-        packages = c("GGally", "ggplot2", "Cairo", "grid", "see", "RColorBrewer", "qs"),
+        packages = c("GGally", "ggplot2", "Cairo", "grid", "see", "RColorBrewer", "qs2"),
         timeout = 300,
         output_type = "qs"
       )
@@ -1442,7 +1442,7 @@ GenerateDiabloCircosJson <- function(cutoff=0.5, maxEdges=100) {
         TRUE
       },
       input_data = list(cutoff = cutoff, maxEdges = maxEdges),
-      packages = c("mixOmics", "jsonlite", "qs"),
+      packages = c("mixOmics", "jsonlite", "qs2"),
       timeout = 120,
       output_type = "qs"
     ),

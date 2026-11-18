@@ -1022,7 +1022,7 @@ DrawDiagnostic <- function(pd, imgNm, dpi=150, format="png"){
         input_data = list(auc1 = pd$auc1, auc2 = pd$auc2, sel_nm1 = pd$sel_nm1,
                           sel_nm2 = pd$sel_nm2, n_clust = pd$n_clust,
                           imgNm = imgNm, dpi = dpi, format = format),
-        packages = c("ggplot2", "Cairo", "tidyr", "qs"),
+        packages = c("ggplot2", "Cairo", "tidyr", "qs2"),
         timeout = 300
       )
     }, error = function(e) {
@@ -1125,7 +1125,7 @@ DrawHeatmapDiagnosticPca <- function(pd, imgNm, dpi=150, format="png"){
         return(1)
       },
       input_data = list(sel.nms = pd$sel.nms, panels = pd$panels, imgNm = imgNm, dpi = dpi, format = format),
-      packages = c("ggpubr", "ggplot2", "Cairo", "qs"),
+      packages = c("ggpubr", "ggplot2", "Cairo", "qs2"),
       timeout = 300
     )
   }, error = function(e) {

@@ -10,10 +10,10 @@ Authors@R: c(
            )
 Description: Underlying R functions for OmicsAnalystR web server.
 License: MIT + file LICENSE
-Depends: R (>= 4.0.3), igraph, RColorBrewer, qs, RJSONIO, rjson, RSQLite, ggplot2, Cairo
+Depends: R (>= 4.0.3), igraph, RColorBrewer, qs2, RJSONIO, rjson, RSQLite, ggplot2, Cairo
 Imports: Rcpp, BiocManager, data.table, metap, ks, fgsea,
     dplyr, ggforce, graphlayouts, httr, knitr, rgl, edgeR, limma,
-    pryr, readr, metagenomeSeq, ggpubr, cluster, Spectrum, PINSPlus, SNFtool, Rtsne,
+    readr, metagenomeSeq, ggpubr, cluster, Spectrum, PINSPlus, SNFtool, Rtsne,
     mogsa, mixOmics, vegan, cowplot, grid, gridExtra, tidyverse, factoextra
 VignetteBuilder: knitr
 BugReports: https://github.com/xia-lab/OmicsAnalystR/issues/new

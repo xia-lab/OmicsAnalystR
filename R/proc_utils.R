@@ -81,7 +81,7 @@ doGeneIDMapping <- function(q.vec, org, type){
         type = type,
         sqlite_path = sqlite_path_local
       ),
-      packages = c("RSQLite", "DBI", "qs"),
+      packages = c("RSQLite", "DBI", "qs2"),
       timeout = 300,
       output_type = "qs"
     )
@@ -709,7 +709,7 @@ NormalizingDataOmics <-function (data, norm.opt="NA", colNorm="NA", scaleNorm="N
           rnms = rnms,
           cnms = cnms
         ),
-        packages = c("limma", "edgeR", "preprocessCore", "metagenomeSeq", "DESeq2", "qs"),
+        packages = c("limma", "edgeR", "preprocessCore", "metagenomeSeq", "DESeq2", "qs2"),
         timeout = 300,
         output_type = "qs"
       )

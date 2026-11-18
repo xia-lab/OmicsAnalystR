@@ -925,7 +925,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
                       show_labels=isTRUE(inp$show_labels)),
           corr = list(df=corr_df, side=max(3.2, 1.6 + 0.8 * corr_k))
         )
-        qs::qsave(plot_data, file.path(homeDir, "vpa_plotdata.qs"))
+        ov_qs_save(plot_data, file.path(homeDir, "vpa_plotdata.qs"))
 
         results_df <- data.frame(
           Fraction = c(sprintf("Unique %s [a]",x1_name), "Shared [b]",
@@ -960,7 +960,7 @@ RunVpa <- function(x1Name, x2Name, traitCols = NULL,
         imgPath=imgPath, barPath=barPath, rdaPath=rdaPath, corrPath=corrPath,
         csvPath=csvPath, dpi=as.integer(dpi), format=format
       ),
-      packages = c("vegan", "qs"),
+      packages = c("vegan", "qs2"),
       timeout  = 300L
     ),
     error = function(e) { AddErrMsg(paste("VPA subprocess error:", e$message)); NULL }

@@ -33,7 +33,7 @@ DoIntegrativeAnalysis <- function(method, sign="both", threshold=0.6, nComp){
         return(list(cor_edge_list = cor_edge_list))
       },
       input_data = list(dim.res = res, threshold = threshold),
-      packages = c("mixOmics", "igraph", "qs"),
+      packages = c("mixOmics", "igraph", "qs2"),
       timeout = 300,
       output_type = "qs"
     )
@@ -1034,7 +1034,7 @@ PlotMultiTsne <- function(imgNm, dpi=150, format="png",factor="1"){
         data_obj = list(data_list = data_list, meta_list = meta_list),
         params = params
       ),
-      packages = c("ggpubr", "ggplot2", "Rtsne", "Cairo", "qs"),
+      packages = c("ggpubr", "ggplot2", "Rtsne", "Cairo", "qs2"),
       timeout = 300,
       output_type = "qs"
     )

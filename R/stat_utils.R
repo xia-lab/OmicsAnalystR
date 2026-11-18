@@ -141,7 +141,7 @@ performLimma <- function(trimmed.data, trimmed.meta){
       list(res = res, design = des)
     },
     input_data = list(trimmed.data = trimmed.data, design = design, contrast.matrix = contrast.matrix, cls = cls),
-    packages = c("limma", "qs"),
+    packages = c("limma", "qs2"),
     timeout = 300,
     output_type = "qs"
   )

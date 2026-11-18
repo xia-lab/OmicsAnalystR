@@ -9,15 +9,18 @@
 #' @param file Path to qs or qs2 file
 #' @return The deserialized R object
 #' @export
+# An earlier version wrote the original qs format (first bytes 0b 0e 0a 0c); it is read only where the qs package happens to be installed (qs left CRAN on 17 Jan 2026 and does not
+# build on R 4.6). Without it: one plain sentence. A file qs2 could not read that is not that format is qs2's to explain.
+.ov_qs_old <- function(file, ...) {
+  if (!identical(readBin(file, "raw", 4L), as.raw(c(0x0b, 0x0e, 0x0a, 0x0c)))) return(qs2::qs_read(file, ...))
+  if (requireNamespace("qs", quietly = TRUE)) return(qs::qread(file, ...))
+  stop(basename(file), " was saved by an earlier version, in a format this R cannot read. Reopen the project on the R it was made with and save it again, or run the analysis again.", call. = FALSE)
+}
 ov_qs_read <- function(file, ...) {
   read_with_qs2 <- function(path) {
-    if (requireNamespace("qs2", quietly = TRUE)) {
-      res <- try(qs2::qs_read(path, ...), silent = TRUE)
-      if (!inherits(res, "try-error")) {
-        return(res)
-      }
-    }
-    qs::qread(path, ...)
+    res <- try(qs2::qs_read(path, ...), silent = TRUE)
+    if (!inherits(res, "try-error")) return(res)
+    .ov_qs_old(path, ...)
   }
 
   if (file.exists(file)) {
@@ -48,14 +51,10 @@ ov_qs_read <- function(file, ...) {
 ov_qs_save <- function(obj, file, ...) {
   args <- list(...)
 
-  if (requireNamespace("qs2", quietly = TRUE)) {
-    for (arg_name in c("preset", "nthreads", "check_hash")) {
-      args[[arg_name]] <- NULL
-    }
-    do.call(qs2::qs_save, c(list(object = obj, file = file), args))
-  } else {
-    do.call(qs::qsave, c(list(x = obj, file = file), args))
+  for (arg_name in c("preset", "nthreads", "check_hash")) {
+    args[[arg_name]] <- NULL
   }
+  do.call(qs2::qs_save, c(list(object = obj, file = file), args))
 
   invisible(file)
 }

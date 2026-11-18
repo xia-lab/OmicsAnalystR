@@ -210,7 +210,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
           require(igraph)
           require(dplyr)
           require(reshape2)
-          require(qs)
+          require(qs2)
 
           data_obj <- input_data$data_obj
           params <- input_data$params
@@ -583,7 +583,7 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
             datagem = datagem
           )
         ),
-        packages = c("igraph", "dplyr", "reshape2", "qs"),
+        packages = c("igraph", "dplyr", "reshape2", "qs2"),
         timeout = 600
       )
     }, error = function(e) {

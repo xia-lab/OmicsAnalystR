@@ -282,7 +282,7 @@ print(pval.type)
           covariates = covariates,
           params = params
         ),
-        packages = c("limma", "dplyr", "qs"),
+        packages = c("limma", "dplyr", "qs2"),
         timeout = 300,
         output_type = "qs"
       )
