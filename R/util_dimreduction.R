@@ -386,18 +386,15 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
             for (i in 1:length(omics.type)) {
               temp.mat <- as.data.frame(model[["loadings"]][[i]])
               rnms <- rownames(temp.mat)
-              # RAW (unscaled, signed) loadings — kept for the VIP score. The scaled
-              # copy below drives the 3D-ordination positions but is unusable for VIP:
-              # min-max scaling maps a large negative loading to 0 ("unimportant").
+              # The loadings as the model holds them (signed), as MCIA's and MOFA2's are kept: the
+              # loadings table, the features picked by loading and the loading-ranked GSEA read
+              # them, and the 3D viewer scales them itself (unitAutoScale). They used to be
+              # min-max scaled to [0, 1] per component here, which put the largest NEGATIVE
+              # loading at 0, last in every ranking "by loading magnitude".
               raw.mat <- as.data.frame(model[["loadings"]][[i]])
               raw.mat$ids <- rnms
               raw.mat$type <- omics.type[i]
               loading.raw.list[[i]] <- raw.mat
-              temp.mat <- as.data.frame(apply(temp.mat, 2, function(x) {
-                x_range <- max(x) - min(x)
-                if (x_range == 0) return(rep(0, length(x)))
-                (x - min(x)) / x_range
-              }))
               rownames(temp.mat) <- rnms
               temp.mat$ids <- rownames(temp.mat)
               temp.mat$type <- omics.type[i]
