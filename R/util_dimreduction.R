@@ -93,8 +93,13 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
       coef.i <- rep(0, length(feats.i))
       pval.i <- rep(1, length(feats.i))
     } else {
-      coef.i <- if ("coefficient" %in% colnames(cres.i))
-                  suppressWarnings(as.numeric(cres.i[feats.i, "coefficient"])) else rep(0, length(feats.i))
+      # The signed effect: CovariateScatter.Anal names it "coefficient" for a continuous factor and
+      # leaves limma's "logFC" for a two-group comparison. Reading "coefficient" alone gave every
+      # feature of a two-group comparison a 0 here, and the rankings built on it (multi-omics GSEA)
+      # ranked nothing. A comparison of more than two groups has no single sign: 0.
+      ccol <- intersect(c("coefficient", "logFC"), colnames(cres.i))[1L]
+      coef.i <- if (!is.na(ccol))
+                  suppressWarnings(as.numeric(cres.i[feats.i, ccol])) else rep(0, length(feats.i))
       coef.i[is.na(coef.i)] <- 0
       # P-value column name varies by DE method (limma "P.Value"); match flexibly.
       pcol <- intersect(c("P.Value","pval","p.value","PValue","P.value","pvalue"), colnames(cres.i))[1L]
