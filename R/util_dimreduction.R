@@ -611,7 +611,8 @@ reduce.dimension <- function(reductionOpt, diabloMeta="", diabloPar=0.2, ncomps=
           input_data = rsclient_input,
           packages = c("mixOmics", "qs2", "Cairo", "grid", "gridExtra", "cowplot", "ggplot2", "see", "data.table"),
           timeout = 300,
-          output_type = "qs"
+          output_type = "qs",
+          helpers = ".oa_dimred_theme"
         )
       }, error = function(e) {
         AddErrMsg(paste("DIABLO reduction failed:", e$message))
@@ -885,7 +886,7 @@ run.mcia <- function(df.list, cia.nf = 2, cia.scan = FALSE, nsc = T, svd=TRUE){
           if (!is.null(input_data$mcia_script_path) && file.exists(input_data$mcia_script_path)) {
             source(input_data$mcia_script_path, local = FALSE)
           } else {
-            AddErrMsg("Cannot find util_mcia.R or util_mcia.Rc script"); return(0);
+            stop("Cannot find util_mcia.R or util_mcia.Rc script")
           }
           result <- perform_mcia(df.list, cia.nf = input_data$cia.nf,
                                  cia.scan = input_data$cia.scan,

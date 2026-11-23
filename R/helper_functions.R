@@ -322,9 +322,13 @@ run_func_via_microservice <- function(func, args = list(), timeout_sec = 60) {
 #' @param packages Packages to load in child before execution
 #' @param timeout Timeout in seconds
 #' @param output_type "qs" for complex objects
+#' @param helpers Names of this package's functions that func_body calls. The child is a fresh R process: func_body
+#'   travels with the frame it was written in, but not with the session's global environment, so a package function
+#'   it calls by name is "could not find function" there unless it is named here.
 #' @return Result from child process
 rsclient_isolated_exec <- function(func_body, input_data, packages = character(0),
-                                   timeout = 180, output_type = "qs") {
+                                   timeout = 180, output_type = "qs", helpers = character(0)) {
+  helper_fns <- mget(as.character(helpers), envir = parent.frame(), mode = "function", inherits = TRUE)
   bridge_tmp <- file.path(tempdir(), "rsclient_bridge")
   if (!dir.exists(bridge_tmp)) dir.create(bridge_tmp, recursive = TRUE)
   uid <- paste0(sample(letters, 6), collapse = "")
@@ -334,8 +338,9 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
   Sys.sleep(0.02)
   on.exit({ for (p in c(input_path, output_path)) if (file.exists(p)) unlink(p) }, add = TRUE)
   result <- run_func_via_microservice(
-    func = function(input_path, output_path, func_body, pkgs) {
+    func = function(input_path, output_path, func_body, pkgs, helper_fns) {
       tryCatch({
+        for (h in names(helper_fns)) assign(h, helper_fns[[h]], envir = globalenv())
         # Suppress quartz/X11 popups from rgl
         Sys.setenv(RGL_USE_NULL = TRUE)
         # HDF5Array .onLoad calls init_global_counter() which fails if counter
@@ -355,7 +360,7 @@ rsclient_isolated_exec <- function(func_body, input_data, packages = character(0
       })
     },
     args = list(input_path = input_path, output_path = output_path,
-                func_body = func_body, pkgs = packages),
+                func_body = func_body, pkgs = packages, helper_fns = helper_fns),
     timeout_sec = timeout
   )
   # The bridge file's existence is the success signal — the callr microservice returns NULL

@@ -584,7 +584,8 @@ DoCorrelationFilter <- function(corSign="both", crossOmicsOnly="false", networkI
           )
         ),
         packages = c("igraph", "dplyr", "reshape2", "qs2"),
-        timeout = 600
+        timeout = 600,
+        helpers = ".strip_type_suffix"
       )
     }, error = function(e) {
       msg.vec <<- paste("Correlation filter failed:", e$message)
