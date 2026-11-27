@@ -647,6 +647,10 @@ convertIgraph2JSON <- function(net.nm, filenm, idType="NA"){
         # conversion returned 0 -> the UI's "Failed to generate network!". Pure
         # function defs, no side effects, safe to source here.
         source("../../rscripts/OmicsAnalystR/R/helper_functions.R", local = FALSE)
+        # util_graph.R reads each layer through .OmicsScaledData (multi_omics.R, since a5742f1), which scales it with NormalizingDataOmics (proc_utils.R);
+        # without them every correlation network died with 'could not find function ".OmicsScaledData"' -> "Failed to generate network!". Both are function defs only.
+        source("../../rscripts/OmicsAnalystR/R/proc_utils.R", local = FALSE)
+        source("../../rscripts/OmicsAnalystR/R/multi_omics.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/graph_utils.R", local = FALSE)
         source("../../rscripts/OmicsAnalystR/R/util_graph.R", local = FALSE)
 
